@@ -4,7 +4,7 @@ An interactive, single-page simulator that shows how an **Autonomous Haul Truck 
 
 It is a teaching proof of concept. The physics is simplified but consistent: every number on screen is computed by the model.
 
-![Simulator screenshot: three autonomous haul trucks on a haul loop, a light vehicle holding intersection I1 and a truck waiting for its token](docs/capture.png)
+![Simulator screenshot in English: three autonomous haul trucks on a haul loop, a V2X-equipped light vehicle holding intersection I1 and truck AHT-03 waiting for its token, with the FR / EN / DE language switch in the header](docs/capture.png)
 
 > The user interface is available in French (default), English and German. Switch with the **FR / EN / DE** buttons in the header or with `?lang=en` / `?lang=de` in the URL; the choice is remembered in the browser. Technical terms, supervisor states, fault codes, DDS QoS names and standard references stay unchanged in every language. An in-app guide (button **Guide and explanations** or key **H**) explains every panel.
 
