@@ -4,13 +4,15 @@ An interactive, single-page simulator that shows how an **Autonomous Haul Truck 
 
 It is a teaching proof of concept. The physics is simplified but consistent: every number on screen is computed by the model.
 
-![Simulator screenshot: three autonomous haul trucks on a haul loop, a light vehicle holding intersection I1 and a truck waiting for its token](docs/capture.png)
+**Live demo:** [bretzelcoder.github.io/aht-safety-poc](https://bretzelcoder.github.io/aht-safety-poc/) ([English](https://bretzelcoder.github.io/aht-safety-poc/?lang=en), [Deutsch](https://bretzelcoder.github.io/aht-safety-poc/?lang=de))
 
-> The user interface is in French. An in-app guide (button **Guide et explications** or key **H**) explains every panel.
+![Simulator screenshot in English: three autonomous haul trucks on a haul loop, a V2X-equipped light vehicle holding intersection I1 and truck AHT-03 waiting for its token, with the FR / EN / DE language switch in the header](docs/capture.png)
+
+> The user interface is available in French (default), English and German. Switch with the **FR / EN / DE** buttons in the header or with `?lang=en` / `?lang=de` in the URL; the choice is remembered in the browser. Technical terms, supervisor states, fault codes, DDS QoS names and standard references stay unchanged in every language. An in-app guide (button **Guide and explanations** or key **H**) explains every panel.
 
 ## Run it
 
-No build, no dependencies. Open `index.html` in a recent browser, or serve the repository with GitHub Pages (Settings → Pages → deploy from branch `main`, folder `/`).
+No build, no dependencies. Use the [live demo](https://bretzelcoder.github.io/aht-safety-poc/), open `index.html` in a recent browser, or serve your own copy with GitHub Pages (Settings → Pages → deploy from branch `main`, folder `/`).
 
 The page loads Google Fonts if online and falls back to system fonts otherwise.
 
@@ -58,6 +60,8 @@ Everything lives in `index.html` (vanilla JavaScript, HTML5 canvas, no framework
 4. **FaultInjector & TelemetryHUD:** scenarios, fault injection, pickup driving, telemetry panels, oscilloscope and event log.
 
 Physics runs at a fixed 50 Hz step, decoupled from rendering.
+
+An I18N block at the top of the script holds the translations. French static text stays in the HTML (`data-i18n*` attributes) with English and German in `STATIC`; dynamic messages are `[fr, en, de]` triplets in `MSG`. Log entries and supervisor reasons are stored as message keys with parameters and translated at display time, so switching language also re-translates the event history.
 
 ## Limitations
 
