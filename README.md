@@ -6,7 +6,7 @@ It is a teaching proof of concept. The physics is simplified but consistent: eve
 
 ![Simulator screenshot: three autonomous haul trucks on a haul loop, a light vehicle holding intersection I1 and a truck waiting for its token](docs/capture.png)
 
-> The user interface is in French. An in-app guide (button **Guide et explications** or key **H**) explains every panel.
+> The user interface is available in French (default), English and German. Switch with the **FR / EN / DE** buttons in the header or with `?lang=en` / `?lang=de` in the URL; the choice is remembered in the browser. Technical terms, supervisor states, fault codes, DDS QoS names and standard references stay unchanged in every language. An in-app guide (button **Guide and explanations** or key **H**) explains every panel.
 
 ## Run it
 
@@ -58,6 +58,8 @@ Everything lives in `index.html` (vanilla JavaScript, HTML5 canvas, no framework
 4. **FaultInjector & TelemetryHUD:** scenarios, fault injection, pickup driving, telemetry panels, oscilloscope and event log.
 
 Physics runs at a fixed 50 Hz step, decoupled from rendering.
+
+An I18N block at the top of the script holds the translations. French static text stays in the HTML (`data-i18n*` attributes) with English and German in `STATIC`; dynamic messages are `[fr, en, de]` triplets in `MSG`. Log entries and supervisor reasons are stored as message keys with parameters and translated at display time, so switching language also re-translates the event history.
 
 ## Limitations
 

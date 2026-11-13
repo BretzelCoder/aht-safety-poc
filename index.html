@@ -110,6 +110,9 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 .kpi b{font-size:18px}
 .guidebtn{background:var(--accent);color:#1a1408;border-color:var(--accent);font-weight:600;padding:8px 12px}
 .guidebtn kbd{font:500 11px var(--mono);border:1px solid #1a140855;border-radius:4px;padding:0 4px;margin-left:6px}
+.langs{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.langs button{border:none;border-radius:0;font-weight:600;padding:6px 9px}
+.langs button+button{border-left:1px solid var(--line)}
 .layers{display:flex;flex-wrap:wrap;gap:4px 10px;margin-left:auto}
 @media (min-width:900px){
   .app{grid-template-columns:minmax(0,1fr) 340px;grid-template-areas:"top top" "center side" "ctrl ctrl"}
@@ -186,31 +189,32 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
 <body>
 <div class="app">
 <header class="top">
-  <h1>Tombereau minier autonome <span>· simulateur de principes</span></h1>
+  <h1 data-i18n-html="ui.h1">Tombereau minier autonome <span>· simulateur de principes</span></h1>
   <div class="kpis">
-    <div class="kpi"><b id="kTime" class="num">0:00</b><span>temps simulé</span></div>
-    <div class="kpi"><b id="kCol" class="num">0</b><span>collisions</span></div>
-    <div class="kpi"><b id="kCycles" class="num">0</b><span>bennes vidées</span></div>
-    <div class="kpi"><b id="kTons" class="num">0</b><span>tonnes transportées</span></div>
-    <button id="bGuide" class="guidebtn" aria-haspopup="dialog">Guide et explications<kbd>H</kbd></button>
+    <div class="kpi"><b id="kTime" class="num">0:00</b><span data-i18n="ui.kTime">temps simulé</span></div>
+    <div class="kpi"><b id="kCol" class="num">0</b><span data-i18n="ui.kCol">collisions</span></div>
+    <div class="kpi"><b id="kCycles" class="num">0</b><span data-i18n="ui.kCycles">bennes vidées</span></div>
+    <div class="kpi"><b id="kTons" class="num">0</b><span data-i18n="ui.kTons">tonnes transportées</span></div>
+    <button id="bGuide" class="guidebtn" aria-haspopup="dialog"><span data-i18n="ui.guide">Guide et explications</span><kbd>H</kbd></button>
+    <div class="langs" id="langGrp" role="group" aria-label="Langue / Language / Sprache"><button data-lang="fr" title="Français" lang="fr">FR</button><button data-lang="en" title="English" lang="en">EN</button><button data-lang="de" title="Deutsch" lang="de">DE</button></div>
   </div>
 </header>
 
-<aside class="ctrl" aria-label="Commandes">
+<aside class="ctrl" aria-label="Commandes" data-i18n-aria="ui.ctrlAria">
   <div class="card">
     <h3>Simulation</h3>
     <div class="row">
       <button id="bPause">Pause</button>
       <button data-scale="1">×1</button><button data-scale="2" class="on">×2</button><button data-scale="4">×4</button>
-      <button id="bReset">Réinitialiser</button>
+      <button id="bReset" data-i18n="ui.reset">Réinitialiser</button>
     </div>
-    <h3>Scénarios <span style="text-transform:none;letter-spacing:0;font-weight:500">· survol = détail</span></h3>
+    <h3 data-i18n-html="ui.scenH">Scénarios <span style="text-transform:none;letter-spacing:0;font-weight:500">· survol = détail</span></h3>
     <div class="scen">
-      <button data-scen="A" title="Le FMS voit le pick-up : jeton I1 retiré au tombereau, arrêt planifié avant l'intersection.">A · Équipé V2X</button>
-      <button data-scen="B" title="Invisible du FMS : seule la perception embarquée (LiDAR + radar) protège.">B · Non équipé</button>
-      <button data-scen="C" title="LiDAR aveuglé : repli radar, vitesse réduite (Fail-Operational).">C · + Poussière</button>
-      <button data-scen="D" title="L'ordre d'arrêt peut se perdre. Rejouez, puis passez en « état périodique ».">D · Pertes DDS</button>
-      <button data-scen="E" title="Charge 75 % : échéance frein dépassée → arrêt contrôlé. Montez à 90 % : watchdog → urgence.">E · CAN saturé</button>
+      <button data-scen="A" data-i18n="ui.scA" data-i18n-title="ui.scAt" title="Le FMS voit le pick-up : jeton I1 retiré au tombereau, arrêt planifié avant l'intersection.">A · Équipé V2X</button>
+      <button data-scen="B" data-i18n="ui.scB" data-i18n-title="ui.scBt" title="Invisible du FMS : seule la perception embarquée (LiDAR + radar) protège.">B · Non équipé</button>
+      <button data-scen="C" data-i18n="ui.scC" data-i18n-title="ui.scCt" title="LiDAR aveuglé : repli radar, vitesse réduite (Fail-Operational).">C · + Poussière</button>
+      <button data-scen="D" data-i18n="ui.scD" data-i18n-title="ui.scDt" title="L'ordre d'arrêt peut se perdre. Rejouez, puis passez en « état périodique ».">D · Pertes DDS</button>
+      <button data-scen="E" data-i18n="ui.scE" data-i18n-title="ui.scEt" title="Charge 75 % : échéance frein dépassée → arrêt contrôlé. Montez à 90 % : watchdog → urgence.">E · CAN saturé</button>
     </div>
   </div>
   <div class="card statecard">
@@ -220,88 +224,88 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
     <ul class="reasons" id="reasons"></ul>
   </div>
   <div class="card">
-    <h3>Pannes du tombereau</h3>
+    <h3 data-i18n="ui.faultsH">Pannes du tombereau</h3>
     <div class="row">
-      <button data-fault="lidar" title="Panne LiDAR">✕ LiDAR</button>
-      <button data-fault="radar" title="Panne radar">✕ Radar</button>
-      <button data-fault="gnss" title="Perte du positionnement GNSS RTK">✕ GNSS</button>
+      <button data-fault="lidar" data-i18n-title="ui.fLidarT" title="Panne LiDAR">✕ LiDAR</button>
+      <button data-fault="radar" data-i18n-title="ui.fRadarT" title="Panne radar">✕ Radar</button>
+      <button data-fault="gnss" data-i18n-title="ui.fGnssT" title="Perte du positionnement GNSS RTK">✕ GNSS</button>
     </div>
-    <select id="selMass" aria-label="Masse du tombereau"><option value="AUTO">Cycle normal (vide ↔ chargé)</option><option value="EMPTY">Forcer à vide, 160 t</option><option value="LOADED">Forcer chargé, 400 t</option></select>
+    <select id="selMass" aria-label="Masse du tombereau" data-i18n-aria="ui.massAria"><option value="AUTO" data-i18n="ui.massAuto">Cycle normal (vide ↔ chargé)</option><option value="EMPTY" data-i18n="ui.massEmpty">Forcer à vide, 160 t</option><option value="LOADED" data-i18n="ui.massLoaded">Forcer chargé, 400 t</option></select>
     <div class="row">
-      <button data-fault="estop" class="danger" title="Arrêt d'urgence distant déclenché par l'opérateur">Arrêt d'urgence</button>
-      <button id="bAck" title="Lève le verrou EMERGENCY_BRAKE du tombereau sélectionné.">Réarmer</button>
+      <button data-fault="estop" class="danger" data-i18n="ui.estop" data-i18n-title="ui.estopT" title="Arrêt d'urgence distant déclenché par l'opérateur">Arrêt d'urgence</button>
+      <button id="bAck" data-i18n="ui.ack" data-i18n-title="ui.ackT" title="Lève le verrou EMERGENCY_BRAKE du tombereau sélectionné.">Réarmer</button>
     </div>
   </div>
 </aside>
 
 <main class="center">
   <div class="mapwrap">
-    <div id="mapbox"><canvas id="map" tabindex="0" aria-label="Carte de la mine. Cliquez pour piloter le pick-up au clavier (ZQSD ou flèches) ; cliquez sur un tombereau pour le sélectionner."></canvas></div>
+    <div id="mapbox"><canvas id="map" tabindex="0" data-i18n-aria="ui.mapAria" aria-label="Carte de la mine. Cliquez pour piloter le pick-up au clavier (ZQSD ou flèches) ; cliquez sur un tombereau pour le sélectionner."></canvas></div>
     <div class="mapbar">
-      <span class="who">Pick-up (vous)</span>
+      <span class="who" data-i18n="ui.you">Pick-up (vous)</span>
       <span class="spd" id="lvSpeed">0 km/h</span>
       <button id="bV2x" aria-pressed="true">Balise V2X : oui</button>
-      <span class="kbd" id="lvKbd" title="Z/↑ avancer · S/↓ freiner, reculer · Q/← et D/→ tourner"><i></i><span>Cliquez sur la carte pour conduire</span></span>
-      <button id="bLvHome">Replacer</button>
-      <span class="layers" aria-label="Calques">
-        <label class="chk"><input type="checkbox" data-layer="bubbles" checked> Bulles</label>
-        <label class="chk"><input type="checkbox" data-layer="auth" checked> Autorisations</label>
-        <label class="chk"><input type="checkbox" data-layer="sensors" checked> Capteurs</label>
-        <label class="chk"><input type="checkbox" data-layer="links" checked> Détections</label>
+      <span class="kbd" id="lvKbd" data-i18n-title="ui.kbdT" title="Z/↑ avancer · S/↓ freiner, reculer · Q/← et D/→ tourner"><i></i><span>Cliquez sur la carte pour conduire</span></span>
+      <button id="bLvHome" data-i18n="ui.lvHome">Replacer</button>
+      <span class="layers" aria-label="Calques" data-i18n-aria="ui.layersAria">
+        <label class="chk"><input type="checkbox" data-layer="bubbles" checked> <span data-i18n="ui.lBubbles">Bulles</span></label>
+        <label class="chk"><input type="checkbox" data-layer="auth" checked> <span data-i18n="ui.lAuth">Autorisations</span></label>
+        <label class="chk"><input type="checkbox" data-layer="sensors" checked> <span data-i18n="ui.lSensors">Capteurs</span></label>
+        <label class="chk"><input type="checkbox" data-layer="links" checked> <span data-i18n="ui.lLinks">Détections</span></label>
       </span>
       <input type="checkbox" id="cV2x" checked hidden>
     </div>
   </div>
-  <section class="strip" aria-label="Environnement et réseaux">
+  <section class="strip" aria-label="Environnement et réseaux" data-i18n-aria="ui.stripAria">
     <div class="card">
-      <h3>Environnement mine</h3>
-      <label for="selMu">Piste (adhérence μ)</label>
-      <select id="selMu"><option value="0.6">Sèche, μ = 0,60</option><option value="0.35">Arrosée, μ = 0,35</option><option value="0.2">Boueuse, μ = 0,20</option></select>
-      <div class="lbl"><span>Pente de la rampe</span><span id="vRamp" class="num">10 %</span></div>
+      <h3 data-i18n="ui.envH">Environnement mine</h3>
+      <label for="selMu" data-i18n="ui.muLbl">Piste (adhérence μ)</label>
+      <select id="selMu"><option value="0.6" data-i18n="ui.muDry">Sèche, μ = 0,60</option><option value="0.35" data-i18n="ui.muWet">Arrosée, μ = 0,35</option><option value="0.2" data-i18n="ui.muMud">Boueuse, μ = 0,20</option></select>
+      <div class="lbl"><span data-i18n="ui.rampLbl">Pente de la rampe</span><span id="vRamp" class="num">10 %</span></div>
       <input type="range" id="rRamp" min="0" max="12" step="1" value="10">
       <div class="row">
-        <button id="bDust" title="Nuage de poussière autour de l'intersection I1 : aveugle le LiDAR, pas le radar.">Poussière sur I1</button>
-        <button id="bFms" class="danger" title="Coupe le Wi-Fi / LTE de la mine : plus de renouvellement des autorisations FMS.">Couper le réseau mine</button>
+        <button id="bDust" data-i18n="ui.dust" data-i18n-title="ui.dustT" title="Nuage de poussière autour de l'intersection I1 : aveugle le LiDAR, pas le radar.">Poussière sur I1</button>
+        <button id="bFms" class="danger" data-i18n-title="ui.fmsT" title="Coupe le Wi-Fi / LTE de la mine : plus de renouvellement des autorisations FMS.">Couper le réseau mine</button>
       </div>
     </div>
     <div class="card">
-      <h3>Bus CAN J1939 · 250 kbit/s</h3>
-      <div class="lbl"><span>Trafic de fond</span><span id="vLoad" class="num">25 %</span></div>
+      <h3 data-i18n="ui.canH">Bus CAN J1939 · 250 kbit/s</h3>
+      <div class="lbl"><span data-i18n="ui.canTraffic">Trafic de fond</span><span id="vLoad" class="num">25 %</span></div>
       <input type="range" id="rLoad" min="10" max="95" step="1" value="25">
-      <label class="chk"><input type="checkbox" id="cMisprio"> Frein en priorité basse</label>
-      <label class="chk"><input type="checkbox" id="cBabble"> Nœud bavard (babbling idiot)</label>
+      <label class="chk"><input type="checkbox" id="cMisprio"> <span data-i18n="ui.misprio">Frein en priorité basse</span></label>
+      <label class="chk"><input type="checkbox" id="cBabble"> <span data-i18n="ui.babble">Nœud bavard (babbling idiot)</span></label>
     </div>
     <div class="card">
-      <h3>DDS · topic sécurité</h3>
-      <label for="selDds">Motif de publication</label>
+      <h3 data-i18n="ui.ddsH">DDS · topic sécurité</h3>
+      <label for="selDds" data-i18n="ui.ddsLbl">Motif de publication</label>
       <select id="selDds">
-        <option value="PERIODIC">Périodique + Deadline/Liveliness</option>
-        <option value="EVENT_REL">Événement, RELIABLE</option>
-        <option value="EVENT_BE">Événement, BEST_EFFORT</option>
+        <option value="PERIODIC" data-i18n="ui.ddsPer">Périodique + Deadline/Liveliness</option>
+        <option value="EVENT_REL" data-i18n="ui.ddsRel">Événement, RELIABLE</option>
+        <option value="EVENT_BE" data-i18n="ui.ddsBe">Événement, BEST_EFFORT</option>
       </select>
-      <div class="lbl"><span>Perte de paquets</span><span id="vLoss" class="num">0 %</span></div>
+      <div class="lbl"><span data-i18n="ui.loss">Perte de paquets</span><span id="vLoss" class="num">0 %</span></div>
       <input type="range" id="rLoss" min="0" max="60" step="5" value="0">
     </div>
   </section>
 </main>
 
-<aside class="side" aria-label="Télémétrie">
+<aside class="side" aria-label="Télémétrie" data-i18n-aria="ui.sideAria">
   <div class="card">
-    <h3>Bulle d'arrêt, calcul en direct</h3>
+    <h3 data-i18n="ui.bubbleH">Bulle d'arrêt, calcul en direct</h3>
     <div class="formula" id="formula"></div>
     <div class="grid2" id="metrics" style="margin-top:6px"></div>
     <table class="cmp" id="cmp"></table>
   </div>
   <div class="card">
-    <h3>Capteurs et liens</h3>
+    <h3 data-i18n="ui.sensH">Capteurs et liens</h3>
     <div class="chips" id="chips" style="margin-top:2px"></div>
   </div>
   <div class="card">
-    <h3>Oscilloscope · 15 s</h3>
+    <h3 data-i18n="ui.scopeH">Oscilloscope · 15 s</h3>
     <canvas id="scope"></canvas>
   </div>
   <div class="card logcard">
-    <h3>Journal (DM1 / QoS / FMS)</h3>
+    <h3 data-i18n="ui.logH">Journal (DM1 / QoS / FMS)</h3>
     <div class="log" id="log" aria-live="polite"></div>
   </div>
 </aside>
@@ -309,17 +313,17 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
 
 <dialog id="guide" aria-labelledby="gTitle">
   <div class="ghead">
-    <h2 id="gTitle">Guide et explications</h2>
+    <h2 id="gTitle" data-i18n="ui.guide">Guide et explications</h2>
     <div class="gtabs" role="tablist">
-      <button data-gtab="prise" class="on" role="tab">Prise en main</button>
-      <button data-gtab="visite" role="tab">Visite guidée</button>
-      <button data-gtab="modele" role="tab">Choix de modélisation</button>
-      <button data-gtab="limites" role="tab">Limites et sources</button>
+      <button data-gtab="prise" class="on" role="tab" data-i18n="ui.gtPrise">Prise en main</button>
+      <button data-gtab="visite" role="tab" data-i18n="ui.gtVisite">Visite guidée</button>
+      <button data-gtab="modele" role="tab" data-i18n="ui.gtModele">Choix de modélisation</button>
+      <button data-gtab="limites" role="tab" data-i18n="ui.gtLimites">Limites et sources</button>
     </div>
-    <button id="gClose" aria-label="Fermer le guide">Fermer</button>
+    <button id="gClose" aria-label="Fermer le guide" data-i18n="ui.gClose" data-i18n-aria="ui.gCloseAria">Fermer</button>
   </div>
   <div class="gbody">
-    <section data-gpane="prise" class="on">
+    <section data-gpane="prise" class="on" data-i18n-html="guide.prise">
       <p>Trois tombereaux autonomes font le cycle pelle → rampe → concasseur → retour, en trafic mixte avec des véhicules légers. La simulation est en pause tant que ce guide est ouvert. Physique simplifiée mais cohérente : chaque chiffre affiché est calculé par le modèle.</p>
       <h3>La carte</h3>
       <dl>
@@ -342,7 +346,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
       <h3>Les panneaux</h3>
       <p>À gauche, sous les scénarios : état du superviseur et état réellement appliqué par le contrôleur (ils divergent quand un ordre se perd), avec les raisons. À droite : calcul de la bulle avec ses termes, santé des capteurs et liens, oscilloscope CAN/DDS, journal des codes défaut.</p>
     </section>
-    <section data-gpane="visite">
+    <section data-gpane="visite" data-i18n-html="guide.visite">
       <ol>
         <li><b>Lecture de la carte.</b> Chaque tombereau projette une bande ambre (précaution) et rouge (arrêt SIL) le long de sa trajectoire. Le trait cyan est son autorisation de mouvement délivrée par le FMS ; les carrés I1/I2 montrent qui détient le jeton.</li>
         <li><b>L'effet de la masse.</b> Sélectionnez le camion sur la rampe : le tableau compare vide et chargé, à plat et en descente. Passez la piste en « arrosée » : la distance à vide augmente (limite d'adhérence), la distance chargé presque pas (limite de capacité de freinage).</li>
@@ -352,7 +356,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li><b>CAN et réseau mine.</b> Scénario E et l'oscilloscope ; puis coupez le réseau mine : les camions finissent leur autorisation et s'arrêtent, sans freinage brutal.</li>
       </ol>
     </section>
-    <section data-gpane="modele">
+    <section data-gpane="modele" data-i18n-html="guide.modele">
       <ol>
         <li><b>La masse entre dans la distance d'arrêt par la capacité de freinage.</b> Une formule du type <code>a_frein·μ</code> rend la distance indépendante de la masse. Le simulateur sépare les deux limites : <code>a_eff = min(F_frein/m, μ·g·cosθ) − g·sinθ</code>. À vide, l'adhérence limite et la masse s'annule ; chargé, c'est la capacité de freinage.</li>
         <li><b>Bulle SIL et freinage associé.</b> La bulle rouge est calculée à décélération maximale ; une intrusion déclenche donc un freinage maximal modulé (sans blocage de roues), seul capable de tenir dans la bulle. La zone ambre est calculée à décélération confortable.</li>
@@ -365,7 +369,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li><b>Réarmement.</b> L'état d'urgence est verrouillé et demande un acquittement : une reprise automatique après exception est un vrai mode de défaillance (voir l'incident WA dans les sources).</li>
       </ol>
     </section>
-    <section data-gpane="limites">
+    <section data-gpane="limites" data-i18n-html="guide.limites">
       <h3>Limites du modèle</h3>
       <ul>
         <li>Suivi de trajectoire parfait (pas de contrôle latéral Ackermann) ; manœuvres de marche arrière sous la pelle non simulées.</li>
@@ -392,7 +396,369 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
 'use strict';
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-const fmt = (x, d = 1) => (isFinite(x) ? x.toFixed(d).replace('.', ',') : '∞');
+
+/* =====================================================================
+   I18N — français (défaut) / anglais / allemand
+   Textes statiques : le français reste dans le HTML, marqué par data-i18n
+   (texte), data-i18n-html, data-i18n-title, data-i18n-aria ; EN et DE sont
+   dans STATIC. Textes dynamiques : triplets [fr, en, de] dans MSG.
+   Les messages du journal et les raisons sont stockés sous forme {k, p}
+   et traduits à l'affichage : changer de langue retraduit l'historique.
+   Restent tels quels dans toutes les langues : états (NOMINAL…), codes
+   (DM1_…, DDS_…), QoS DDS, sigles (SIL, FMS, V2X, CAN, ECU…), normes,
+   variables des formules.
+   ===================================================================== */
+const LANGS = ['fr', 'en', 'de'], LANG_KEY = 'aht-lang';
+const LOCALE = { fr: 'fr-FR', en: 'en-GB', de: 'de-DE' };
+let LANG = 'fr';
+// Priorité : argument d'URL (?lang=en) > choix mémorisé > français
+try { const v = localStorage.getItem(LANG_KEY); if (LANGS.includes(v)) LANG = v; } catch (e) {}
+try { const q = new URLSearchParams(location.search).get('lang'); if (LANGS.includes(q)) LANG = q; } catch (e) {}
+
+const STATIC = {
+  en: {
+    'ui.h1': 'Autonomous mining haul truck <span>· principles simulator</span>',
+    'ui.kTime': 'simulated time', 'ui.kCol': 'collisions', 'ui.kCycles': 'loads dumped', 'ui.kTons': 'tonnes hauled',
+    'ui.guide': 'Guide and explanations', 'ui.ctrlAria': 'Controls', 'ui.reset': 'Reset',
+    'ui.scenH': 'Scenarios <span style="text-transform:none;letter-spacing:0;font-weight:500">· hover for details</span>',
+    'ui.scA': 'A · V2X-equipped', 'ui.scAt': 'The FMS sees the pickup: I1 token revoked from the truck, planned stop before the intersection.',
+    'ui.scB': 'B · Unequipped', 'ui.scBt': 'Invisible to the FMS: only on-board perception (LiDAR + radar) protects.',
+    'ui.scC': 'C · + Dust', 'ui.scCt': 'LiDAR blinded: radar fallback, reduced speed (Fail-Operational).',
+    'ui.scD': 'D · DDS losses', 'ui.scDt': 'The stop command can be lost. Replay, then switch to “periodic state”.',
+    'ui.scE': 'E · Saturated CAN', 'ui.scEt': 'Load 75 %: brake deadline missed → controlled stop. Raise to 90 %: watchdog → emergency.',
+    'ui.faultsH': 'Truck faults', 'ui.fLidarT': 'LiDAR failure', 'ui.fRadarT': 'Radar failure', 'ui.fGnssT': 'Loss of GNSS RTK positioning',
+    'ui.massAria': 'Truck mass', 'ui.massAuto': 'Normal cycle (empty ↔ loaded)', 'ui.massEmpty': 'Force empty, 160 t', 'ui.massLoaded': 'Force loaded, 400 t',
+    'ui.estop': 'Emergency stop', 'ui.estopT': 'Remote emergency stop triggered by the operator',
+    'ui.ack': 'Re-arm', 'ui.ackT': 'Clears the EMERGENCY_BRAKE latch of the selected truck.',
+    'ui.mapAria': 'Mine map. Click to drive the pickup with the keyboard (WASD or arrow keys); click a truck to select it.',
+    'ui.you': 'Pickup (you)', 'ui.kbdT': 'W/↑ forward · S/↓ brake, reverse · A/← and D/→ steer', 'ui.lvHome': 'Reposition',
+    'ui.layersAria': 'Layers', 'ui.lBubbles': 'Zones', 'ui.lAuth': 'Authorities', 'ui.lSensors': 'Sensors', 'ui.lLinks': 'Detections',
+    'ui.stripAria': 'Environment and networks', 'ui.envH': 'Mine environment', 'ui.muLbl': 'Haul road (adhesion μ)',
+    'ui.muDry': 'Dry, μ = 0.60', 'ui.muWet': 'Watered, μ = 0.35', 'ui.muMud': 'Muddy, μ = 0.20', 'ui.rampLbl': 'Ramp grade',
+    'ui.dust': 'Dust on I1', 'ui.dustT': 'Dust cloud around intersection I1: blinds the LiDAR, not the radar.',
+    'ui.fmsT': 'Cuts the mine Wi-Fi / LTE: FMS authorities are no longer renewed.',
+    'ui.canH': 'CAN bus J1939 · 250 kbit/s', 'ui.canTraffic': 'Background traffic', 'ui.misprio': 'Brake at low priority', 'ui.babble': 'Babbling node (babbling idiot)',
+    'ui.ddsH': 'DDS · safety topic', 'ui.ddsLbl': 'Publication pattern', 'ui.ddsPer': 'Periodic + Deadline/Liveliness', 'ui.ddsRel': 'Event, RELIABLE', 'ui.ddsBe': 'Event, BEST_EFFORT', 'ui.loss': 'Packet loss',
+    'ui.sideAria': 'Telemetry', 'ui.bubbleH': 'Stop zone, live calculation', 'ui.sensH': 'Sensors and links', 'ui.scopeH': 'Oscilloscope · 15 s', 'ui.logH': 'Event log (DM1 / QoS / FMS)',
+    'ui.gtPrise': 'Getting started', 'ui.gtVisite': 'Guided tour', 'ui.gtModele': 'Modelling choices', 'ui.gtLimites': 'Limitations and sources',
+    'ui.gClose': 'Close', 'ui.gCloseAria': 'Close the guide',
+    'guide.prise': `
+      <p>Three autonomous haul trucks run the shovel → ramp → crusher → return cycle, in mixed traffic with light vehicles. The simulation is paused while this guide is open. The physics is simplified but consistent: every number on screen is computed by the model.</p>
+      <h3>The map</h3>
+      <dl>
+        <dt><span class="sw" style="background:#e5574b"></span>Red band</dt><dd>SIL stop zone: distance needed to stop under maximum braking. An obstacle inside it triggers CONTROLLED_STOP.</dd>
+        <dt><span class="sw" style="background:#e3a23a"></span>Amber band</dt><dd>Caution zone, computed at comfortable deceleration: slow down to 15 km/h.</dd>
+        <dt><span class="sw" style="background:#3cc3d6"></span>Cyan line</dt><dd>Movement authority granted by the FMS; the truck never goes beyond it. Dashed red: lease expired.</dd>
+        <dt>Squares I1 / I2</dt><dd>Intersections; the colour shows who holds the token (purple: a light vehicle).</dd>
+        <dt><span class="sw" style="background:#5fd38d"></span><span class="sw" style="background:#6d97f0"></span>Cones</dt><dd>LiDAR (green, wide, sensitive to dust) and radar (blue, narrow, insensitive to dust).</dd>
+        <dt>Ramp</dt><dd>Driven down loaded (the sizing case for braking), driven up empty.</dd>
+      </dl>
+      <h3>The pickup (you)</h3>
+      <p>It plays the unpredictable human driver: it obeys neither the FMS nor the trucks. Click on the map, then <b>W/↑</b> forward, <b>S/↓</b> brake or reverse, <b>A/←</b> and <b>D/→</b> steer. With the <b>V2X beacon</b>, the FMS sees it and reserves the intersections for it; without the beacon, only the trucks' sensors detect it.</p>
+      <h3>The controls</h3>
+      <dl>
+        <dt>Scenarios</dt><dd>A: equipped pickup, the FMS revokes the truck's I1 token. B: unequipped pickup, only perception protects. C: B in dust, radar fallback. D: stop sent once in BEST_EFFORT with 50 % loss. E: saturated CAN bus with a mis-prioritised brake command. A scenario is armed and starts as soon as a loaded truck leaves the shovel.</dd>
+        <dt>Selected truck</dt><dd>Faults, mass, CAN bus and DDS apply to the chosen truck (tabs AHT-01 to 03 on the left, or click on the map). EMERGENCY_BRAKE is latched: you must click “Re-arm”.</dd>
+        <dt>CAN bus</dt><dd>Arbitration: the lowest identifier wins. A well-prioritised brake command stays fast even on a loaded bus; it is the low-priority messages that wait.</dd>
+        <dt>DDS</dt><dd>With periodic publishing, the controller detects silence (Deadline, Liveliness) and goes to a safe state. Event-driven, a lost command goes unnoticed.</dd>
+      </dl>
+      <h3>The panels</h3>
+      <p>On the left, under the scenarios: the supervisor state and the state actually applied by the controller (they diverge when a command is lost), with the reasons. On the right: the stop zone calculation with its terms, sensor and link health, CAN/DDS oscilloscope, fault code log.</p>`,
+    'guide.visite': `
+      <ol>
+        <li><b>Reading the map.</b> Each truck projects an amber (caution) and a red (SIL stop) band along its path. The cyan line is its movement authority granted by the FMS; squares I1/I2 show who holds the token.</li>
+        <li><b>The effect of mass.</b> Select the truck on the ramp: the table compares empty and loaded, on the flat and downhill. Switch the road to “watered”: the empty distance increases (adhesion limit), the loaded distance barely changes (brake capacity limit).</li>
+        <li><b>Mixed traffic.</b> Scenario A then B. In A, the FMS revokes the truck's I1 token before its sensors even see the pickup. In B, perception and trajectory prediction slow the truck early enough to let the pickup through; drive the pickup yourself to force a stop inside the red zone.</li>
+        <li><b>Fail-Operational.</b> Scenario C: LiDAR blinded, the radar takes over, speed drops to 15 km/h, the mission continues.</li>
+        <li><b>DDS QoS.</b> Scenario D, several times: when the stop event is lost, the log reports a command not applied. Switch back to “periodic”: no more silent loss, at the cost of availability if the network loses a lot.</li>
+        <li><b>CAN and mine network.</b> Scenario E and the oscilloscope; then cut the mine network: the trucks use up their authority and stop, without harsh braking.</li>
+      </ol>`,
+    'guide.modele': `
+      <ol>
+        <li><b>Mass enters the stopping distance through brake capacity.</b> A formula of the form <code>a_brake·μ</code> makes the distance independent of mass. The simulator keeps the two limits separate: <code>a_eff = min(F_brake/m, μ·g·cosθ) − g·sinθ</code>. Empty, adhesion is the limit and mass cancels out; loaded, brake capacity is.</li>
+        <li><b>SIL zone and associated braking.</b> The red zone is computed at maximum deceleration, so an intrusion triggers maximum modulated braking (without wheel lock), the only braking able to stop within the zone. The amber zone is computed at comfortable deceleration.</li>
+        <li><b>CAN bus load is not a runtime safety criterion.</b> The 40 % threshold is a design budget (response-time analysis). What matters at runtime is the brake command latency against its deadline: emergency braking around 85 % load only appears if the command is mis-prioritised, through the brake ECU watchdog.</li>
+        <li><b>Neither RELIABLE nor BEST_EFFORT in event mode for a safety command.</b> The state is published periodically with Deadline and Liveliness, and the receiver goes to a safe state on silence. RELIABLE guarantees delivery but not timeliness under loss. This is the black-channel principle (IEC 61784-3: CRC, counter, safety-side timeout, independent of the transport).</li>
+        <li><b>ROS 2 / DDS do not carry the SIL.</b> The autonomy stack remains uncertified; the safety function lives in an independent supervisor (“doer / checker” pattern) and in the actuator watchdogs. The planner avoids the zones, the supervisor checks them.</li>
+        <li><b>Loss of the FMS link.</b> The truck never drives beyond its authorised travel zone. Without renewal, it stops within the zone already granted: a planned stop, not an emergency reaction.</li>
+        <li><b>The unequipped vehicle is a degraded case.</b> In operation, every vehicle entering the autonomous zone carries a terminal and projects its own zone; access is controlled. On-board perception is the last-resort barrier (ISO 21815 family, collision avoidance).</li>
+        <li><b>Standards.</b> IEC 61508 is the parent standard; for earth-moving machinery one also reasons with ISO 19014 (in MPLr rather than SIL), ISO 17757 (autonomous machines) and ISO 23725 (FMS ↔ AHS interface). The acronym “SIL / HIL” is ambiguous: write SiL for Software-in-the-Loop.</li>
+        <li><b>Re-arming.</b> The emergency state is latched and requires an acknowledgement: automatic resumption after an exception is a real failure mode (see the WA incident in the sources).</li>
+      </ol>`,
+    'guide.limites': `
+      <h3>Model limitations</h3>
+      <ul>
+        <li>Perfect path following (no lateral Ackermann control); reversing manoeuvres under the shovel are not simulated.</li>
+        <li>Perception without false positives, constant-velocity prediction over 6 s; a single forward radar of ±18° (a real truck also has corner radars).</li>
+        <li>Plausible but generic orders of magnitude: 160 → 400 t, braking 1.15 MN, traction 2.6 MW, rolling resistance 2 %. The zone ignores rolling resistance (conservative margin).</li>
+        <li>CAN: response time approximated by <code>C + U·20 ms / (1 − U)</code> for synchronised bursty traffic; DDS: RELIABLE retransmission every 30 ms.</li>
+        <li>The pickup is drawn ×1.5 for readability; collisions use its real size.</li>
+      </ul>
+      <h3>Sources</h3>
+      <ul>
+        <li><a href="https://www.iso.org/standard/76769.html">ISO 23725:2024, FMS / AHS interoperability</a></li>
+        <li><a href="https://www.iso.org/standard/77302.html">ISO 21815-1:2022, collision warning and avoidance</a></li>
+        <li><a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10140871">Hitachi patent, travel-permitted zones set by the fleet server</a></li>
+        <li><a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9672743">Traffic control patent: stopping within the permitted section on communication loss</a></li>
+        <li><a href="https://worksafe.wa.gov.au/publications/mines-safety-significant-incident-report-no-286-near-miss-following-unplanned-movement">WorkSafe WA, incident no. 286: unplanned movement of AHTs</a></li>
+      </ul>`
+  },
+  de: {
+    'ui.h1': 'Autonomer Bergbau-Muldenkipper <span>· Prinzipsimulator</span>',
+    'ui.kTime': 'Simulierte Zeit', 'ui.kCol': 'Kollisionen', 'ui.kCycles': 'Entladene Mulden', 'ui.kTons': 'Transportierte Tonnen',
+    'ui.guide': 'Anleitung und Erklärungen', 'ui.ctrlAria': 'Bedienung', 'ui.reset': 'Zurücksetzen',
+    'ui.scenH': 'Szenarien <span style="text-transform:none;letter-spacing:0;font-weight:500">· Mauszeiger = Details</span>',
+    'ui.scA': 'A · Mit V2X', 'ui.scAt': 'Das FMS sieht den Pick-up: Dem Muldenkipper wird das I1-Token entzogen, geplanter Halt vor der Kreuzung.',
+    'ui.scB': 'B · Ohne V2X', 'ui.scBt': 'Für das FMS unsichtbar: Nur die bordeigene Wahrnehmung (LiDAR + Radar) schützt.',
+    'ui.scC': 'C · + Staub', 'ui.scCt': 'LiDAR geblendet: Rückfall auf Radar, reduzierte Geschwindigkeit (Fail-Operational).',
+    'ui.scD': 'D · DDS-Verluste', 'ui.scDt': 'Der Haltebefehl kann verloren gehen. Wiederholen, dann auf „periodischer Zustand“ umschalten.',
+    'ui.scE': 'E · CAN überlastet', 'ui.scEt': 'Last 75 %: Brems-Deadline überschritten → kontrollierter Halt. Auf 90 % erhöhen: Watchdog → Notbremsung.',
+    'ui.faultsH': 'Störungen des Muldenkippers', 'ui.fLidarT': 'LiDAR-Ausfall', 'ui.fRadarT': 'Radar-Ausfall', 'ui.fGnssT': 'Verlust der GNSS-RTK-Ortung',
+    'ui.massAria': 'Masse des Muldenkippers', 'ui.massAuto': 'Normaler Zyklus (leer ↔ beladen)', 'ui.massEmpty': 'Leer erzwingen, 160 t', 'ui.massLoaded': 'Beladen erzwingen, 400 t',
+    'ui.estop': 'Not-Halt', 'ui.estopT': 'Vom Bediener ausgelöster Fern-Not-Halt',
+    'ui.ack': 'Quittieren', 'ui.ackT': 'Hebt die EMERGENCY_BRAKE-Verriegelung des ausgewählten Muldenkippers auf.',
+    'ui.mapAria': 'Minenkarte. Klicken, um den Pick-up per Tastatur zu fahren (WASD oder Pfeiltasten); auf einen Muldenkipper klicken, um ihn auszuwählen.',
+    'ui.you': 'Pick-up (Sie)', 'ui.kbdT': 'W/↑ vorwärts · S/↓ bremsen, rückwärts · A/← und D/→ lenken', 'ui.lvHome': 'Neu platzieren',
+    'ui.layersAria': 'Ebenen', 'ui.lBubbles': 'Zonen', 'ui.lAuth': 'Freigaben', 'ui.lSensors': 'Sensoren', 'ui.lLinks': 'Erkennungen',
+    'ui.stripAria': 'Umgebung und Netze', 'ui.envH': 'Minenumgebung', 'ui.muLbl': 'Fahrbahn (Haftreibung μ)',
+    'ui.muDry': 'Trocken, μ = 0,60', 'ui.muWet': 'Bewässert, μ = 0,35', 'ui.muMud': 'Schlammig, μ = 0,20', 'ui.rampLbl': 'Rampenneigung',
+    'ui.dust': 'Staub an I1', 'ui.dustT': 'Staubwolke um Kreuzung I1: blendet das LiDAR, nicht das Radar.',
+    'ui.fmsT': 'Trennt das Minen-WLAN / LTE: FMS-Freigaben werden nicht mehr erneuert.',
+    'ui.canH': 'CAN-Bus J1939 · 250 kbit/s', 'ui.canTraffic': 'Hintergrundlast', 'ui.misprio': 'Bremse mit niedriger Priorität', 'ui.babble': 'Plappernder Knoten (babbling idiot)',
+    'ui.ddsH': 'DDS · Sicherheits-Topic', 'ui.ddsLbl': 'Publikationsmuster', 'ui.ddsPer': 'Periodisch + Deadline/Liveliness', 'ui.ddsRel': 'Ereignis, RELIABLE', 'ui.ddsBe': 'Ereignis, BEST_EFFORT', 'ui.loss': 'Paketverlust',
+    'ui.sideAria': 'Telemetrie', 'ui.bubbleH': 'Haltezone, Live-Berechnung', 'ui.sensH': 'Sensoren und Verbindungen', 'ui.scopeH': 'Oszilloskop · 15 s', 'ui.logH': 'Ereignisprotokoll (DM1 / QoS / FMS)',
+    'ui.gtPrise': 'Erste Schritte', 'ui.gtVisite': 'Geführte Tour', 'ui.gtModele': 'Modellierungsentscheidungen', 'ui.gtLimites': 'Grenzen und Quellen',
+    'ui.gClose': 'Schließen', 'ui.gCloseAria': 'Anleitung schließen',
+    'guide.prise': `
+      <p>Drei autonome Muldenkipper fahren den Zyklus Bagger → Rampe → Brecher → Rückfahrt, im Mischverkehr mit Leichtfahrzeugen. Solange diese Anleitung geöffnet ist, ist die Simulation pausiert. Die Physik ist vereinfacht, aber konsistent: Jede angezeigte Zahl wird vom Modell berechnet.</p>
+      <h3>Die Karte</h3>
+      <dl>
+        <dt><span class="sw" style="background:#e5574b"></span>Rotes Band</dt><dd>SIL-Haltezone: Strecke bis zum Stillstand bei maximaler Bremsung. Ein Hindernis darin löst CONTROLLED_STOP aus.</dd>
+        <dt><span class="sw" style="background:#e3a23a"></span>Bernsteinfarbenes Band</dt><dd>Vorsichtszone, berechnet mit komfortabler Verzögerung: Abbremsen auf 15 km/h.</dd>
+        <dt><span class="sw" style="background:#3cc3d6"></span>Cyanfarbene Linie</dt><dd>Vom FMS erteilte Fahrfreigabe; der Muldenkipper fährt nie darüber hinaus. Rot gestrichelt: Lease abgelaufen.</dd>
+        <dt>Quadrate I1 / I2</dt><dd>Kreuzungen; die Farbe zeigt, wer das Token hält (violett: ein Leichtfahrzeug).</dd>
+        <dt><span class="sw" style="background:#5fd38d"></span><span class="sw" style="background:#6d97f0"></span>Kegel</dt><dd>LiDAR (grün, breit, staubempfindlich) und Radar (blau, schmal, staubunempfindlich).</dd>
+        <dt>Rampe</dt><dd>Beladen bergab befahren (Auslegungsfall für die Bremse), leer bergauf.</dd>
+      </dl>
+      <h3>Der Pick-up (Sie)</h3>
+      <p>Er spielt den unberechenbaren menschlichen Fahrer: Er gehorcht weder dem FMS noch den Muldenkippern. Klicken Sie auf die Karte, dann <b>W/↑</b> vorwärts, <b>S/↓</b> bremsen oder rückwärts, <b>A/←</b> und <b>D/→</b> lenken. Mit dem <b>V2X-Sender</b> sieht ihn das FMS und reserviert ihm die Kreuzungen; ohne Sender erkennen ihn nur die Sensoren der Muldenkipper.</p>
+      <h3>Die Bedienelemente</h3>
+      <dl>
+        <dt>Szenarien</dt><dd>A: Pick-up mit V2X, das FMS entzieht dem Muldenkipper das I1-Token. B: Pick-up ohne V2X, nur die Wahrnehmung schützt. C: B im Staub, Rückfall auf Radar. D: Haltebefehl einmalig in BEST_EFFORT mit 50 % Verlust gesendet. E: überlasteter CAN-Bus mit falsch priorisiertem Bremsbefehl. Ein Szenario wird scharfgeschaltet und startet, sobald ein beladener Muldenkipper den Bagger verlässt.</dd>
+        <dt>Ausgewählter Muldenkipper</dt><dd>Störungen, Masse, CAN-Bus und DDS gelten für den gewählten Muldenkipper (Reiter AHT-01 bis 03 links oder Klick auf die Karte). EMERGENCY_BRAKE ist verriegelt: Klicken Sie auf „Quittieren“.</dd>
+        <dt>CAN-Bus</dt><dd>Arbitrierung: Der niedrigste Identifier gewinnt. Ein richtig priorisierter Bremsbefehl bleibt auch bei hoher Buslast schnell; warten müssen die Nachrichten niedriger Priorität.</dd>
+        <dt>DDS</dt><dd>Bei periodischer Publikation erkennt der Controller Funkstille (Deadline, Liveliness) und geht in den sicheren Zustand. Ereignisgesteuert bleibt ein verlorener Befehl unbemerkt.</dd>
+      </dl>
+      <h3>Die Anzeigen</h3>
+      <p>Links unter den Szenarien: Zustand des Supervisors und tatsächlich vom Controller angewendeter Zustand (sie weichen ab, wenn ein Befehl verloren geht), mit den Gründen. Rechts: Berechnung der Haltezone mit ihren Termen, Zustand von Sensoren und Verbindungen, CAN/DDS-Oszilloskop, Fehlercode-Protokoll.</p>`,
+    'guide.visite': `
+      <ol>
+        <li><b>Die Karte lesen.</b> Jeder Muldenkipper projiziert entlang seiner Bahn ein bernsteinfarbenes (Vorsicht) und ein rotes (SIL-Halt) Band. Die cyanfarbene Linie ist seine vom FMS erteilte Fahrfreigabe; die Quadrate I1/I2 zeigen, wer das Token hält.</li>
+        <li><b>Der Einfluss der Masse.</b> Wählen Sie den Muldenkipper auf der Rampe: Die Tabelle vergleicht leer und beladen, in der Ebene und bergab. Stellen Sie die Fahrbahn auf „bewässert“: Der Weg leer nimmt zu (Haftgrenze), der Weg beladen kaum (Grenze der Bremskapazität).</li>
+        <li><b>Mischverkehr.</b> Szenario A, dann B. In A entzieht das FMS dem Muldenkipper das I1-Token, noch bevor seine Sensoren den Pick-up sehen. In B lassen Wahrnehmung und Bahnprädiktion den Muldenkipper früh genug abbremsen, um den Pick-up durchzulassen; fahren Sie den Pick-up selbst, um einen Halt in der roten Zone zu erzwingen.</li>
+        <li><b>Fail-Operational.</b> Szenario C: LiDAR geblendet, das Radar übernimmt, die Geschwindigkeit fällt auf 15 km/h, die Mission geht weiter.</li>
+        <li><b>DDS-QoS.</b> Szenario D, mehrmals: Geht das Halt-Ereignis verloren, meldet das Protokoll einen nicht angewendeten Befehl. Zurück auf „periodisch“: kein stiller Verlust mehr, auf Kosten der Verfügbarkeit, wenn das Netz viel verliert.</li>
+        <li><b>CAN und Minennetz.</b> Szenario E und das Oszilloskop; dann das Minennetz trennen: Die Muldenkipper fahren ihre Freigabe zu Ende und halten an, ohne harte Bremsung.</li>
+      </ol>`,
+    'guide.modele': `
+      <ol>
+        <li><b>Die Masse geht über die Bremskapazität in den Anhalteweg ein.</b> Eine Formel der Art <code>a_Brems·μ</code> macht den Weg massenunabhängig. Der Simulator trennt die beiden Grenzen: <code>a_eff = min(F_Brems/m, μ·g·cosθ) − g·sinθ</code>. Leer begrenzt die Haftung und die Masse kürzt sich heraus; beladen begrenzt die Bremskapazität.</li>
+        <li><b>SIL-Zone und zugehörige Bremsung.</b> Die rote Zone wird mit maximaler Verzögerung berechnet; ein Eindringen löst daher eine modulierte Maximalbremsung (ohne Blockieren der Räder) aus, die einzige, die innerhalb der Zone zum Stehen kommt. Die bernsteinfarbene Zone wird mit komfortabler Verzögerung berechnet.</li>
+        <li><b>Die CAN-Buslast ist im Betrieb kein Sicherheitskriterium.</b> Die 40-%-Schwelle ist ein Auslegungsbudget (Antwortzeitanalyse). Im Betrieb zählt die Latenz des Bremsbefehls gegenüber seiner Deadline: Eine Notbremsung bei etwa 85 % Last tritt nur auf, wenn der Befehl falsch priorisiert ist, über den Watchdog des Brems-ECU.</li>
+        <li><b>Weder RELIABLE noch BEST_EFFORT im Ereignismodus für einen Sicherheitsbefehl.</b> Der Zustand wird periodisch mit Deadline und Liveliness publiziert, und der Empfänger geht bei Funkstille in den sicheren Zustand. RELIABLE garantiert die Zustellung, aber nicht die Rechtzeitigkeit bei Verlusten. Das ist das Black-Channel-Prinzip (IEC 61784-3: CRC, Zähler, Timeout auf der Sicherheitsseite, unabhängig vom Transport).</li>
+        <li><b>ROS 2 / DDS tragen kein SIL.</b> Der Autonomie-Stack bleibt unzertifiziert; die Sicherheitsfunktion liegt in einem unabhängigen Supervisor (Muster „Doer / Checker“) und in den Watchdogs der Aktoren. Der Planer meidet die Zonen, der Supervisor prüft sie.</li>
+        <li><b>Verlust der FMS-Verbindung.</b> Der Muldenkipper fährt nie über seine freigegebene Fahrzone hinaus. Ohne Erneuerung hält er innerhalb der bereits erteilten Zone an: ein geplanter Halt, keine Notfallreaktion.</li>
+        <li><b>Das Fahrzeug ohne V2X ist ein degradierter Fall.</b> Im Betrieb trägt jedes Fahrzeug, das in die autonome Zone einfährt, ein Terminal und projiziert seine eigene Zone; der Zugang ist kontrolliert. Die bordeigene Wahrnehmung ist die letzte Barriere (Normenreihe ISO 21815, Kollisionsvermeidung).</li>
+        <li><b>Normen.</b> IEC 61508 ist die Grundnorm; für Erdbaumaschinen argumentiert man auch mit ISO 19014 (in MPLr statt SIL), ISO 17757 (autonome Maschinen) und ISO 23725 (Schnittstelle FMS ↔ AHS). Das Kürzel „SIL / HIL“ ist mehrdeutig: SiL für Software-in-the-Loop schreiben.</li>
+        <li><b>Quittierung.</b> Der Notfallzustand ist verriegelt und erfordert eine Quittierung: Ein automatisches Wiederanlaufen nach einer Ausnahme ist ein realer Fehlermodus (siehe den WA-Vorfall in den Quellen).</li>
+      </ol>`,
+    'guide.limites': `
+      <h3>Grenzen des Modells</h3>
+      <ul>
+        <li>Perfekte Bahnführung (keine laterale Ackermann-Regelung); Rückwärtsmanöver unter dem Bagger werden nicht simuliert.</li>
+        <li>Wahrnehmung ohne Falsch-Positive, Prädiktion mit konstanter Geschwindigkeit über 6 s; ein einziges Frontradar mit ±18° (ein echter Muldenkipper hat auch Eckradare).</li>
+        <li>Plausible, aber generische Größenordnungen: 160 → 400 t, Bremskraft 1,15 MN, Traktion 2,6 MW, Rollwiderstand 2 %. Die Zone vernachlässigt den Rollwiderstand (konservative Reserve).</li>
+        <li>CAN: Antwortzeit angenähert durch <code>C + U·20 ms / (1 − U)</code> für synchronisierten Burst-Verkehr; DDS: RELIABLE-Wiederholung alle 30 ms.</li>
+        <li>Der Pick-up ist zur Lesbarkeit ×1,5 gezeichnet; Kollisionen verwenden seine reale Größe.</li>
+      </ul>
+      <h3>Quellen</h3>
+      <ul>
+        <li><a href="https://www.iso.org/standard/76769.html">ISO 23725:2024, Interoperabilität FMS / AHS</a></li>
+        <li><a href="https://www.iso.org/standard/77302.html">ISO 21815-1:2022, Kollisionswarnung und -vermeidung</a></li>
+        <li><a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10140871">Hitachi-Patent, vom Flottenserver freigegebene Fahrzonen</a></li>
+        <li><a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9672743">Patent zur Verkehrssteuerung: Halt im freigegebenen Abschnitt bei Verbindungsabbruch</a></li>
+        <li><a href="https://worksafe.wa.gov.au/publications/mines-safety-significant-incident-report-no-286-near-miss-following-unplanned-movement">WorkSafe WA, Vorfall Nr. 286: unerwartetes Wiederanfahren von AHT</a></li>
+      </ul>`
+  }
+};
+
+const MSG = {
+  'doc.title': ['Simulateur tombereau autonome', 'Autonomous haul truck simulator', 'Simulator autonomer Muldenkipper'],
+  'id.you': ['VL-VOUS', 'LV-YOU', 'LV-SIE'],
+  'id.lv': ['VL-', 'LV-', 'LV-'],
+  'code.ORDER_NOT_APPLIED': ['ORDRE_NON_APPLIQUÉ', 'ORDER_NOT_APPLIED', 'BEFEHL_NICHT_ANGEWENDET'],
+  // Physique, superviseur, communications
+  'lim.cap': ['capacité frein', 'brake capacity', 'Bremskapazität'],
+  'lim.adh': ['adhérence', 'adhesion', 'Haftung'],
+  'log.watchdog': ['Watchdog ECU frein : plus de consigne valide depuis 100 ms (latence {ms} ms) → freins de sécurité', 'Brake ECU watchdog: no valid command for 100 ms (latency {ms} ms) → safety brakes', 'Watchdog Brems-ECU: seit 100 ms kein gültiger Befehl (Latenz {ms} ms) → Sicherheitsbremsen'],
+  'log.beLost': ['Échantillon BEST_EFFORT perdu : ordre {mode} jamais reçu par le contrôleur', 'BEST_EFFORT sample lost: {mode} command never received by the controller', 'BEST_EFFORT-Sample verloren: Befehl {mode} vom Controller nie empfangen'],
+  'log.retx': ['RELIABLE : {k} retransmissions, ordre {mode} livré avec {ms} ms de retard', 'RELIABLE: {k} retransmissions, {mode} command delivered {ms} ms late', 'RELIABLE: {k} Wiederholungen, Befehl {mode} mit {ms} ms Verspätung zugestellt'],
+  'mc.liveliness': ['Contrôleur : aucun état sécurité depuis {ms} ms → arrêt de repli', 'Controller: no safety state for {ms} ms → fallback stop', 'Controller: seit {ms} ms kein Sicherheitszustand → Rückfall-Halt'],
+  'mc.deadline': ['Contrôleur : échéance 40 ms dépassée ({ms} ms) → vitesse réduite', 'Controller: 40 ms deadline missed ({ms} ms) → reduced speed', 'Controller: 40-ms-Deadline überschritten ({ms} ms) → reduzierte Geschwindigkeit'],
+  'log.mismatch': ['Superviseur en {sup}, contrôleur toujours en {mc} (vue du simulateur)', 'Supervisor in {sup}, controller still in {mc} (simulator view)', 'Supervisor in {sup}, Controller noch in {mc} (Sicht des Simulators)'],
+  'fms.revoked': ['Jeton {i} retiré à {t} : {lv} (équipé) en approche, ETA {eta} s', 'Token {i} revoked from {t}: {lv} (equipped) approaching, ETA {eta} s', 'Token {i} wurde {t} entzogen: {lv} (mit V2X) nähert sich, ETA {eta} s'],
+  'fms.released': ['{i} libérée par {lv}', '{i} released by {lv}', '{i} von {lv} freigegeben'],
+  'fms.granted': ['{i} réservée pour {lv}', '{i} reserved for {lv}', '{i} für {lv} reserviert'],
+  'cycle.loaded': ['Chargé (4 passes de godet) → départ vers le concasseur', 'Loaded (4 bucket passes) → leaving for the crusher', 'Beladen (4 Löffelspiele) → Abfahrt zum Brecher'],
+  'cycle.dumped': ['Benne vidée → retour à la pelle', 'Body dumped → returning to the shovel', 'Mulde entladen → Rückfahrt zum Bagger'],
+  'plan.mission': ['Suivi de mission', 'Following mission', 'Missionsfahrt'],
+  'plan.authEnd': ['Fin d\'autorisation FMS', 'End of FMS authority', 'Ende der FMS-Freigabe'],
+  'plan.token': ['Attente jeton {i}', 'Waiting for token {i}', 'Warten auf Token {i}'],
+  'plan.tokenHeld': ['Attente jeton {i} (détenu par {h})', 'Waiting for token {i} (held by {h})', 'Warten auf Token {i} (gehalten von {h})'],
+  'plan.loading': ['Chargement sous la pelle ({s} s)', 'Loading under the shovel ({s} s)', 'Beladung unter dem Bagger ({s} s)'],
+  'plan.dumping': ['Déversement ({s} s)', 'Dumping ({s} s)', 'Entladen ({s} s)'],
+  'plan.crusher': ['Approche concasseur', 'Approaching crusher', 'Anfahrt Brecher'],
+  'plan.shovel': ['Approche pelle', 'Approaching shovel', 'Anfahrt Bagger'],
+  'plan.follow': ['Suivi de {id}', 'Following {id}', 'Folgt {id}'],
+  'sup.percLost': ['LiDAR et radar indisponibles : plus aucune perception', 'LiDAR and radar unavailable: no perception left', 'LiDAR und Radar nicht verfügbar: keine Wahrnehmung mehr'],
+  'sup.lidarFault': ['Panne LiDAR : fusion radar + IMU, 15 km/h', 'LiDAR failure: radar + IMU fusion, 15 km/h', 'LiDAR-Ausfall: Fusion Radar + IMU, 15 km/h'],
+  'sup.lidarDust': ['LiDAR aveuglé par la poussière : fusion radar + IMU, 15 km/h', 'LiDAR blinded by dust: radar + IMU fusion, 15 km/h', 'LiDAR durch Staub geblendet: Fusion Radar + IMU, 15 km/h'],
+  'sup.radarFault': ['Radar hors service : redondance perdue, 15 km/h', 'Radar out of service: redundancy lost, 15 km/h', 'Radar außer Betrieb: Redundanz verloren, 15 km/h'],
+  'sup.gnssDr': ['Navigation à l\'estime depuis {s} s : dérive trop grande, arrêt', 'Dead reckoning for {s} s: drift too large, stopping', 'Koppelnavigation seit {s} s: Drift zu groß, Halt'],
+  'sup.gnssLost': ['RTK perdu : navigation à l\'estime IMU + odométrie ({s} s restantes)', 'RTK lost: IMU + odometry dead reckoning ({s} s left)', 'RTK verloren: Koppelnavigation IMU + Odometrie (noch {s} s)'],
+  'sup.fmsLost': ['Lien FMS perdu : arrêt dans l\'autorisation restante ({m} m)', 'FMS link lost: stopping within the remaining authority ({m} m)', 'FMS-Verbindung verloren: Halt innerhalb der restlichen Freigabe ({m} m)'],
+  'sup.ecu': ['ECU frein en repli : consigne CAN absente > 100 ms', 'Brake ECU in fallback: no CAN command for > 100 ms', 'Brems-ECU im Rückfallmodus: CAN-Befehl fehlt > 100 ms'],
+  'sup.canDeadline': ['Latence consigne frein {ms} ms > échéance 40 ms', 'Brake command latency {ms} ms > 40 ms deadline', 'Latenz Bremsbefehl {ms} ms > Deadline 40 ms'],
+  'sup.busLoad': ['Charge bus {p} % > budget de conception 40 %', 'Bus load {p} % > 40 % design budget', 'Buslast {p} % > Auslegungsbudget 40 %'],
+  'sup.intrusion': ['{id} est dans la bulle d\'arrêt ({d} m < {s} m)', '{id} is inside the stop zone ({d} m < {s} m)', '{id} ist in der Haltezone ({d} m < {s} m)'],
+  'sup.intrusionPred': ['{id} va entrer dans la bulle d\'arrêt ({d} m < {s} m)', '{id} will enter the stop zone ({d} m < {s} m)', '{id} wird in die Haltezone eindringen ({d} m < {s} m)'],
+  'sup.caution': ['{id} en zone de précaution ({d} m < {c} m)', '{id} in the caution zone ({d} m < {c} m)', '{id} in der Vorsichtszone ({d} m < {c} m)'],
+  'sup.cautionPred': ['{id} trajectoire en conflit ({d} m < {c} m)', '{id} conflicting trajectory ({d} m < {c} m)', '{id} Bahnkonflikt ({d} m < {c} m)'],
+  'sup.estop': ['Arrêt d\'urgence distant déclenché par l\'opérateur', 'Remote emergency stop triggered by the operator', 'Vom Bediener ausgelöster Fern-Not-Halt'],
+  'sup.contact': ['Contact détecté', 'Contact detected', 'Kontakt erkannt'],
+  'sup.runaway': ['Décélération disponible quasi nulle sur cette pente', 'Available deceleration almost zero on this grade', 'Verfügbare Verzögerung auf diesem Gefälle nahezu null'],
+  // Journal, scénarios, commandes
+  'log.resolved': ['résolu', 'resolved', 'behoben'],
+  'log.started': ['Simulation démarrée : 3 tombereaux autonomes, 1 pick-up piloté par vous', 'Simulation started: 3 autonomous haul trucks, 1 pickup driven by you', 'Simulation gestartet: 3 autonome Muldenkipper, 1 von Ihnen gesteuerter Pick-up'],
+  'coll.stopped': ['tombereau déjà à l\'arrêt : c\'est {o} qui l\'a heurté', 'truck already stopped: {o} hit it', 'Muldenkipper stand bereits: {o} ist aufgefahren'],
+  'coll.moving': ['tombereau à {v} km/h', 'truck at {v} km/h', 'Muldenkipper mit {v} km/h'],
+  'coll.contact': ['Contact avec {o} ({how})', 'Contact with {o} ({how})', 'Kontakt mit {o} ({how})'],
+  'toast.scenE': ['Scénario E sur {id} : poussez le curseur CAN vers 90 % pour déclencher le watchdog frein.', 'Scenario E on {id}: push the CAN slider towards 90 % to trip the brake watchdog.', 'Szenario E auf {id}: CAN-Regler Richtung 90 % schieben, um den Brems-Watchdog auszulösen.'],
+  'toast.armed': ['Scénario armé : le pick-up partira dès qu\'un tombereau chargé quittera la pelle.', 'Scenario armed: the pickup will start as soon as a loaded truck leaves the shovel.', 'Szenario scharfgeschaltet: Der Pick-up startet, sobald ein beladener Muldenkipper den Bagger verlässt.'],
+  'toast.cause': ['La cause est toujours présente : le watchdog va se redéclencher.', 'The cause is still present: the watchdog will trip again.', 'Die Ursache besteht weiterhin: Der Watchdog wird erneut auslösen.'],
+  'log.scenario': ['Scénario {c} : {lv} {eq} coupe I1 à 30 km/h face à {t}', 'Scenario {c}: {lv} {eq} crosses I1 at 30 km/h in front of {t}', 'Szenario {c}: {lv} {eq} quert I1 mit 30 km/h vor {t}'],
+  'sc.eq': ['équipé V2X', 'with V2X', 'mit V2X'],
+  'sc.uneq': ['non équipé', 'without V2X', 'ohne V2X'],
+  'inj.on': ['Injection : {f} activé', 'Injection: {f} activated', 'Injektion: {f} aktiviert'],
+  'inj.off': ['Injection : {f} retiré', 'Injection: {f} removed', 'Injektion: {f} entfernt'],
+  'dust.on': ['Nuage de poussière activé', 'Dust cloud activated', 'Staubwolke aktiviert'],
+  'dust.off': ['Nuage de poussière dissipé', 'Dust cloud cleared', 'Staubwolke aufgelöst'],
+  'net.on': ['Réseau mine rétabli', 'Mine network restored', 'Minennetz wiederhergestellt'],
+  'net.off': ['Réseau mine coupé (Wi-Fi / LTE)', 'Mine network cut (Wi-Fi / LTE)', 'Minennetz getrennt (WLAN / LTE)'],
+  'log.ack': ['Acquittement opérateur : verrou d\'urgence levé', 'Operator acknowledgement: emergency latch cleared', 'Quittierung durch Bediener: Notfallverriegelung aufgehoben'],
+  'log.mu': ['Adhérence piste μ = {mu}', 'Road adhesion μ = {mu}', 'Fahrbahnhaftung μ = {mu}'],
+  'v2x.on': ['Balise V2X et terminal FMS activés', 'V2X beacon and FMS terminal enabled', 'V2X-Sender und FMS-Terminal aktiviert'],
+  'v2x.off': ['Balise V2X coupée : invisible du FMS', 'V2X beacon off: invisible to the FMS', 'V2X-Sender aus: für das FMS unsichtbar'],
+  // Carte
+  'map.shovel': ['PELLE · chargement', 'SHOVEL · loading', 'BAGGER · Beladung'],
+  'map.crusher': ['CONCASSEUR · déversement', 'CRUSHER · dumping', 'BRECHER · Entladung'],
+  'map.rampDown': ['Rampe −{p} % · descente chargé', 'Ramp −{p} % · loaded downhill', 'Rampe −{p} % · beladen bergab'],
+  'map.rampUp': ['Rampe +{p} % · montée à vide', 'Ramp +{p} % · empty uphill', 'Rampe +{p} % · leer bergauf'],
+  'map.service': ['Piste de service', 'Service road', 'Betriebsstraße'],
+  'map.upper': ['Niveau haut', 'Upper level', 'Obere Sohle'],
+  'map.lower': ['Niveau bas', 'Lower level', 'Untere Sohle'],
+  'map.free': ['libre', 'free', 'frei'],
+  'map.dust': ['Nuage de poussière', 'Dust cloud', 'Staubwolke'],
+  'map.notApplied': ['ORDRE NON APPLIQUÉ', 'COMMAND NOT APPLIED', 'BEFEHL NICHT ANGEWENDET'],
+  'map.you': ['VOUS', 'YOU', 'SIE'],
+  'map.noBeacon': ['sans balise', 'no beacon', 'ohne Sender'],
+  'map.collision': ['COLLISION', 'COLLISION', 'KOLLISION'],
+  'map.paused': ['PAUSE', 'PAUSED', 'PAUSE'],
+  'map.netCut': ['RÉSEAU MINE COUPÉ · plus de renouvellement des autorisations', 'MINE NETWORK DOWN · authorities no longer renewed', 'MINENNETZ GETRENNT · keine Erneuerung der Freigaben'],
+  // Oscilloscope
+  'scope.load': ['Charge bus CAN', 'CAN bus load', 'CAN-Buslast'],
+  'scope.diag': ['diag. prio basse', 'low-prio diag.', 'Diag. niedr. Prio'],
+  'scope.dds': ['DDS sécurité', 'DDS safety', 'DDS Sicherheit'],
+  'scope.brake': ['consigne frein', 'brake command', 'Bremsbefehl'],
+  'scope.foot': ['{id} · axe 15 s · valeurs hors échelle écrêtées', '{id} · 15 s axis · off-scale values clipped', '{id} · Achse 15 s · Werte außerhalb der Skala abgeschnitten'],
+  // Télémétrie
+  'hud.latched': [' · VERROUILLÉ', ' · LATCHED', ' · VERRIEGELT'],
+  'hud.applied': ['Appliqué par le contrôleur :', 'Applied by the controller:', 'Vom Controller angewendet:'],
+  'hud.kMAX': ['freinage max. modulé', 'max. modulated braking', 'modulierte Maximalbremsung'],
+  'hud.kCOMFORT': ['arrêt confortable', 'comfortable stop', 'komfortabler Halt'],
+  'hud.kAUTH': ['fin d\'autorisation', 'end of authority', 'Ende der Freigabe'],
+  'hud.notReceived': ['· ordre non reçu', '· command not received', '· Befehl nicht empfangen'],
+  'hud.noAlert': ['Aucune alerte : capteurs OK, liens OK, bulles libres', 'No alert: sensors OK, links OK, zones clear', 'Keine Warnung: Sensoren OK, Verbindungen OK, Zonen frei'],
+  'hud.limit': ['limite : {l}', 'limit: {l}', 'Grenze: {l}'],
+  'hud.margin': ['marge', 'margin', 'Reserve'],
+  'met.speed': ['Vitesse', 'Speed', 'Geschwindigkeit'],
+  'met.mass': ['Masse', 'Mass', 'Masse'],
+  'met.caution': ['Précaution', 'Caution', 'Vorsicht'],
+  'met.obstacle': ['Obstacle', 'Obstacle', 'Hindernis'],
+  'met.obsAt': ['{id} à {d} m', '{id} at {d} m', '{id} in {d} m'],
+  'met.pred': [' (prédit)', ' (predicted)', ' (prädiziert)'],
+  'met.none': ['aucun', 'none', 'keines'],
+  'met.auth': ['Autorisation', 'Authority', 'Freigabe'],
+  'cmp.head': ['d_stop à 40 km/h', 'd_stop at 40 km/h', 'd_stop bei 40 km/h'],
+  'cmp.flat': ['À plat', 'Flat', 'Eben'],
+  'cmp.down': ['Descente −{p} %', 'Downhill −{p} %', 'Gefälle −{p} %'],
+  'cmp.empty': ['À vide, 160 t', 'Empty, 160 t', 'Leer, 160 t'],
+  'cmp.loaded': ['Chargé, 400 t', 'Loaded, 400 t', 'Beladen, 400 t'],
+  'chip.gnssDr': ['GNSS RTK (estime {s} s)', 'GNSS RTK (dead reckoning {s} s)', 'GNSS RTK (Koppelnavigation {s} s)'],
+  'chip.v2x': ['V2X · {n} reçus', 'V2X · {n} received', 'V2X · {n} empfangen'],
+  'chip.fms': ['FMS · bail {s} s', 'FMS · lease {s} s', 'FMS · Lease {s} s'],
+  'chip.brake': ['Frein CAN {ms} ms', 'CAN brake {ms} ms', 'CAN-Bremse {ms} ms'],
+  'chip.ddsAge': ['DDS âge {ms} ms', 'DDS age {ms} ms', 'DDS-Alter {ms} ms'],
+  'chip.ddsNoMon': ['DDS {m} · pas de surveillance', 'DDS {m} · no monitoring', 'DDS {m} · keine Überwachung'],
+  'lv.v2x': ['Balise V2X : {s}', 'V2X beacon: {s}', 'V2X-Sender: {s}'],
+  'lv.yes': ['oui', 'on', 'an'],
+  'lv.no': ['non', 'off', 'aus'],
+  'lv.kbdOn': ['Clavier actif · ZQSD ou flèches', 'Keyboard active · WASD or arrow keys', 'Tastatur aktiv · WASD oder Pfeiltasten'],
+  'lv.kbdOff': ['Cliquez sur la carte pour conduire', 'Click the map to drive', 'Zum Fahren auf die Karte klicken'],
+  'btn.netCut': ['Couper le réseau mine', 'Cut the mine network', 'Minennetz trennen'],
+  'btn.netRestore': ['Rétablir le réseau', 'Restore the network', 'Netz wiederherstellen'],
+  'btn.pause': ['Pause', 'Pause', 'Pause'],
+  'btn.resume': ['Reprendre', 'Resume', 'Fortsetzen']
+};
+
+const LI = () => LANGS.indexOf(LANG);
+const fmt = (x, d = 1) => { if (!isFinite(x)) return '∞'; const s = x.toFixed(d); return LANG === 'en' ? s : s.replace('.', ','); };
+const M = (k, p) => ({ k, p });          // message traduisible, résolu à l'affichage
+const N = (n, d = 0) => ({ n, d });      // nombre formaté selon la langue à l'affichage
+const RAW = raw => ({ raw });            // texte non traduit (codes, états)
+/* Identifiant véhicule affiché : VL-VOUS → LV-YOU, VL-42 → LV-42… */
+function vid(id) { return id === 'VL-VOUS' ? t('id.you') : String(id).startsWith('VL-') ? t('id.lv') + id.slice(3) : id; }
+function codeName(c) { const e = MSG['code.' + c]; return e ? e[LI()] : c; }
+function rp(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'object') {
+    if ('raw' in v) return v.raw;
+    if ('k' in v) return t(v.k, v.p);
+    if ('n' in v) return fmt(v.n, v.d);
+  }
+  return typeof v === 'string' ? vid(v) : String(v);
+}
+function t(k, p) {
+  const e = MSG[k], s = e ? (e[LI()] ?? e[0]) : k;
+  return p ? s.replace(/\{(\w+)\}/g, (m, n) => (p[n] !== undefined ? rp(p[n]) : m)) : s;
+}
+const ORIG = new Map();
+function applyStatic() {
+  const S = STATIC[LANG] || {};
+  const pick = (key, fr) => (LANG === 'fr' || S[key] === undefined ? fr : S[key]);
+  document.documentElement.lang = LANG;
+  document.title = t('doc.title');
+  document.querySelectorAll('[data-i18n],[data-i18n-html],[data-i18n-title],[data-i18n-aria]').forEach(n => {
+    let o = ORIG.get(n);
+    if (!o) { o = { text: n.textContent, html: n.innerHTML, title: n.getAttribute('title'), aria: n.getAttribute('aria-label') }; ORIG.set(n, o); }
+    const d = n.dataset;
+    if (d.i18nHtml) n.innerHTML = pick(d.i18nHtml, o.html);
+    else if (d.i18n) n.textContent = pick(d.i18n, o.text);
+    if (d.i18nTitle) n.setAttribute('title', pick(d.i18nTitle, o.title));
+    if (d.i18nAria) n.setAttribute('aria-label', pick(d.i18nAria, o.aria));
+  });
+  document.querySelectorAll('#langGrp [data-lang]').forEach(b => { const on = b.dataset.lang === LANG; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+}
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
 /* =====================================================================
@@ -474,7 +840,7 @@ function brakeEnvelope(massT, grade, mu) {
   const m = massT * 1000, th = Math.atan(grade);
   const aCap = P.Fbrake / m, aAdh = mu * G * Math.cos(th);
   const aBrake = Math.min(aCap, aAdh);
-  return { aEff: aBrake + G * Math.sin(th), limit: aCap < aAdh ? 'capacité frein' : 'adhérence', aCap, aAdh, gsin: G * Math.sin(th) };
+  return { aEff: aBrake + G * Math.sin(th), limit: aCap < aAdh ? 'lim.cap' : 'lim.adh', aCap, aAdh, gsin: G * Math.sin(th) };
 }
 function stopDistance(v, tLat, aEff, margin) { return v * tLat + v * v / (2 * Math.max(aEff, 0.15)) + margin; }
 
@@ -492,7 +858,7 @@ function canUpdate(T) {
   T.m.busLoad = T.can.babbling ? 100 : Math.min(100, (U + safetyU) * 100);
   if (T.m.brakeLat > P.canWatchdog && !T.ecuEmergency) {
     T.ecuEmergency = true;
-    logEv(T.id, 3, 'DM1_BRAKE_CMD_TIMEOUT', `Watchdog ECU frein : plus de consigne valide depuis 100 ms (latence ${fmt(T.m.brakeLat * 1000, 0)} ms) → freins de sécurité`);
+    logEv(T.id, 3, 'DM1_BRAKE_CMD_TIMEOUT', M('log.watchdog', { ms: N(T.m.brakeLat * 1000) }));
   }
 }
 function k95(p) { return p <= 0 ? 0 : Math.max(0, Math.ceil(Math.log(0.05) / Math.log(p)) - 1); }
@@ -511,11 +877,11 @@ function ddsPublish(T) {
   } else if (changed) {
     if (T.dds.mode === 'EVENT_BE') {
       if (Math.random() >= p) T.mc.queue.push({ at: now + 0.002, sent: now, ...msg });
-      else logEv(T.id, LEVEL[msg.mode] >= 2 ? 2 : 1, 'DDS_SAMPLE_LOST', `Échantillon BEST_EFFORT perdu : ordre ${msg.mode} jamais reçu par le contrôleur`);
+      else logEv(T.id, LEVEL[msg.mode] >= 2 ? 2 : 1, 'DDS_SAMPLE_LOST', M('log.beLost', { mode: msg.mode }));
     } else {
       let k = 0; while (Math.random() < p && k < 20) k++;
       T.mc.queue.push({ at: now + 0.002 + k * P.ddsRetx, sent: now, ...msg });
-      if (k > 1) logEv(T.id, 1, 'DDS_RELIABLE_RETX', `RELIABLE : ${k} retransmissions, ordre ${msg.mode} livré avec ${fmt((0.002 + k * P.ddsRetx) * 1000, 0)} ms de retard`);
+      if (k > 1) logEv(T.id, 1, 'DDS_RELIABLE_RETX', M('log.retx', { k, mode: msg.mode, ms: N((0.002 + k * P.ddsRetx) * 1000) }));
     }
   }
   T.mc.lastSent = msg;
@@ -533,8 +899,8 @@ function mcReceive(T) {
   const age = now - T.mc.rxTime, codes = [];
   let local = 0;
   if (T.dds.mode === 'PERIODIC') {
-    if (age > P.ddsLiveliness) { local = 2; codes.push({ lvl: 2, code: 'DDS_LIVELINESS_LOST', txt: `Contrôleur : aucun état sécurité depuis ${fmt(age * 1000, 0)} ms → arrêt de repli` }); }
-    else if (age > P.ddsDeadline) { local = 1; codes.push({ lvl: 1, code: 'DDS_DEADLINE_MISSED', txt: `Contrôleur : échéance 40 ms dépassée (${fmt(age * 1000, 0)} ms) → vitesse réduite` }); }
+    if (age > P.ddsLiveliness) { local = 2; codes.push({ lvl: 2, code: 'DDS_LIVELINESS_LOST', msg: M('mc.liveliness', { ms: N(age * 1000) }) }); }
+    else if (age > P.ddsDeadline) { local = 1; codes.push({ lvl: 1, code: 'DDS_DEADLINE_MISSED', msg: M('mc.deadline', { ms: N(age * 1000) }) }); }
   }
   if (local > 0) { T.mc.localLvl = Math.max(T.mc.localLvl, local); T.mc.localUntil = now + 0.5; }
   else if (now > T.mc.localUntil) T.mc.localLvl = 0;
@@ -546,7 +912,7 @@ function mcReceive(T) {
   // Vue omnisciente : le simulateur sait que l'ordre n'est pas appliqué, le camion non.
   if (LEVEL[T.state] > lv) {
     if (!T.mismatchSince) T.mismatchSince = now;
-    if (now - T.mismatchSince > 0.3 && !T.mismatchLogged) { T.mismatchLogged = true; logEv(T.id, 3, 'ORDRE_NON_APPLIQUÉ', `Superviseur en ${T.state}, contrôleur toujours en ${NAMES[lv]} (vue du simulateur)`); }
+    if (now - T.mismatchSince > 0.3 && !T.mismatchLogged) { T.mismatchLogged = true; logEv(T.id, 3, 'ORDER_NOT_APPLIED', M('log.mismatch', { sup: T.state, mc: NAMES[lv] })); }
   } else { T.mismatchSince = 0; T.mismatchLogged = false; }
 }
 
@@ -659,17 +1025,17 @@ function fmsTick() {
         const etaT = r.dIn / Math.max(H0.v, 3);
         if (lvEta < etaT + 6 && planStopDist(H0) < r.dIn - 4) {
           I.holder = null;
-          logEv('FMS', 1, 'TOKEN_REVOKED', `Jeton ${I.id} retiré à ${H0.id} : ${need[0].l.id} (équipé) en approche, ETA ${fmt(lvEta, 0)} s`);
+          logEv('FMS', 1, 'TOKEN_REVOKED', M('fms.revoked', { i: I.id, t: H0.id, lv: need[0].l.id, eta: N(lvEta) }));
         }
       }
     }
-    if (I.holder && I.holder.kind === 'LV' && !need.length) { logEv('FMS', 0, 'TOKEN_RELEASED', `${I.id} libérée par ${I.holder.id}`); I.holder = null; }
+    if (I.holder && I.holder.kind === 'LV' && !need.length) { logEv('FMS', 0, 'TOKEN_RELEASED', M('fms.released', { i: I.id, lv: I.holder.id })); I.holder = null; }
     if (!I.holder) {
       const cands = sim.trucks.map(T => ({ T, r: relI(T, I) })).filter(c => c.r.inside || c.r.dIn < P.tokenReq).sort((a, b) => a.r.dIn - b.r.dIn);
       const c = cands[0];
       const etaC = c ? c.r.dIn / Math.max(c.T.v, 3) : Infinity;
       if (c && (c.r.inside || !need.length || etaC + 6 < lvEta)) I.holder = c.T;
-      else if (need.length) { I.holder = need[0].l; logEv('FMS', 0, 'TOKEN_GRANTED', `${I.id} réservée pour ${need[0].l.id}`); }
+      else if (need.length) { I.holder = need[0].l; logEv('FMS', 0, 'TOKEN_GRANTED', M('fms.granted', { i: I.id, lv: need[0].l.id })); }
     }
   }
   for (const T of sim.trucks) {
@@ -688,8 +1054,8 @@ function opsUpdate(T) {
     T.taskT -= DT;
     if (T.task === 'LOADING') T.massAuto = P.mEmpty + (P.mLoaded - P.mEmpty) * Math.min(1, Math.floor((1 - T.taskT / P.loadTime) * 4 + 1e-9) / 4);
     if (T.taskT <= 0) {
-      if (T.task === 'LOADING') { T.task = 'HAUL_LOADED'; T.massAuto = P.mLoaded; logEv(T.id, 0, 'CYCLE', 'Chargé (4 passes de godet) → départ vers le concasseur'); }
-      else { T.task = 'HAUL_EMPTY'; T.massAuto = P.mEmpty; sim.cycles++; sim.tons += 240; logEv(T.id, 0, 'CYCLE', 'Benne vidée → retour à la pelle'); }
+      if (T.task === 'LOADING') { T.task = 'HAUL_LOADED'; T.massAuto = P.mLoaded; logEv(T.id, 0, 'CYCLE', M('cycle.loaded')); }
+      else { T.task = 'HAUL_EMPTY'; T.massAuto = P.mEmpty; sim.cycles++; sim.tons += 240; logEv(T.id, 0, 'CYCLE', M('cycle.dumped')); }
     }
   } else {
     const target = T.task === 'HAUL_LOADED' ? S_CRUSH : S_SHOVEL;
@@ -705,18 +1071,18 @@ function opsUpdate(T) {
 /* Planificateur : vitesse admissible pour s'arrêter avant chaque contrainte. */
 function planSpeed(T) {
   const aPlan = Math.max(0.3, 0.4 * T.m.aEff);
-  let v = Infinity, tag = 'Suivi de mission';
+  let v = Infinity, tag = M('plan.mission');
   for (let d = 0; d <= 150; d += 5) v = Math.min(v, Math.sqrt(vLimitAt(T.s + P.len / 2 + d) ** 2 + 2 * aPlan * d));
   const consider = (d, why) => { const vv = Math.sqrt(2 * aPlan * Math.max(0, d - 2.5)); if (vv < v - 0.05) { v = vv; tag = why; } };
   const authD = T.auth.sEnd - T.s;
-  let why = 'Fin d\'autorisation FMS';
-  for (const I of INTER) { const r = relI(T, I); if (!r.inside && Math.abs(r.dIn - 4 - authD) < 2 && I.holder !== T) why = `Attente jeton ${I.id}` + (I.holder ? ` (détenu par ${I.holder.id})` : ''); }
+  let why = M('plan.authEnd');
+  for (const I of INTER) { const r = relI(T, I); if (!r.inside && Math.abs(r.dIn - 4 - authD) < 2 && I.holder !== T) why = I.holder ? M('plan.tokenHeld', { i: I.id, h: I.holder.id }) : M('plan.token', { i: I.id }); }
   consider(authD, why);
-  if (T.task === 'LOADING' || T.task === 'DUMPING') { v = 0; tag = T.task === 'LOADING' ? `Chargement sous la pelle (${fmt(T.taskT, 0)} s)` : `Déversement (${fmt(T.taskT, 0)} s)`; }
-  else consider(T.taskDist + 2, T.task === 'HAUL_LOADED' ? 'Approche concasseur' : 'Approche pelle');
+  if (T.task === 'LOADING' || T.task === 'DUMPING') { v = 0; tag = M(T.task === 'LOADING' ? 'plan.loading' : 'plan.dumping', { s: N(T.taskT) }); }
+  else consider(T.taskDist + 2, M(T.task === 'HAUL_LOADED' ? 'plan.crusher' : 'plan.shovel'));
   let gap = Infinity, leader = null;
   for (const o of sim.trucks) if (o !== T) { const g = modL(o.s - T.s) - P.len; if (g < gap) { gap = g; leader = o; } }
-  if (leader) consider(gap - 20 - T.v * 0.5, `Suivi de ${leader.id}`);
+  if (leader) consider(gap - 20 - T.v * 0.5, M('plan.follow', { id: leader.id }));
   T.planTag = tag;
   return v;
 }
@@ -726,25 +1092,25 @@ function supervise(T) {
   const now = sim.t, codes = [];
   let sev = 0, kind = 'AUTH';
   const KORD = { AUTH: 0, COMFORT: 1, MAX: 2 };
-  const add = (lvl, code, txt, k) => { codes.push({ lvl, code, txt }); if (lvl > sev) sev = lvl; if (lvl === 2 && k && KORD[k] > KORD[kind]) kind = k; };
+  const add = (lvl, code, msg, k) => { codes.push({ lvl, code, msg }); if (lvl > sev) sev = lvl; if (lvl === 2 && k && KORD[k] > KORD[kind]) kind = k; };
   const m = T.m;
-  if (!m.lidarOk && !m.radarOk) add(3, 'DM1_PERCEPTION_LOST', 'LiDAR et radar indisponibles : plus aucune perception');
-  else if (!m.lidarOk) add(1, T.faults.lidar ? 'DM1_LIDAR_FAULT' : 'DM1_LIDAR_DUST', T.faults.lidar ? 'Panne LiDAR : fusion radar + IMU, 15 km/h' : 'LiDAR aveuglé par la poussière : fusion radar + IMU, 15 km/h');
-  if (T.faults.radar && m.lidarOk) add(1, 'DM1_RADAR_FAULT', 'Radar hors service : redondance perdue, 15 km/h');
+  if (!m.lidarOk && !m.radarOk) add(3, 'DM1_PERCEPTION_LOST', M('sup.percLost'));
+  else if (!m.lidarOk) add(1, T.faults.lidar ? 'DM1_LIDAR_FAULT' : 'DM1_LIDAR_DUST', M(T.faults.lidar ? 'sup.lidarFault' : 'sup.lidarDust'));
+  if (T.faults.radar && m.lidarOk) add(1, 'DM1_RADAR_FAULT', M('sup.radarFault'));
   if (T.faults.gnss) {
     const d = now - T.gnssLostAt;
-    if (d > P.gnssDR) add(2, 'DM1_GNSS_DR_LIMIT', `Navigation à l'estime depuis ${fmt(d, 0)} s : dérive trop grande, arrêt`, 'COMFORT');
-    else add(1, 'DM1_GNSS_RTK_LOST', `RTK perdu : navigation à l'estime IMU + odométrie (${fmt(P.gnssDR - d, 0)} s restantes)`);
+    if (d > P.gnssDR) add(2, 'DM1_GNSS_DR_LIMIT', M('sup.gnssDr', { s: N(d) }), 'COMFORT');
+    else add(1, 'DM1_GNSS_RTK_LOST', M('sup.gnssLost', { s: N(P.gnssDR - d) }));
   }
-  if (now - T.auth.lastRx > P.fmsLease) add(2, 'FMS_LINK_LOST', `Lien FMS perdu : arrêt dans l'autorisation restante (${fmt(Math.max(0, T.auth.sEnd - T.s), 0)} m)`, 'AUTH');
-  if (T.ecuEmergency) add(3, 'DM1_BRAKE_CMD_TIMEOUT', 'ECU frein en repli : consigne CAN absente > 100 ms');
-  else if (m.brakeLat > P.canDeadline) add(2, 'CAN_BRAKE_DEADLINE', `Latence consigne frein ${fmt(m.brakeLat * 1000, 0)} ms > échéance 40 ms`, 'COMFORT');
-  if (m.busLoad > 40) add(0, 'CAN_BUSLOAD_HIGH', `Charge bus ${fmt(m.busLoad, 0)} % > budget de conception 40 %`);
-  if (m.dObs < m.dStop) add(2, 'SIL_BUBBLE_INTRUSION', `${m.obsId} ${m.obsPred ? 'va entrer' : 'est'} dans la bulle d'arrêt (${fmt(m.dObs, 0)} m < ${fmt(m.dStop, 0)} m)`, 'MAX');
-  else if (m.dObs < m.dCaution) add(1, 'CAUTION_ZONE', `${m.obsId} ${m.obsPred ? 'trajectoire en conflit' : 'en zone de précaution'} (${fmt(m.dObs, 0)} m < ${fmt(m.dCaution, 0)} m)`);
-  if (T.faults.estop) add(3, 'REMOTE_ESTOP', 'Arrêt d\'urgence distant déclenché par l\'opérateur');
-  if (T.collided) add(3, 'COLLISION', 'Contact détecté');
-  if (m.runaway) add(2, 'BRAKE_MARGIN_LOW', 'Décélération disponible quasi nulle sur cette pente', 'MAX');
+  if (now - T.auth.lastRx > P.fmsLease) add(2, 'FMS_LINK_LOST', M('sup.fmsLost', { m: N(Math.max(0, T.auth.sEnd - T.s)) }), 'AUTH');
+  if (T.ecuEmergency) add(3, 'DM1_BRAKE_CMD_TIMEOUT', M('sup.ecu'));
+  else if (m.brakeLat > P.canDeadline) add(2, 'CAN_BRAKE_DEADLINE', M('sup.canDeadline', { ms: N(m.brakeLat * 1000) }), 'COMFORT');
+  if (m.busLoad > 40) add(0, 'CAN_BUSLOAD_HIGH', M('sup.busLoad', { p: N(m.busLoad) }));
+  if (m.dObs < m.dStop) add(2, 'SIL_BUBBLE_INTRUSION', M(m.obsPred ? 'sup.intrusionPred' : 'sup.intrusion', { id: m.obsId, d: N(m.dObs), s: N(m.dStop) }), 'MAX');
+  else if (m.dObs < m.dCaution) add(1, 'CAUTION_ZONE', M(m.obsPred ? 'sup.cautionPred' : 'sup.caution', { id: m.obsId, d: N(m.dObs), c: N(m.dCaution) }));
+  if (T.faults.estop) add(3, 'REMOTE_ESTOP', M('sup.estop'));
+  if (T.collided) add(3, 'COLLISION', M('sup.contact'));
+  if (m.runaway) add(2, 'BRAKE_MARGIN_LOW', M('sup.runaway'), 'MAX');
   if (sev >= 3 && !T.latched) T.latched = true;
   let target = T.latched ? 3 : sev;
   const cur = LEVEL[T.state];
@@ -755,7 +1121,7 @@ function supervise(T) {
   if (target === 2 && sev === 2) T.stopKind = kind;
   else if (target === 3) T.stopKind = 'MAX';
   else if (target < 2) T.stopKind = 'AUTH';
-  if (prev !== T.state) logEv(T.id, target, 'STATE', `${prev} → ${T.state}${codes.filter(c => c.lvl === target).map(c => ' · ' + c.code).join('')}`, 'st');
+  if (prev !== T.state) logEv(T.id, target, 'STATE', RAW(`${prev} → ${T.state}${codes.filter(c => c.lvl === target).map(c => ' · ' + c.code).join('')}`), 'st');
   T.reasons = codes;
   syncCodes(T, codes.concat(T.mc.codes || []));
 }
@@ -823,22 +1189,23 @@ function resetSim() {
   for (const T of sim.trucks) T.pose = poseOf(T);
   for (const I of INTER) I.holder = null;
   ENV.dust = false; ENV.fms = true;
-  logEv('SIM', 0, 'INFO', 'Simulation démarrée : 3 tombereaux autonomes, 1 pick-up piloté par vous', 'info');
+  logEv('SIM', 0, 'INFO', M('log.started'), 'info');
   syncControls();
 }
-function logEv(id, lvl, code, txt, cls) {
+/* msg : message {k, p} traduit à l'affichage (voir I18N), ou RAW(texte). */
+function logEv(id, lvl, code, msg, cls) {
   if (!sim) return;
   const key = id + code, last = sim.lastLog.get(key);
   if (code !== 'STATE' && code !== 'COLLISION' && last !== undefined && sim.t - last < 3) return;
   sim.lastLog.set(key, sim.t);
-  sim.log.push({ t: sim.t, id, lvl, code, txt, cls: cls || 'l' + lvl });
+  sim.log.push({ t: sim.t, id, lvl, code, msg, cls: cls || 'l' + lvl });
   if (sim.log.length > 250) sim.log.shift();
   logDirty = true;
 }
 function syncCodes(T, codes) {
   const now = new Map(codes.map(c => [c.code, c]));
-  for (const [k, c] of now) if (!T.active.has(k)) logEv(T.id, c.lvl, k, c.txt);
-  for (const [k] of T.active) if (!now.has(k)) { const lk = T.id + k + ':off', last = sim.lastLog.get(lk); if (last === undefined || sim.t - last > 3) { sim.lastLog.set(lk, sim.t); sim.log.push({ t: sim.t, id: T.id, lvl: 0, code: k, txt: 'résolu', cls: 'off' }); logDirty = true; } }
+  for (const [k, c] of now) if (!T.active.has(k)) logEv(T.id, c.lvl, k, c.msg);
+  for (const [k] of T.active) if (!now.has(k)) { const lk = T.id + k + ':off', last = sim.lastLog.get(lk); if (last === undefined || sim.t - last > 3) { sim.lastLog.set(lk, sim.t); sim.log.push({ t: sim.t, id: T.id, lvl: 0, code: k, msg: M('log.resolved'), cls: 'off' }); logDirty = true; } }
   T.active = now;
 }
 function updateUserLV(L) {
@@ -865,8 +1232,8 @@ function collisions() {
       sim.contacts.add(key); sim.collisions++;
       sim.flashes.push({ x: (A.pose.x + B.pose.x) / 2, y: (A.pose.y + B.pose.y) / 2, t: sim.t });
       const T = A.kind === 'AHT' ? A : B, O = T === A ? B : A;
-      const how = T.v < 0.3 ? `tombereau déjà à l'arrêt : c'est ${O.id} qui l'a heurté` : `tombereau à ${fmt(T.v * 3.6, 0)} km/h`;
-      logEv(T.id, 3, 'COLLISION', `Contact avec ${O.id} (${how})`);
+      const how = T.v < 0.3 ? M('coll.stopped', { o: O.id }) : M('coll.moving', { v: N(T.v * 3.6) });
+      logEv(T.id, 3, 'COLLISION', M('coll.contact', { o: O.id, how }));
       for (const V of [A, B]) { if (V.kind === 'AHT') V.collided = true; else V.v = 0; }
     } else if (!hit) sim.contacts.delete(key);
   }
@@ -912,12 +1279,12 @@ function scenario(code) {
   clearAll();
   if (code === 'E') {
     const T = sim.trucks[selected]; T.can.load = 75; T.can.misprio = true;
-    toast(`Scénario E sur ${T.id} : poussez le curseur CAN vers 90 % pour déclencher le watchdog frein.`);
+    toast(t('toast.scenE', { id: T.id }));
     syncControls(); return;
   }
   if (code === 'C') ENV.dust = true;
   sim.pending = code;
-  if (!tryLaunch()) toast('Scénario armé : le pick-up partira dès qu\'un tombereau chargé quittera la pelle.');
+  if (!tryLaunch()) toast(t('toast.armed'));
   syncControls();
 }
 function tryLaunch() {
@@ -939,7 +1306,7 @@ function tryLaunch() {
   if (code === 'D') { T.dds.mode = 'EVENT_BE'; T.dds.loss = 0.5; }
   const L = makeLV('VL-' + (10 + Math.floor(Math.random() * 89)), I.x + 3, I.y - vLV * tArr, Math.PI / 2, { ai: true, v2x: equipped, v: vLV, color: '#f08a3c' });
   sim.lvs.push(L);
-  logEv('SIM', 0, 'SCENARIO', `Scénario ${code} : ${L.id} ${equipped ? 'équipé V2X' : 'non équipé'} coupe I1 à 30 km/h face à ${T.id}`, 'info');
+  logEv('SIM', 0, 'SCENARIO', M('log.scenario', { c: code, lv: L.id, eq: M(equipped ? 'sc.eq' : 'sc.uneq'), t: T.id }), 'info');
   syncControls();
   return true;
 }
@@ -1039,7 +1406,7 @@ function drawTruck(T) {
   ctx.restore();
   if (sel) { ctx.strokeStyle = '#ffffffaa'; ctx.setLineDash([3, 3]); ctx.lineWidth = 0.8; ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
   text(`${T.id} · ${fmt(T.v * 3.6, 0)} km/h`, p.x, p.y - 17, 11, '#f2efe8');
-  if (lv > 0 || T.mismatchLogged) text(T.mismatchLogged ? 'ORDRE NON APPLIQUÉ' : T.state.replace('_', ' '), p.x, p.y + 17, 10, T.mismatchLogged ? '#ff3b6b' : STATE_COL[lv]);
+  if (lv > 0 || T.mismatchLogged) text(T.mismatchLogged ? t('map.notApplied') : T.state.replace('_', ' '), p.x, p.y + 17, 10, T.mismatchLogged ? '#ff3b6b' : STATE_COL[lv]);
 }
 function drawLV(L) {
   ctx.save(); ctx.translate(L.x, L.y); ctx.rotate(L.h); ctx.scale(1.5, 1.5);
@@ -1047,7 +1414,7 @@ function drawLV(L) {
   ctx.restore();
   if (L.v2x) { const r = 6 + (sim.t * 6 % 6); ctx.strokeStyle = `rgba(184,140,245,${1 - (r - 6) / 6})`; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(L.x, L.y, r, 0, 7); ctx.stroke(); }
   if (L.user && document.activeElement === cv) { ctx.strokeStyle = '#d9a441'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(L.x, L.y, 9, 0, 7); ctx.stroke(); }
-  text(L.user ? `VOUS${L.v2x ? ' · V2X' : ' · sans balise'}` : `${L.id}${L.v2x ? ' · V2X' : ' · sans balise'}`, L.x, L.y - 9, 10, L.user ? '#ffffff' : '#f6b27e');
+  text(`${L.user ? t('map.you') : vid(L.id)} · ${L.v2x ? 'V2X' : t('map.noBeacon')}`, L.x, L.y - 9, 10, L.user ? '#ffffff' : '#f6b27e');
 }
 function cone(T, range, half, col) {
   const p = T.pose, fx = p.x + Math.cos(p.h) * P.len / 2, fy = p.y + Math.sin(p.h) * P.len / 2;
@@ -1057,22 +1424,22 @@ function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   drawTerrain();
   ctx.setTransform(K, 0, 0, K, 0, 0);
-  text('PELLE · chargement', 150, 12, 11, '#e9d3a0');
-  text('CONCASSEUR · déversement', 230, 384, 11, '#c9d1da');
-  text(`Rampe −${Math.round(ENV.ramp * 100)} % · descente chargé`, 548, 200, 10.5, '#d8c7a8', 'right');
-  text(`Rampe +${Math.round(ENV.ramp * 100)} % · montée à vide`, 92, 200, 10.5, '#d8c7a8', 'left');
-  text('Piste de service', 338, 160, 10, '#a99c88', 'left', 500);
-  text('Niveau haut', 470, 112, 10, '#ffffff55'); text('Niveau bas', 470, 300, 10, '#ffffff55');
+  text(t('map.shovel'), 150, 12, 11, '#e9d3a0');
+  text(t('map.crusher'), 230, 384, 11, '#c9d1da');
+  text(t('map.rampDown', { p: Math.round(ENV.ramp * 100) }), 548, 200, 10.5, '#d8c7a8', 'right');
+  text(t('map.rampUp', { p: Math.round(ENV.ramp * 100) }), 92, 200, 10.5, '#d8c7a8', 'left');
+  text(t('map.service'), 338, 160, 10, '#a99c88', 'left', 500);
+  text(t('map.upper'), 470, 112, 10, '#ffffff55'); text(t('map.lower'), 470, 300, 10, '#ffffff55');
   // intersections
   for (const I of INTER) {
     const hcol = I.holder ? (I.holder.kind === 'AHT' ? I.holder.color : '#b88cf5') : null;
     if (hcol) { ctx.fillStyle = hcol + '40'; ctx.fillRect(I.x - 16, I.y - 16, 32, 32); }
     ctx.strokeStyle = hcol || '#ffffff55'; ctx.lineWidth = 1; ctx.setLineDash(hcol ? [] : [3, 3]); ctx.strokeRect(I.x - 16, I.y - 16, 32, 32); ctx.setLineDash([]);
-    text(`${I.id}${I.holder ? ' · ' + I.holder.id : ' · libre'}`, I.x + 19, I.y + (I.y < 200 ? 24 : -24), 10, hcol || '#cfc7b8', 'left');
+    text(`${I.id} · ${I.holder ? vid(I.holder.id) : t('map.free')}`, I.x + 19, I.y + (I.y < 200 ? 24 : -24), 10, hcol || '#cfc7b8', 'left');
   }
   if (ENV.dust) {
     for (let i = 0; i < 9; i++) { const a = i * 0.7 + sim.t * 0.05, r = DUST.r * (0.35 + (i % 3) * 0.2); const x = DUST.x + Math.cos(a) * r * 0.6, y = DUST.y + Math.sin(a * 1.3) * r * 0.4; const gr = ctx.createRadialGradient(x, y, 0, x, y, 40); gr.addColorStop(0, 'rgba(190,160,120,.35)'); gr.addColorStop(1, 'rgba(190,160,120,0)'); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, 40, 0, 7); ctx.fill(); }
-    text('Nuage de poussière', DUST.x, DUST.y - 48, 10.5, '#e8d6b8');
+    text(t('map.dust'), DUST.x, DUST.y - 48, 10.5, '#e8d6b8');
   }
   for (const T of sim.trucks) {
     const f = T.s + P.len / 2;
@@ -1098,9 +1465,9 @@ function render() {
   for (const L of sim.lvs) drawLV(L);
   for (const T of sim.trucks) drawTruck(T);
   sim.flashes = sim.flashes.filter(f => sim.t - f.t < 3);
-  for (const f of sim.flashes) { const k = (sim.t - f.t) / 3; ctx.strokeStyle = `rgba(255,59,107,${1 - k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(f.x, f.y, 6 + k * 30, 0, 7); ctx.stroke(); text('COLLISION', f.x, f.y - 12 - k * 20, 12, `rgba(255,59,107,${1 - k})`, 'center', 700); }
-  if (ENV.paused) text('PAUSE', W / 2, 24, 16, '#d9a441', 'center', 700);
-  if (!ENV.fms) text('RÉSEAU MINE COUPÉ · plus de renouvellement des autorisations', W / 2, 44, 12, '#e5574b', 'center', 700);
+  for (const f of sim.flashes) { const k = (sim.t - f.t) / 3; ctx.strokeStyle = `rgba(255,59,107,${1 - k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(f.x, f.y, 6 + k * 30, 0, 7); ctx.stroke(); text(t('map.collision'), f.x, f.y - 12 - k * 20, 12, `rgba(255,59,107,${1 - k})`, 'center', 700); }
+  if (ENV.paused) text(t('map.paused'), W / 2, 24, 16, '#d9a441', 'center', 700);
+  if (!ENV.fms) text(t('map.netCut'), W / 2, 44, 12, '#e5574b', 'center', 700);
 }
 
 /* ---------- Oscilloscope ---------- */
@@ -1118,20 +1485,20 @@ function drawScope() {
   g.fillText('0%', 4, Y1(0) - 4);
   g.beginPath(); hs.forEach((p, i) => { const x = X(p.t), y = Y1(clamp(p.load, 0, 100)); i ? g.lineTo(x, y) : g.moveTo(x, y); });
   g.strokeStyle = '#d9a441'; g.lineWidth = 1.5; g.stroke();
-  g.fillStyle = '#d9a441'; g.fillText('Charge bus CAN', padL + 4, top1 + 8);
+  g.fillStyle = '#d9a441'; g.fillText(t('scope.load'), padL + 4, top1 + 8);
   // panneau latences (0–150 ms)
   g.strokeStyle = '#2b2f35'; g.lineWidth = 1; g.strokeRect(padL, top2, W2 - padL - 4, h2);
   const Y2 = v => top2 + h2 - clamp(v, 0, 150) / 150 * h2;
   g.fillStyle = '#9a9ea6'; g.fillText('150', 6, Y2(150) + 4); g.fillText('0 ms', 2, Y2(0) - 4);
   g.strokeStyle = '#e5574b'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(padL, Y2(40)); g.lineTo(W2 - 4, Y2(40)); g.stroke(); g.setLineDash([]); g.fillStyle = '#e5574b'; g.fillText('40', 12, Y2(40));
-  const series = [['diag', '#8a8f98', 'diag. prio basse'], ['dds', '#b88cf5', 'DDS sécurité'], ['brake', '#5fd38d', 'consigne frein']];
+  const series = [['diag', '#8a8f98', t('scope.diag')], ['dds', '#b88cf5', t('scope.dds')], ['brake', '#5fd38d', t('scope.brake')]];
   let lx = padL + 4;
   series.forEach(([k, col, lbl]) => {
     g.beginPath(); hs.forEach((p, i) => { const x = X(p.t), y = Y2(isFinite(p[k]) ? p[k] : 999); i ? g.lineTo(x, y) : g.moveTo(x, y); });
     g.strokeStyle = col; g.lineWidth = k === 'brake' ? 2 : 1.2; g.stroke();
     g.fillStyle = col; g.fillText(lbl, lx, top2 + 8); lx += g.measureText(lbl).width + 14;
   });
-  g.fillStyle = '#9a9ea6'; g.fillText(`${T.id} · axe 15 s · valeurs hors échelle écrêtées`, padL, H2 - 5);
+  g.fillStyle = '#9a9ea6'; g.fillText(t('scope.foot', { id: T.id }), padL, H2 - 5);
 }
 
 /* ---------- HUD ---------- */
@@ -1141,58 +1508,58 @@ function hud() {
   const T = sim.trucks[selected], m = T.m, lv = LEVEL[T.state];
   $('kTime').textContent = `${Math.floor(sim.t / 60)}:${String(Math.floor(sim.t % 60)).padStart(2, '0')}`;
   $('kCol').textContent = sim.collisions; $('kCol').style.color = sim.collisions ? 'var(--emer)' : '';
-  $('kCycles').textContent = sim.cycles; $('kTons').textContent = sim.tons.toLocaleString('fr-FR');
+  $('kCycles').textContent = sim.cycles; $('kTons').textContent = sim.tons.toLocaleString(LOCALE[LANG]);
   const tabsHtml = sim.trucks.map((t, i) => `<button data-sel="${i}" class="${i === selected ? 'on' : ''}" style="border-left:4px solid ${t.color}">${t.id} <span style="color:${STATE_COL[LEVEL[t.state]]}">●</span></button>`).join('');
   if (tabsHtml !== lastTabs) { $('tabs').innerHTML = tabsHtml; lastTabs = tabsHtml; }
   const pill = $('statePill'); pill.textContent = T.state; pill.className = 'pill s' + lv;
-  $('stateSub').textContent = `${T.planTag}${T.latched ? ' · VERROUILLÉ' : ''}`;
+  $('stateSub').textContent = `${rp(T.planTag)}${T.latched ? t('hud.latched') : ''}`;
   const al = LEVEL[T.mc.applied];
-  $('appliedLine').innerHTML = `Appliqué par le contrôleur : <b style="color:${STATE_COL[al]}">${T.mc.applied}</b>${T.mc.appliedKind && al === 2 ? ` (${{ MAX: 'freinage max. modulé', COMFORT: 'arrêt confortable', AUTH: 'fin d\'autorisation' }[T.mc.appliedKind]})` : ''}${al < lv ? ' <span class="mismatch">· ordre non reçu</span>' : ''}`;
-  $('reasons').innerHTML = T.reasons.length ? T.reasons.map(r => `<li class="l${r.lvl}"><span class="num">${r.code}</span> · ${r.txt}</li>`).join('') : '<li class="l0">Aucune alerte : capteurs OK, liens OK, bulles libres</li>';
+  $('appliedLine').innerHTML = `${t('hud.applied')} <b style="color:${STATE_COL[al]}">${T.mc.applied}</b>${T.mc.appliedKind && al === 2 ? ` (${t('hud.k' + T.mc.appliedKind)})` : ''}${al < lv ? ` <span class="mismatch">${t('hud.notReceived')}</span>` : ''}`;
+  $('reasons').innerHTML = T.reasons.length ? T.reasons.map(r => `<li class="l${r.lvl}"><span class="num">${codeName(r.code)}</span> · ${rp(r.msg)}</li>`).join('') : `<li class="l0">${t('hud.noAlert')}</li>`;
   const v = T.v, env = m.env || brakeEnvelope(T.mass, 0, ENV.mu);
   $('formula').innerHTML =
     `a_eff = min(F/m, μ·g·cosθ) − g·|sinθ|<sub>desc</sub><br>` +
-    `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = min(<span class="hl">${fmt(env.aCap, 2)}</span>, <span class="hl">${fmt(env.aAdh, 2)}</span>) ${env.gsin < 0 ? '− ' + fmt(-env.gsin, 2) : '+ ' + fmt(env.gsin, 2)} = <span class="hl">${fmt(m.aEff, 2)} m/s²</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#9a9ea6">limite : ${env.limit}</span><br>` +
-    `d_stop = v·t_lat + v²/(2·a_eff) + marge<br>` +
+    `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = min(<span class="hl">${fmt(env.aCap, 2)}</span>, <span class="hl">${fmt(env.aAdh, 2)}</span>) ${env.gsin < 0 ? '− ' + fmt(-env.gsin, 2) : '+ ' + fmt(env.gsin, 2)} = <span class="hl">${fmt(m.aEff, 2)} m/s²</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#9a9ea6">${t('hud.limit', { l: M(env.limit) })}</span><br>` +
+    `d_stop = v·t_lat + v²/(2·a_eff) + ${t('hud.margin')}<br>` +
     `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = ${fmt(v * m.tLat, 1)} + ${fmt(v * v / (2 * m.aEff), 1)} + 5 = <span class="hl">${fmt(m.dStop, 1)} m</span>`;
   $('metrics').innerHTML = [
-    ['Vitesse', `${fmt(v * 3.6, 1)} km/h`], ['Masse', `${fmt(T.mass, 0)} t`],
-    ['t_lat', `${fmt(m.tLat * 1000, 0)} ms`], ['Précaution', `${fmt(m.dCaution, 1)} m`],
-    ['Obstacle', isFinite(m.dObs) ? `${m.obsId} à ${fmt(m.dObs, 0)} m${m.obsPred ? ' (prédit)' : ''}` : 'aucun'], ['Autorisation', `${fmt(Math.max(0, T.auth.sEnd - T.s), 0)} m`]
+    [t('met.speed'), `${fmt(v * 3.6, 1)} km/h`], [t('met.mass'), `${fmt(T.mass, 0)} t`],
+    ['t_lat', `${fmt(m.tLat * 1000, 0)} ms`], [t('met.caution'), `${fmt(m.dCaution, 1)} m`],
+    [t('met.obstacle'), isFinite(m.dObs) ? t('met.obsAt', { id: m.obsId, d: N(m.dObs) }) + (m.obsPred ? t('met.pred') : '') : t('met.none')], [t('met.auth'), `${fmt(Math.max(0, T.auth.sEnd - T.s), 0)} m`]
   ].map(([k, val]) => `<div><span>${k}</span><span class="num">${val}</span></div>`).join('');
   const vr = 40 / 3.6, tl = m.tLat, row = mass => [0, -ENV.ramp].map(gr => fmt(stopDistance(vr, tl, Math.max(0.15, brakeEnvelope(mass, gr, ENV.mu).aEff), P.marginSIL), 0) + ' m');
   const e0 = row(P.mEmpty), e1 = row(P.mLoaded);
-  $('cmp').innerHTML = `<tr><th>d_stop à 40 km/h</th><th>À plat</th><th>Descente −${Math.round(ENV.ramp * 100)} %</th></tr><tr><td>À vide, 160 t</td><td class="num">${e0[0]}</td><td class="num">${e0[1]}</td></tr><tr><td>Chargé, 400 t</td><td class="num">${e1[0]}</td><td class="num">${e1[1]}</td></tr>`;
+  $('cmp').innerHTML = `<tr><th>${t('cmp.head')}</th><th>${t('cmp.flat')}</th><th>${t('cmp.down', { p: Math.round(ENV.ramp * 100) })}</th></tr><tr><td>${t('cmp.empty')}</td><td class="num">${e0[0]}</td><td class="num">${e0[1]}</td></tr><tr><td>${t('cmp.loaded')}</td><td class="num">${e1[0]}</td><td class="num">${e1[1]}</td></tr>`;
   const ddsAge = (sim.t - T.mc.rxTime) * 1000;
   $('chips').innerHTML = [
     chip(m.lidarOk, 'LiDAR'), chip(m.radarOk, 'Radar'),
-    chip(!T.faults.gnss, T.faults.gnss ? `GNSS RTK (estime ${fmt(sim.t - T.gnssLostAt, 0)} s)` : 'GNSS RTK', T.faults.gnss ? 'a' : null),
-    chip(true, `V2X · ${T.perceived.filter(p => p.by.includes('V')).length} reçus`),
-    chip(sim.t - T.auth.lastRx < P.fmsLease, `FMS · bail ${fmt(Math.max(0, sim.t - T.auth.lastRx), 1)} s`, sim.t - T.auth.lastRx < 0.8 ? 'g' : sim.t - T.auth.lastRx < P.fmsLease ? 'a' : 'r'),
+    chip(!T.faults.gnss, T.faults.gnss ? t('chip.gnssDr', { s: N(sim.t - T.gnssLostAt) }) : 'GNSS RTK', T.faults.gnss ? 'a' : null),
+    chip(true, t('chip.v2x', { n: T.perceived.filter(p => p.by.includes('V')).length })),
+    chip(sim.t - T.auth.lastRx < P.fmsLease, t('chip.fms', { s: N(Math.max(0, sim.t - T.auth.lastRx), 1) }), sim.t - T.auth.lastRx < 0.8 ? 'g' : sim.t - T.auth.lastRx < P.fmsLease ? 'a' : 'r'),
     chip(true, `CAN ${fmt(m.busLoad, 0)} %`, m.busLoad > 85 ? 'r' : m.busLoad > 40 ? 'a' : 'g'),
-    chip(true, `Frein CAN ${fmt(m.brakeLat * 1000, 1)} ms`, m.brakeLat > P.canDeadline ? 'r' : 'g'),
-    chip(true, T.dds.mode === 'PERIODIC' ? `DDS âge ${fmt(ddsAge, 0)} ms` : `DDS ${T.dds.mode === 'EVENT_BE' ? 'BEST_EFFORT' : 'RELIABLE'} · pas de surveillance`, T.dds.mode === 'PERIODIC' ? (ddsAge > 40 ? 'a' : 'g') : 'a')
+    chip(true, t('chip.brake', { ms: N(m.brakeLat * 1000, 1) }), m.brakeLat > P.canDeadline ? 'r' : 'g'),
+    chip(true, T.dds.mode === 'PERIODIC' ? t('chip.ddsAge', { ms: N(ddsAge) }) : t('chip.ddsNoMon', { m: T.dds.mode === 'EVENT_BE' ? 'BEST_EFFORT' : 'RELIABLE' }), T.dds.mode === 'PERIODIC' ? (ddsAge > 40 ? 'a' : 'g') : 'a')
   ].join('');
   if (logDirty) {
     const el = $('log');
-    el.innerHTML = sim.log.slice(-120).map(e => `<div class="${e.cls}">${fmt(e.t, 1).padStart(6, ' ')}s ${e.id.padEnd(7, ' ')} ${e.code} · ${e.txt}</div>`).join('');
+    el.innerHTML = sim.log.slice(-120).map(e => `<div class="${e.cls}">${fmt(e.t, 1).padStart(6, ' ')}s ${vid(e.id).padEnd(7, ' ')} ${codeName(e.code)} · ${rp(e.msg)}</div>`).join('');
     el.scrollTop = el.scrollHeight; logDirty = false;
   }
   drawScope();
   const U = sim.lvs.find(l => l.user), active = document.activeElement === cv;
   if (U) $('lvSpeed').textContent = `${fmt(U.v * 3.6, 0)} km/h`;
   const v2 = $('cV2x').checked;
-  $('bV2x').textContent = `Balise V2X : ${v2 ? 'oui' : 'non'}`; $('bV2x').classList.toggle('on', v2); $('bV2x').setAttribute('aria-pressed', String(v2));
+  $('bV2x').textContent = t('lv.v2x', { s: M(v2 ? 'lv.yes' : 'lv.no') }); $('bV2x').classList.toggle('on', v2); $('bV2x').setAttribute('aria-pressed', String(v2));
   const kb = $('lvKbd'); kb.classList.toggle('on', active);
-  kb.lastElementChild.textContent = active ? 'Clavier actif · ZQSD ou flèches' : 'Cliquez sur la carte pour conduire';
+  kb.lastElementChild.textContent = t(active ? 'lv.kbdOn' : 'lv.kbdOff');
   syncControls(true);
 }
 function syncControls(light) {
   const T = sim.trucks[selected];
   document.querySelectorAll('[data-fault]').forEach(b => b.classList.toggle('on', !!T.faults[b.dataset.fault]));
   $('bDust').classList.toggle('on', ENV.dust); $('bFms').classList.toggle('on', !ENV.fms);
-  $('bFms').textContent = ENV.fms ? 'Couper le réseau mine' : 'Rétablir le réseau';
-  $('bPause').textContent = ENV.paused ? 'Reprendre' : 'Pause';
+  $('bFms').textContent = t(ENV.fms ? 'btn.netCut' : 'btn.netRestore');
+  $('bPause').textContent = t(ENV.paused ? 'btn.resume' : 'btn.pause');
   document.querySelectorAll('[data-scale]').forEach(b => b.classList.toggle('on', +b.dataset.scale === ENV.scale));
   if (light) return;
   $('rLoad').value = T.can.load; $('vLoad').textContent = T.can.load + ' %';
@@ -1207,22 +1574,31 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add
 document.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const T = sim.trucks[selected];
-  if (b.dataset.sel !== undefined) { selected = +b.dataset.sel; syncControls(); }
+  if (b.dataset.lang) setLang(b.dataset.lang);
+  else if (b.dataset.sel !== undefined) { selected = +b.dataset.sel; syncControls(); }
   else if (b.dataset.scale) ENV.scale = +b.dataset.scale;
   else if (b.dataset.scen) scenario(b.dataset.scen);
-  else if (b.dataset.fault) { const f = b.dataset.fault; T.faults[f] = !T.faults[f]; logEv(T.id, 0, 'INJECT', `Injection : ${f} ${T.faults[f] ? 'activé' : 'retiré'}`, 'info'); }
+  else if (b.dataset.fault) { const f = b.dataset.fault; T.faults[f] = !T.faults[f]; logEv(T.id, 0, 'INJECT', M(T.faults[f] ? 'inj.on' : 'inj.off', { f }), 'info'); }
   else if (b.id === 'bPause') ENV.paused = !ENV.paused;
   else if (b.id === 'bReset') { resetSim(); selected = 0; }
-  else if (b.id === 'bDust') { ENV.dust = !ENV.dust; logEv('SIM', 0, 'INJECT', `Nuage de poussière ${ENV.dust ? 'activé' : 'dissipé'}`, 'info'); }
-  else if (b.id === 'bFms') { ENV.fms = !ENV.fms; logEv('SIM', ENV.fms ? 0 : 2, 'INJECT', ENV.fms ? 'Réseau mine rétabli' : 'Réseau mine coupé (Wi-Fi / LTE)', 'info'); }
+  else if (b.id === 'bDust') { ENV.dust = !ENV.dust; logEv('SIM', 0, 'INJECT', M(ENV.dust ? 'dust.on' : 'dust.off'), 'info'); }
+  else if (b.id === 'bFms') { ENV.fms = !ENV.fms; logEv('SIM', ENV.fms ? 0 : 2, 'INJECT', M(ENV.fms ? 'net.on' : 'net.off'), 'info'); }
   else if (b.id === 'bAck') {
     T.faults.estop = false; T.collided = false; T.ecuEmergency = false; T.latched = false; T.lowerAt = 0;
-    if (T.can.babbling || (T.can.misprio && canResponse(T.can.load / 100) > P.canWatchdog)) toast('La cause est toujours présente : le watchdog va se redéclencher.');
-    logEv(T.id, 0, 'ACK', 'Acquittement opérateur : verrou d\'urgence levé', 'info');
+    if (T.can.babbling || (T.can.misprio && canResponse(T.can.load / 100) > P.canWatchdog)) toast(t('toast.cause'));
+    logEv(T.id, 0, 'ACK', M('log.ack'), 'info');
   }
   syncControls(true);
 });
-$('selMu').addEventListener('change', e => { ENV.mu = +e.target.value; logEv('SIM', 0, 'ENV', `Adhérence piste μ = ${e.target.value}`, 'info'); });
+function setLang(l) {
+  if (!LANGS.includes(l)) return;
+  LANG = l;
+  try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
+  try { const u = new URL(location.href); u.searchParams.set('lang', l); history.replaceState(null, '', u); } catch (e) {}
+  applyStatic();
+  logDirty = true; hud(); syncControls(true);
+}
+$('selMu').addEventListener('change', e => { ENV.mu = +e.target.value; logEv('SIM', 0, 'ENV', M('log.mu', { mu: N(ENV.mu, 2) }), 'info'); });
 $('rRamp').addEventListener('input', e => { ENV.ramp = +e.target.value / 100; $('vRamp').textContent = e.target.value + ' %'; });
 $('rLoad').addEventListener('input', e => { sim.trucks[selected].can.load = +e.target.value; $('vLoad').textContent = e.target.value + ' %'; });
 $('cMisprio').addEventListener('change', e => { sim.trucks[selected].can.misprio = e.target.checked; });
@@ -1265,11 +1641,11 @@ guide.addEventListener('close', () => { ENV.paused = pausedBefore; });
 $('gClose').addEventListener('click', () => guide.close());
 guide.addEventListener('click', e => { if (e.target === guide) guide.close(); const b = e.target.closest('[data-gtab]'); if (b) showTab(b.dataset.gtab); });
 $('bGuide').addEventListener('click', () => openGuide());
-$('bV2x').addEventListener('click', () => { const c = $('cV2x'); c.checked = !c.checked; logEv('VL-VOUS', 0, 'V2X', c.checked ? 'Balise V2X et terminal FMS activés' : 'Balise V2X coupée : invisible du FMS', 'info'); });
+$('bV2x').addEventListener('click', () => { const c = $('cV2x'); c.checked = !c.checked; logEv('VL-VOUS', 0, 'V2X', M(c.checked ? 'v2x.on' : 'v2x.off'), 'info'); });
 $('bLvHome').addEventListener('click', () => { const L = sim.lvs.find(l => l.user); if (L) { Object.assign(L, { x: 336, y: 210, h: -Math.PI / 2, v: 0, steer: 0 }); L.pose = poseOf(L); } cv.focus(); });
 
 /* ---------- Boucle : physique à pas fixe 50 Hz, rendu découplé ---------- */
-resetSim(); resize();
+applyStatic(); resetSim(); resize();
 let last = performance.now(), acc = 0, lastHud = 0;
 function frame(now) {
   const dtR = Math.min(0.1, (now - last) / 1000); last = now;
@@ -1279,7 +1655,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelope, stopDistance, resetSim, setSel: i => { selected = i; } };
+window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelope, stopDistance, resetSim, setSel: i => { selected = i; }, setLang };
 })();
 </script>
 </body>
