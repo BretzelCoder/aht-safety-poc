@@ -1298,7 +1298,7 @@ function clearAll() {
   sim.lvs = sim.lvs.filter(l => !l.ai);
 }
 function scenario(code) {
-  track('scenario/' + code, 'Scénario ' + code);
+  track('aht-safety-poc/scenario/' + code, 'aht-safety-poc · scénario ' + code);
   clearAll();
   if (code === 'E') {
     const T = sim.trucks[selected]; T.can.load = 75; T.can.misprio = true;
@@ -1615,7 +1615,7 @@ document.addEventListener('click', e => {
 });
 function setLang(l) {
   if (!LANGS.includes(l)) return;
-  if (l !== LANG) track('lang-switch/' + l, 'Langue choisie : ' + l.toUpperCase());
+  if (l !== LANG) track('aht-safety-poc/lang-switch/' + l, 'aht-safety-poc · langue choisie : ' + l.toUpperCase());
   LANG = l;
   try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
   try { const u = new URL(location.href); u.searchParams.set('lang', l); history.replaceState(null, '', u); } catch (e) {}
@@ -1653,7 +1653,7 @@ cv.addEventListener('blur', releaseKeys);
 const guide = $('guide'); let pausedBefore = false;
 function openGuide(tab) {
   if (guide.open) return;
-  track('guide', 'Ouverture du guide');
+  track('aht-safety-poc/guide', 'aht-safety-poc · ouverture du guide');
   pausedBefore = ENV.paused; ENV.paused = true; releaseKeys();
   if (tab) showTab(tab);
   guide.showModal();
@@ -1671,7 +1671,7 @@ $('bLvHome').addEventListener('click', () => { const L = sim.lvs.find(l => l.use
 
 /* ---------- Boucle : physique à pas fixe 50 Hz, rendu découplé ---------- */
 applyStatic(); resetSim(); resize();
-track('lang-start/' + LANG, 'Langue à l\'ouverture : ' + LANG.toUpperCase());
+track('aht-safety-poc/lang-start/' + LANG, 'aht-safety-poc · langue à l\'ouverture : ' + LANG.toUpperCase());
 let last = performance.now(), acc = 0, lastHud = 0;
 function frame(now) {
   const dtR = Math.min(0.1, (now - last) / 1000); last = now;
