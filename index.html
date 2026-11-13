@@ -398,6 +398,28 @@ const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 /* =====================================================================
+   Mesure d'audience — GoatCounter (sans cookie, données agrégées)
+   Actif uniquement sur le site GitHub Pages : rien n'est chargé ni compté
+   en local (file://, localhost). Les visites sont comptées sur le chemin
+   sans paramètres ; un éventuel ?ref=… est classé comme provenance par
+   GoatCounter. Événements : langue, scénarios lancés, ouverture du guide.
+   ===================================================================== */
+const GC_HOST = 'bretzelcoder.github.io', GC_ENDPOINT = 'https://bretzelgoatcounter.goatcounter.com/count';
+const gcQueue = [];
+function track(path, title) {
+  const gc = window.goatcounter;
+  if (gc && typeof gc.count === 'function') { try { gc.count({ path, title: title || path, event: true }); } catch (e) {} }
+  else if (location.hostname === GC_HOST && gcQueue.length < 20) gcQueue.push([path, title]);
+}
+if (location.hostname === GC_HOST) {
+  window.goatcounter = { path: () => location.pathname };
+  const s = document.createElement('script');
+  s.async = true; s.src = 'https://gc.zgo.at/count.js'; s.dataset.goatcounter = GC_ENDPOINT;
+  s.onload = () => { while (gcQueue.length) track(...gcQueue.shift()); };
+  document.head.appendChild(s);
+}
+
+/* =====================================================================
    I18N — français (défaut) / anglais / allemand
    Textes statiques : le français reste dans le HTML, marqué par data-i18n
    (texte), data-i18n-html, data-i18n-title, data-i18n-aria ; EN et DE sont
@@ -1276,6 +1298,7 @@ function clearAll() {
   sim.lvs = sim.lvs.filter(l => !l.ai);
 }
 function scenario(code) {
+  track('scenario/' + code, 'Scénario ' + code);
   clearAll();
   if (code === 'E') {
     const T = sim.trucks[selected]; T.can.load = 75; T.can.misprio = true;
@@ -1592,6 +1615,7 @@ document.addEventListener('click', e => {
 });
 function setLang(l) {
   if (!LANGS.includes(l)) return;
+  if (l !== LANG) track('lang-switch/' + l, 'Langue choisie : ' + l.toUpperCase());
   LANG = l;
   try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
   try { const u = new URL(location.href); u.searchParams.set('lang', l); history.replaceState(null, '', u); } catch (e) {}
@@ -1629,6 +1653,7 @@ cv.addEventListener('blur', releaseKeys);
 const guide = $('guide'); let pausedBefore = false;
 function openGuide(tab) {
   if (guide.open) return;
+  track('guide', 'Ouverture du guide');
   pausedBefore = ENV.paused; ENV.paused = true; releaseKeys();
   if (tab) showTab(tab);
   guide.showModal();
@@ -1646,6 +1671,7 @@ $('bLvHome').addEventListener('click', () => { const L = sim.lvs.find(l => l.use
 
 /* ---------- Boucle : physique à pas fixe 50 Hz, rendu découplé ---------- */
 applyStatic(); resetSim(); resize();
+track('lang-start/' + LANG, 'Langue à l\'ouverture : ' + LANG.toUpperCase());
 let last = performance.now(), acc = 0, lastHud = 0;
 function frame(now) {
   const dtR = Math.min(0.1, (now - last) / 1000); last = now;

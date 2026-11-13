@@ -16,6 +16,10 @@ No build, no dependencies. Use the [live demo](https://bretzelcoder.github.io/ah
 
 The page loads Google Fonts if online and falls back to system fonts otherwise.
 
+### Analytics
+
+The live demo counts visits with [GoatCounter](https://www.goatcounter.com/), a privacy-friendly service: no cookies, no personal data, aggregated statistics only (page views, referrer, country, browser, screen size). It also records a few anonymous events: the language shown at start and language switches, the scenarios launched and the guide being opened. Tracking only runs on the GitHub Pages site; a local copy of `index.html` loads nothing. To credit a shared link, add `?ref=<source>` to it (for example `?ref=linkedin`): GoatCounter shows it as the referrer.
+
 ## What you can explore
 
 | Topic | What the simulator shows |
