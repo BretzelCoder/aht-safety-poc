@@ -280,12 +280,14 @@ test.describe('T-16 levels 1 ↔ 2 pane, exchanges (S8, S11)', () => {
   test('during a recovery the pane shows the time left before the stop is released', async ({ page }) => {
     await ouvrir(page);
     await page.evaluate(() => { const S = window.__sim; S.l1Freeze(0); for (let i = 0; i < 100; i++) S.step(); S.l1Restart(0); for (let i = 0; i < 25; i++) S.step(); });
-    await expect(page.locator('#exL12 .rel')).toContainText('Resume possible in');
-    const reste = Number((await page.locator('#exL12 .rel').innerText()).match(/in ([\d.]+) s/)[1]);
+    await expect(page.locator('#blkL2')).toContainText('Resume in');
+    await expect(page.locator('#blkL2')).not.toContainText('Heartbeat');
+    const reste = Number((await page.locator('#blkL2').innerText()).match(/Resume in\s+([0-9.]+) s/)[1]);
     expect(reste, 'seconds left (1 s of stable heartbeat, 0.5 s done)').toBeGreaterThan(0.3);
     expect(reste).toBeLessThanOrEqual(0.6);
     await page.evaluate(() => { for (let i = 0; i < 100; i++) window.__sim.step(); });
-    await expect(page.locator('#exL12 .rel')).toHaveCount(0);
+    await expect(page.locator('#blkL2')).toContainText('Heartbeat');
+    await expect(page.locator('#blkL2')).not.toContainText('Resume in');
   });
 
   for (const lang of ['fr', 'en', 'de']) {
@@ -335,8 +337,9 @@ test.describe('T-17 t_lat breakdown (S13)', () => {
       await openPage(page, lang);
       await pauseAndSeed(page, 1);
       await page.evaluate(() => { for (let i = 0; i < 50; i++) window.__sim.step(); });
-      await expect.poll(async () => (await lire(page)).termes.length).toBe(5);
+      await page.waitForTimeout(350);                          // au moins deux rafraîchissements de l'interface après les pas
       const rt = await lire(page);
+      expect(rt.termes, 'five terms').toHaveLength(5);
       expect(nombre(rt.termes[0]), 'perception').toBe(rt.perMs);
       expect(nombre(rt.termes[1]), 'computing, PREEMPT_RT').toBe(rt.cpuMs);
       expect(nombre(rt.termes[2]), 'DDS').toBeCloseTo(rt.ddsMs, 0);
@@ -345,8 +348,9 @@ test.describe('T-17 t_lat breakdown (S13)', () => {
       expect(rt.surligne, 'nothing is highlighted with PREEMPT_RT').toEqual([]);
       await page.selectOption('#selKernel', 'GP');
       await page.evaluate(() => { window.__sim.step(); });
-      await expect.poll(async () => (await lire(page)).surligne.length).toBe(1);
+      await page.waitForTimeout(350);
       const gp = await lire(page);
+      expect(gp.surligne, 'one highlighted term').toHaveLength(1);
       expect(nombre(gp.termes[1]), 'computing, general-purpose').toBe(gp.cpuMs);
       expect(gp.cpuMs - rt.cpuMs).toBeCloseTo(200, 6);
       expect(gp.surligne[0], 'the highlighted term is the computing one').toBe(gp.termes[1]);
@@ -356,4 +360,65 @@ test.describe('T-17 t_lat breakdown (S13)', () => {
       expect(nombre(gp.cellule), 'the t_lat cell of the grid').toBe(Math.round(gp.tLatMs));
     });
   }
+});
+
+// T-18 : vue de déploiement, onglet « Architecture » du guide (S16, S17, S18 ; AC-16).
+test.describe('T-18 deployment view (S16, S17, S18)', () => {
+  const TEXTES = {
+    fr: { nonConf: 'ne prétend à la conformité', illustratif: 'illustratif', couches: ['Applications', 'Intergiciel', 'Debian', 'Noyau temps réel', 'Matériel'], l2: ['Logiciel de sûreté', 'RTOS certifiable', 'Microcontrôleur de sûreté'], doubleCanal: 'double canal' },
+    en: { nonConf: 'claims no conformity', illustratif: 'Illustrative', couches: ['Applications', 'Middleware', 'Debian', 'Real-time kernel', 'Hardware'], l2: ['Safety software', 'Certifiable RTOS', 'Safety microcontroller'], doubleCanal: 'dual channel' },
+    de: { nonConf: 'erhebt keinen Anspruch auf Konformität', illustratif: 'Illustrativ', couches: ['Anwendungen', 'Middleware', 'Debian', 'Echtzeit-Kernel', 'Hardware'], l2: ['Sicherheitssoftware', 'Zertifizierbares RTOS', 'Sicherheits-Mikrocontroller'], doubleCanal: 'zweikanalig' },
+  };
+  async function ouvrirArchi(page, lang) {
+    await openPage(page, lang);
+    await page.click('#bGuide');
+    await page.click('[data-gtab="archi"]');
+    return page.locator('[data-gpane="archi"]');
+  }
+
+  for (const lang of ['fr', 'en', 'de']) {
+    test(`${lang}: the tab lists the five layers of level 1, the Yocto option, the elements of level 2 and the standards`, async ({ page }) => {
+      const x = TEXTES[lang];
+      const section = await ouvrirArchi(page, lang);
+      await expect(section).toBeVisible();
+      const couches = section.locator('.acol.l1 > .ly');
+      await expect(couches, 'five layers of level 1').toHaveCount(5);
+      for (let i = 0; i < 5; i++) await expect(couches.nth(i), `layer ${i + 1} from the top`).toContainText(x.couches[i]);
+      await expect(couches.nth(1)).toContainText('DDS / ROS 2');
+      await expect(couches.nth(3)).toContainText('PREEMPT_RT');
+      const option = section.locator('.acol.l1 .opt');
+      await expect(option, 'Yocto is drawn beside Debian as an option').toContainText('Yocto');
+      await expect(option).toContainText(/option/i);
+      await expect(option).toContainText('SBOM');
+      await expect(couches.nth(2).locator('> div').first()).toContainText('Debian');
+      const l2 = section.locator('.acol.l2 > .ly');
+      await expect(l2, 'three elements of level 2').toHaveCount(3);
+      for (let i = 0; i < 3; i++) await expect(l2.nth(i)).toContainText(x.l2[i]);
+      await expect(section.locator('.acol.l2')).toContainText('RTOS');
+      await expect(section.locator('.acol.l2')).toContainText(x.doubleCanal);
+      const texte = await section.innerText();
+      for (const norme of ['IEC 61508', 'ISO 13849', 'ISO 17757']) expect(texte, norme).toContain(norme);
+      expect(texte, 'conformity disclaimer').toContain(x.nonConf);
+      expect(texte, 'framed as illustrative').toContain(x.illustratif);
+      expect(texte, 'no claim about what a real project chose').not.toMatch(/retenu|chosen|selected|gewählt|ausgewählt|ausgesucht/i);
+      const aria = await section.locator('.archi').getAttribute('aria-label');
+      expect(aria.length, 'the diagram has a text alternative').toBeGreaterThan(40);
+    });
+  }
+
+  test('the information button of the levels pane opens the guide on the Architecture tab', async ({ page }) => {
+    await openPage(page, 'en');
+    await expect(page.locator('#bArchi'), 'hidden while the oscilloscope is shown').toBeHidden();
+    await page.click('#tabL12');
+    await expect(page.locator('#bArchi')).toBeVisible();
+    await page.click('#bArchi');
+    await expect(page.locator('#guide')).toHaveAttribute('open', '');
+    await expect(page.locator('[data-gpane="archi"]')).toBeVisible();
+    await expect(page.locator('[data-gtab="archi"]')).toHaveClass(/on/);
+  });
+
+  test('the new guide tab names no link: nothing new for the link check to follow', async ({ page }) => {
+    await openPage(page, 'en');
+    expect(await page.locator('[data-gpane="archi"] a').count()).toBe(0);
+  });
 });

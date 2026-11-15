@@ -178,7 +178,7 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 .tabs2 button:hover{border-bottom-color:var(--line)}
 .tabs2 button.on{color:var(--accent);border-bottom-color:var(--accent)}
 .l12blocks{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;align-items:stretch}
-.blk{border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:11px;line-height:1.35;min-width:0}
+.blk{border:1px solid var(--line);border-radius:8px;padding:2px 6px;font-size:11px;line-height:1.35;min-width:0}
 .blk.l1{border-style:dashed;border-color:var(--cyan)}
 .blk.l2{border-color:var(--accent)}
 .blk h4{margin:0;font:600 10.5px var(--display);letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
@@ -192,16 +192,32 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 .tlat{display:flex;flex-wrap:wrap;gap:0 5px;font:10.5px/1.3 var(--body);color:var(--muted);margin-top:3px}
 .tlat span+span::before{content:'+ '}
 .tlat .hl{color:var(--accent);font-weight:600}
-.l12ex{margin-top:4px;font:10px/1.2 var(--mono)}
+.l12ex{margin-top:3px;font:10px/1.15 var(--mono)}
 .l12ex .xr{display:grid;grid-template-columns:3.6em 3.6em 3.2em 2.8em 1.3em minmax(0,1fr);gap:0 4px;white-space:nowrap}
 .l12ex .xr.hd{color:var(--muted);border-bottom:1px solid var(--line)}
 .l12ex .xr.bad{color:#ff8a7f}
 .l12ex .xr span:nth-child(n+2):nth-child(-n+4){text-align:right}
 .l12ex .why{margin-top:2px;color:#ff8a7f;font:10.5px/1.25 var(--body)}
-.l12ex .rel{margin-top:2px;color:var(--warn);font:10.5px/1.25 var(--body)}
 .l12ex .none{color:var(--muted);font:10.5px var(--body)}
 @media (min-width:1280px) and (min-height:700px){body.l12open .logcard{flex-basis:90px;min-height:90px}body.l12open .logcard .log{min-height:50px}}
 @media (min-width:1280px) and (min-height:700px){.tabs2 button{font-size:12.5px;letter-spacing:.05em}.tabs2{gap:2px 12px}}
+/* ---- Vue de déploiement du guide (spec 002) ---- */
+.archi{display:grid;grid-template-columns:minmax(0,1fr) 150px minmax(0,1fr);gap:8px;margin:10px 0}
+.archi h4{margin:0 0 6px;font:600 14px var(--display);letter-spacing:.06em;text-transform:uppercase}
+.acol{border:1px solid var(--line);border-radius:10px;padding:8px}
+.acol.l1{border-style:dashed;border-color:var(--cyan)}.acol.l1 h4{color:var(--cyan)}
+.acol.l2{border-color:var(--accent)}.acol.l2 h4{color:var(--accent)}
+.archi .ly{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;margin-bottom:5px;font-weight:600}
+.archi .ly:last-child{margin-bottom:0}
+.archi .ly small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.archi .ly.alt{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:none;border:none;padding:0}
+.archi .ly.alt>div{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-weight:600}
+.archi .ly.alt>div.opt{border-style:dashed;color:var(--muted)}
+.amid{display:flex;flex-direction:column;justify-content:center;gap:16px;text-align:center;font-size:12px;color:var(--muted)}
+@media (max-width:700px){.archi{grid-template-columns:minmax(0,1fr)}.amid{flex-direction:row;justify-content:space-around}}
+#cardScope{position:relative}
+#cardScope .mini{position:absolute;right:8px;top:6px;font:600 13px var(--body);letter-spacing:0;text-transform:none;border:1px solid var(--line);border-radius:50%;width:20px;height:20px;padding:0;line-height:1;color:var(--muted)}
+#cardScope .mini:hover{color:var(--accent);border-color:var(--accent)}
 /* ---- Guide ---- */
 dialog#guide{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0;width:min(900px,94vw);max-height:88vh}
 dialog#guide::backdrop{background:rgba(8,9,10,.7)}
@@ -354,11 +370,12 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
     <h3 data-i18n="ui.sensH">Capteurs et liens</h3>
     <div class="chips" id="chips" style="margin-top:2px"></div>
   </div>
-  <div class="card">
+  <div class="card" id="cardScope">
     <div class="tabs2" role="tablist" aria-label="Vue de télémétrie" data-i18n-aria="ui.tabsAria">
       <button role="tab" id="tabScope" class="on" aria-selected="true" aria-controls="scope" data-i18n="ui.scopeH">Oscilloscope · 15 s</button>
       <button role="tab" id="tabL12" aria-selected="false" aria-controls="paneL12" data-i18n="ui.tabL12">Niveaux 1 ↔ 2</button>
     </div>
+    <button id="bArchi" class="mini" hidden aria-label="Pile logicielle et matérielle des deux niveaux" data-i18n-aria="ui.archiAria" title="Ouvrir l'architecture des deux niveaux dans le guide" data-i18n-title="ui.archiT">ⓘ</button>
     <canvas id="scope"></canvas>
     <div id="paneL12" role="tabpanel" hidden>
       <div class="l12blocks">
@@ -382,6 +399,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
       <button data-gtab="prise" class="on" role="tab" data-i18n="ui.gtPrise">Prise en main</button>
       <button data-gtab="visite" role="tab" data-i18n="ui.gtVisite">Visite guidée</button>
       <button data-gtab="modele" role="tab" data-i18n="ui.gtModele">Choix de modélisation</button>
+      <button data-gtab="archi" role="tab" data-i18n="ui.gtArchi">Architecture</button>
       <button data-gtab="limites" role="tab" data-i18n="ui.gtLimites">Limites et sources</button>
     </div>
     <button id="gClose" aria-label="Fermer le guide" data-i18n="ui.gClose" data-i18n-aria="ui.gCloseAria">Fermer</button>
@@ -432,6 +450,34 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li><b>Référentiels.</b> IEC 61508 est la norme mère ; pour les engins on raisonne aussi ISO 19014 (en MPLr plutôt qu'en SIL), ISO 17757 (machines autonomes) et ISO 23725 (interface FMS ↔ AHS). Le sigle « SIL / HIL » est ambigu : écrire SiL pour Software-in-the-Loop.</li>
         <li><b>Réarmement.</b> L'état d'urgence est verrouillé et demande un acquittement : une reprise automatique après exception est un vrai mode de défaillance (voir l'incident WA dans les sources).</li>
       </ol>
+    </section>
+    <section data-gpane="archi" data-i18n-html="guide.archi">
+      <h3>Deux calculateurs, deux rôles</h3>
+      <p>Le niveau 1 propose, le niveau 2 autorise ou bloque. Le calculateur d'autonomie (niveau 1) perçoit, planifie et exécute les autorisations de mouvement du FMS ; il est considéré comme non sûr par conception. Le contrôleur de sûreté (niveau 2) revérifie chaque consigne avec ses propres mesures, surveille le battement du niveau 1 et décide seul de l'arrêt sûr. C'est le motif « doer / checker » du guide, rendu visible.</p>
+      <div class="archi" role="img" aria-label="Schéma illustratif : le niveau 1 (matériel, noyau PREEMPT_RT, Debian ou Yocto, DDS / ROS 2, applications) envoie ses consignes au niveau 2 (microcontrôleur de sûreté, RTOS ou bare metal, logiciel de sûreté), qui répond par un verdict.">
+        <div class="acol l1">
+          <h4>Niveau 1 · autonomie</h4>
+          <div class="ly">Applications<small>perception, planification, exécution des autorisations de mouvement du FMS</small></div>
+          <div class="ly">Intergiciel<small>DDS / ROS 2</small></div>
+          <div class="ly alt"><div>Debian<small>distribution généraliste</small></div><div class="opt">Option : Yocto<small>image minimale, reproductible, SBOM intégré</small></div></div>
+          <div class="ly">Noyau temps réel<small>PREEMPT_RT : latence bornée</small></div>
+          <div class="ly">Matériel<small>calculateur embarqué</small></div>
+        </div>
+        <div class="amid"><div>consigne · horodatage · séquence · intégrité →</div><div>← verdict : accepté ou refusé</div></div>
+        <div class="acol l2">
+          <h4>Niveau 2 · sûreté</h4>
+          <div class="ly">Logiciel de sûreté<small>revérifie chaque consigne avec ses propres mesures ; surveille le battement</small></div>
+          <div class="ly">RTOS certifiable ou bare metal</div>
+          <div class="ly">Microcontrôleur de sûreté<small>double canal</small></div>
+        </div>
+      </div>
+      <h3>Niveau 1 : une pile logicielle sur un calculateur embarqué</h3>
+      <p>Matériel, noyau Linux PREEMPT_RT (latence d'ordonnancement bornée), système Debian, intergiciel DDS / ROS 2, puis les applications. Un noyau généraliste n'offre pas cette borne : la carte « Autonomie · niveau 1 » permet de comparer les deux profils, avec des latences illustratives. Une image Yocto (minimale, reproductible, avec une nomenclature logicielle SBOM intégrée) est présentée comme une option possible à la place de Debian, décrite par ses seules propriétés.</p>
+      <h3>Niveau 2 : petit, simple, vérifiable</h3>
+      <p>Un microcontrôleur de sûreté qui exécute un RTOS certifiable ou du code bare metal, en double canal : deux canaux qui calculent et se comparent. Peu de code, peu de dépendances, pas de ROS 2 : c'est ce qui permet de l'argumenter.</p>
+      <h3>Référentiels</h3>
+      <p>IEC 61508 (sécurité fonctionnelle), ISO 13849 (parties des systèmes de commande relatives à la sécurité) et ISO 17757 (machines autonomes d'exploitation minière et de terrassement) sont cités comme cadres de référence. Le simulateur ne prétend à la conformité à aucune de ces normes.</p>
+      <p class="help">Schéma illustratif, pas la description du système réel d'un constructeur : les architectures réelles diffèrent.</p>
     </section>
     <section data-gpane="limites" data-i18n-html="guide.limites">
       <h3>Limites du modèle</h3>
@@ -532,7 +578,7 @@ const STATIC = {
     'ui.canH': 'CAN bus J1939 · 250 kbit/s', 'ui.canTraffic': 'Background traffic', 'ui.misprio': 'Brake at low priority', 'ui.babble': 'Babbling node (babbling idiot)',
     'ui.ddsH': 'DDS · safety topic', 'ui.ddsLbl': 'Publication pattern', 'ui.ddsPer': 'Periodic + Deadline/Liveliness', 'ui.ddsRel': 'Event, RELIABLE', 'ui.ddsBe': 'Event, BEST_EFFORT', 'ui.loss': 'Packet loss',
     'ui.sideAria': 'Telemetry', 'ui.bubbleH': 'Stop zone, live calculation', 'ui.sensH': 'Sensors and links', 'ui.scopeH': 'Oscilloscope · 15 s', 'ui.tabL12': 'Levels 1 ↔ 2', 'ui.tabsAria': 'Telemetry view', 'ui.logH': 'Event log (DM1 / QoS / FMS)',
-    'ui.gtPrise': 'Getting started', 'ui.gtVisite': 'Guided tour', 'ui.gtModele': 'Modelling choices', 'ui.gtLimites': 'Limitations and sources',
+    'ui.gtPrise': 'Getting started', 'ui.gtVisite': 'Guided tour', 'ui.gtModele': 'Modelling choices', 'ui.gtArchi': 'Architecture', 'ui.gtLimites': 'Limitations and sources', 'ui.archiAria': 'Software and hardware stack of the two levels', 'ui.archiT': 'Open the architecture of the two levels in the guide',
     'ui.gClose': 'Close', 'ui.gCloseAria': 'Close the guide',
     'guide.prise': `
       <p>Three autonomous haul trucks run the shovel → ramp → crusher → return cycle, in mixed traffic with light vehicles. The simulation is paused while this guide is open. The physics is simplified but consistent: every number on screen is computed by the model.</p>
@@ -577,6 +623,34 @@ const STATIC = {
         <li><b>Standards.</b> IEC 61508 is the parent standard; for earth-moving machinery one also reasons with ISO 19014 (in MPLr rather than SIL), ISO 17757 (autonomous machines) and ISO 23725 (FMS ↔ AHS interface). The acronym “SIL / HIL” is ambiguous: write SiL for Software-in-the-Loop.</li>
         <li><b>Re-arming.</b> The emergency state is latched and requires an acknowledgement: automatic resumption after an exception is a real failure mode (see the WA incident in the sources).</li>
       </ol>`,
+    'guide.archi': `
+      <h3>Two computers, two roles</h3>
+      <p>Level 1 proposes, level 2 allows or blocks. The autonomy computer (level 1) perceives, plans and carries out the FMS movement authorities; it is considered unsafe by design. The safety controller (level 2) rechecks every setpoint with its own measurements, watches the heartbeat of level 1 and alone decides on the safe stop. This is the “doer / checker” pattern of the guide, made visible.</p>
+      <div class="archi" role="img" aria-label="Illustrative diagram: level 1 (hardware, PREEMPT_RT kernel, Debian or Yocto, DDS / ROS 2, applications) sends its setpoints to level 2 (safety microcontroller, RTOS or bare metal, safety software), which answers with a verdict.">
+        <div class="acol l1">
+          <h4>Level 1 · autonomy</h4>
+          <div class="ly">Applications<small>perception, planning, execution of the FMS movement authorities</small></div>
+          <div class="ly">Middleware<small>DDS / ROS 2</small></div>
+          <div class="ly alt"><div>Debian<small>general-purpose distribution</small></div><div class="opt">Option: Yocto<small>minimal, reproducible image, built-in SBOM</small></div></div>
+          <div class="ly">Real-time kernel<small>PREEMPT_RT: bounded latency</small></div>
+          <div class="ly">Hardware<small>on-board computer</small></div>
+        </div>
+        <div class="amid"><div>setpoint · timestamp · sequence · integrity →</div><div>← verdict: accepted or rejected</div></div>
+        <div class="acol l2">
+          <h4>Level 2 · safety</h4>
+          <div class="ly">Safety software<small>rechecks every setpoint with its own measurements; watches the heartbeat</small></div>
+          <div class="ly">Certifiable RTOS or bare metal</div>
+          <div class="ly">Safety microcontroller<small>dual channel</small></div>
+        </div>
+      </div>
+      <h3>Level 1: a software stack on an on-board computer</h3>
+      <p>Hardware, Linux PREEMPT_RT kernel (bounded scheduling latency), Debian, DDS / ROS 2 middleware, then the applications. A general-purpose kernel gives no such bound: the “Autonomy · level 1” card lets you compare the two profiles, with illustrative latencies. A Yocto image (minimal, reproducible, with a built-in software bill of materials, SBOM) is shown as a possible option in place of Debian, described by its properties only.</p>
+      <h3>Level 2: small, simple, verifiable</h3>
+      <p>A safety microcontroller running a certifiable RTOS or bare-metal code, with two channels that compute and compare. Little code, few dependencies, no ROS 2: this is what makes it possible to build a safety argument.</p>
+      <h3>Reference frameworks</h3>
+      <p>IEC 61508 (functional safety), ISO 13849 (safety-related parts of control systems) and ISO 17757 (autonomous mining and earth-moving machinery) are cited as reference frameworks. The simulator claims no conformity with any of them.</p>
+      <p class="help">Illustrative diagram, not the description of any manufacturer's real system: real architectures differ.</p>
+    `,
     'guide.limites': `
       <h3>Model limitations</h3>
       <ul>
@@ -625,7 +699,7 @@ const STATIC = {
     'ui.canH': 'CAN-Bus J1939 · 250 kbit/s', 'ui.canTraffic': 'Hintergrundlast', 'ui.misprio': 'Bremse mit niedriger Priorität', 'ui.babble': 'Plappernder Knoten (babbling idiot)',
     'ui.ddsH': 'DDS · Sicherheits-Topic', 'ui.ddsLbl': 'Publikationsmuster', 'ui.ddsPer': 'Periodisch + Deadline/Liveliness', 'ui.ddsRel': 'Ereignis, RELIABLE', 'ui.ddsBe': 'Ereignis, BEST_EFFORT', 'ui.loss': 'Paketverlust',
     'ui.sideAria': 'Telemetrie', 'ui.bubbleH': 'Haltezone, Live-Berechnung', 'ui.sensH': 'Sensoren und Verbindungen', 'ui.scopeH': 'Oszilloskop · 15 s', 'ui.tabL12': 'Ebenen 1 ↔ 2', 'ui.tabsAria': 'Telemetrieansicht', 'ui.logH': 'Ereignisprotokoll (DM1 / QoS / FMS)',
-    'ui.gtPrise': 'Erste Schritte', 'ui.gtVisite': 'Geführte Tour', 'ui.gtModele': 'Modellierungsentscheidungen', 'ui.gtLimites': 'Grenzen und Quellen',
+    'ui.gtPrise': 'Erste Schritte', 'ui.gtVisite': 'Geführte Tour', 'ui.gtModele': 'Modellierungsentscheidungen', 'ui.gtArchi': 'Architektur', 'ui.gtLimites': 'Grenzen und Quellen', 'ui.archiAria': 'Software- und Hardware-Stack der beiden Ebenen', 'ui.archiT': 'Architektur der beiden Ebenen in der Anleitung öffnen',
     'ui.gClose': 'Schließen', 'ui.gCloseAria': 'Anleitung schließen',
     'guide.prise': `
       <p>Drei autonome Muldenkipper fahren den Zyklus Bagger → Rampe → Brecher → Rückfahrt, im Mischverkehr mit Leichtfahrzeugen. Solange diese Anleitung geöffnet ist, ist die Simulation pausiert. Die Physik ist vereinfacht, aber konsistent: Jede angezeigte Zahl wird vom Modell berechnet.</p>
@@ -670,6 +744,34 @@ const STATIC = {
         <li><b>Normen.</b> IEC 61508 ist die Grundnorm; für Erdbaumaschinen argumentiert man auch mit ISO 19014 (in MPLr statt SIL), ISO 17757 (autonome Maschinen) und ISO 23725 (Schnittstelle FMS ↔ AHS). Das Kürzel „SIL / HIL“ ist mehrdeutig: SiL für Software-in-the-Loop schreiben.</li>
         <li><b>Quittierung.</b> Der Notfallzustand ist verriegelt und erfordert eine Quittierung: Ein automatisches Wiederanlaufen nach einer Ausnahme ist ein realer Fehlermodus (siehe den WA-Vorfall in den Quellen).</li>
       </ol>`,
+    'guide.archi': `
+      <h3>Zwei Rechner, zwei Rollen</h3>
+      <p>Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert. Der Autonomierechner (Ebene 1) nimmt wahr, plant und führt die Bewegungsfreigaben des FMS aus; er gilt als von Grund auf nicht sicher. Der Sicherheitscontroller (Ebene 2) prüft jeden Sollwert mit eigenen Messungen erneut, überwacht den Herzschlag von Ebene 1 und entscheidet allein über den sicheren Halt. Das ist das Muster „Doer / Checker“ der Anleitung, sichtbar gemacht.</p>
+      <div class="archi" role="img" aria-label="Illustratives Schema: Ebene 1 (Hardware, PREEMPT_RT-Kernel, Debian oder Yocto, DDS / ROS 2, Anwendungen) sendet ihre Sollwerte an Ebene 2 (Sicherheits-Mikrocontroller, RTOS oder Bare Metal, Sicherheitssoftware), die mit einem Urteil antwortet.">
+        <div class="acol l1">
+          <h4>Ebene 1 · Autonomie</h4>
+          <div class="ly">Anwendungen<small>Wahrnehmung, Planung, Ausführung der FMS-Bewegungsfreigaben</small></div>
+          <div class="ly">Middleware<small>DDS / ROS 2</small></div>
+          <div class="ly alt"><div>Debian<small>Allzweck-Distribution</small></div><div class="opt">Option: Yocto<small>minimales, reproduzierbares Image, integrierte SBOM</small></div></div>
+          <div class="ly">Echtzeit-Kernel<small>PREEMPT_RT: begrenzte Latenz</small></div>
+          <div class="ly">Hardware<small>Bordrechner</small></div>
+        </div>
+        <div class="amid"><div>Sollwert · Zeitstempel · Sequenz · Integrität →</div><div>← Urteil: akzeptiert oder abgelehnt</div></div>
+        <div class="acol l2">
+          <h4>Ebene 2 · Sicherheit</h4>
+          <div class="ly">Sicherheitssoftware<small>prüft jeden Sollwert mit eigenen Messungen erneut; überwacht den Herzschlag</small></div>
+          <div class="ly">Zertifizierbares RTOS oder Bare Metal</div>
+          <div class="ly">Sicherheits-Mikrocontroller<small>zweikanalig</small></div>
+        </div>
+      </div>
+      <h3>Ebene 1: ein Software-Stack auf einem Bordrechner</h3>
+      <p>Hardware, Linux-Kernel PREEMPT_RT (begrenzte Scheduling-Latenz), Debian, Middleware DDS / ROS 2, darüber die Anwendungen. Ein Allzweck-Kernel bietet diese Grenze nicht: Mit der Karte „Autonomie · Ebene 1“ lassen sich die beiden Profile vergleichen, mit illustrativen Latenzen. Ein Yocto-Image (minimal, reproduzierbar, mit integrierter Software-Stückliste, SBOM) wird als mögliche Option anstelle von Debian gezeigt und nur durch seine Eigenschaften beschrieben.</p>
+      <h3>Ebene 2: klein, einfach, überprüfbar</h3>
+      <p>Ein Sicherheits-Mikrocontroller, der ein zertifizierbares RTOS oder Bare-Metal-Code ausführt, zweikanalig: zwei Kanäle, die rechnen und sich vergleichen. Wenig Code, wenige Abhängigkeiten, kein ROS 2: Nur so lässt sich eine Sicherheitsargumentation aufbauen.</p>
+      <h3>Bezugsrahmen</h3>
+      <p>IEC 61508 (Funktionale Sicherheit), ISO 13849 (sicherheitsbezogene Teile von Steuerungen) und ISO 17757 (autonome Maschinen im Bergbau und Erdbau) werden als Bezugsrahmen genannt. Der Simulator erhebt keinen Anspruch auf Konformität mit einer dieser Normen.</p>
+      <p class="help">Illustratives Schema, keine Beschreibung des realen Systems eines Herstellers: Reale Architekturen unterscheiden sich.</p>
+    `,
     'guide.limites': `
       <h3>Grenzen des Modells</h3>
       <ul>
@@ -849,7 +951,7 @@ const MSG = {
   'l12.brake': ['Freins', 'Brakes', 'Bremsen'],
   'l12.hVerdict': ['verdict', 'verdict', 'Urteil'], 'l12.ok': ['accepté', 'accepted', 'akzeptiert'],
   'l12.noEx': ['Aucun échange pour le moment.', 'No exchange yet.', 'Noch kein Austausch.'],
-  'l12.release': ['Reprise possible dans {s} s', 'Resume possible in {s} s', 'Wiederaufnahme in {s} s möglich'],
+  'l12.release': ['Reprise dans', 'Resume in', 'Weiter in'],
   'l12.brRel': ['relâchés', 'released', 'gelöst'], 'l12.brSvc': ['freinage de service', 'service braking', 'Betriebsbremsung'], 'l12.brFull': ['freinage maximal', 'full braking', 'Vollbremsung'], 'l12.brWd': ['watchdog ECU frein', 'brake ECU watchdog', 'Brems-ECU-Watchdog'],
   'l1.freeze': ['Niveau 1 figé : plus aucune consigne émise', 'Level 1 frozen: no more setpoints sent', 'Ebene 1 eingefroren: keine Sollwerte mehr gesendet'],
   'l1.restart': ['Niveau 1 redémarré : nouvelle session {n}', 'Level 1 restarted: new session {n}', 'Ebene 1 neu gestartet: neue Sitzung {n}'],
@@ -1798,7 +1900,7 @@ let sideTab = 'scope';
 function showSideTab(name) {
   sideTab = name;
   for (const [id, n] of [['tabScope', 'scope'], ['tabL12', 'L12']]) { $(id).classList.toggle('on', name === n); $(id).setAttribute('aria-selected', String(name === n)); }
-  $('scope').hidden = name !== 'scope'; $('paneL12').hidden = name !== 'L12';
+  $('scope').hidden = name !== 'scope'; $('paneL12').hidden = name !== 'L12'; $('bArchi').hidden = name !== 'L12';
   document.body.classList.toggle('l12open', name === 'L12');   // le journal cède un peu de hauteur à la vue des échanges
   scheduleResize();                                   // le canvas de l'oscilloscope retrouve sa taille quand on le réaffiche
   if (sim) hud();
@@ -1813,6 +1915,10 @@ const BRAKE_ETAT = ['released', 'service', 'full', 'watchdog'], BRAKE_MSG = ['l1
 function renderL12(T) {
   const A = T.l1, L = T.l2, ex = L.ex[L.ex.length - 1], st = l1Status(T);
   const br = T.ecuEmergency ? 3 : T.fullBrake ? 2 : T.lastCmd < -0.2 ? 1 : 0, hb = sim.t - L.lastValid;
+  // Reprise : pendant que le battement, ou les consignes, sont revenus et que la stabilité se confirme, le temps restant avant le
+  // relâchement prend la place de l'âge du battement (qui vaut alors zéro).
+  const reste = (L.hbLost && L.stableSince && sim.t - L.lastValid <= P.l1Deadline) ? P.l1Stable - (sim.t - L.stableSince)
+    : (L.rejLost && L.rejStable && L.rejRun === 0) ? P.l1Stable - (sim.t - L.rejStable) : null;
   const row = (k, v) => `<div><span>${k}</span><span class="num">${v}</span></div>`;
   const b1 = $('blkL1'), b2 = $('blkL2');
   b1.dataset.status = st; b2.dataset.brake = BRAKE_ETAT[br];
@@ -1823,7 +1929,7 @@ function renderL12(T) {
     row(t('l12.pos'), ex ? `${fmt(ex.sClaim, 0)} m` : '—') + row(t('l12.spd'), ex ? `${fmt(ex.vClaim * 3.6, 1)} km/h` : '—');
   b2.innerHTML = `<h4>${t('l12.l2')}</h4><small>${t('l12.cl2')}</small>` +
     `<span class="chip"><i style="background:${STATE_COL[LEVEL[T.state]]}"></i>${T.state}</span>` +
-    row(t('l12.hb'), `${fmt(hb * 1000, 0)} ms`) +
+    (reste !== null ? row(t('l12.release'), `${fmt(Math.max(0, reste), 1)} s`) : row(t('l12.hb'), `${fmt(hb * 1000, 0)} ms`)) +
     row(t('l12.pos'), `${fmt(T.s, 0)} m`) + row(t('l12.spd'), `${fmt(T.v * 3.6, 1)} km/h`) +
     row(t('l12.brake'), t(BRAKE_MSG[br]));
   // Échanges : les 5 derniers jugements, plus les rejets plus anciens qui en sont sortis (3 au plus), lus dans les données
@@ -1833,10 +1939,6 @@ function renderL12(T) {
   h += exs.length ? exs.map(e => `<div class="xr${e.ok ? '' : ' bad'}"><span>#${e.seq}</span><span>${fmt(e.ts, 2)}</span><span>${fmt(e.v * 3.6, 1)}</span><span>${fmt(e.d, 0)}</span><span>${e.sumOk ? '✓' : '✗'}</span><span>${e.ok ? t('l12.ok') : e.code}</span></div>`).join('') : `<div class="none">${t('l12.noEx')}</div>`;
   const rj = L.rej[L.rej.length - 1];
   if (rj) h += `<div class="why">${rp(rj.msg)}</div>`;
-  // Reprise : temps restant avant le relâchement quand le battement, ou les consignes, sont revenus.
-  const now = sim.t, reste = (L.hbLost && L.stableSince && now - L.lastValid <= P.l1Deadline) ? P.l1Stable - (now - L.stableSince)
-    : (L.rejLost && L.rejStable && L.rejRun === 0) ? P.l1Stable - (now - L.rejStable) : null;
-  if (reste !== null) h += `<div class="rel">${t('l12.release', { s: N(Math.max(0, reste), 1) })}</div>`;
   $('exL12').innerHTML = h;
 }
 let logDirty = true, lastTabs = '';
@@ -1952,6 +2054,7 @@ $('cBabble').addEventListener('change', e => { sim.trucks[selected].can.babbling
 $('selDds').addEventListener('change', e => { const T = sim.trucks[selected]; T.dds.mode = e.target.value; T.mc.lastSent = null; T.mc.rxTime = sim.t; });
 $('rLoss').addEventListener('input', e => { sim.trucks[selected].dds.loss = +e.target.value / 100; $('vLoss').textContent = e.target.value + ' %'; });
 $('selMass').addEventListener('change', e => { sim.trucks[selected].massMode = e.target.value; });
+$('bArchi').addEventListener('click', () => openGuide('archi'));
 $('tabScope').addEventListener('click', () => showSideTab('scope'));
 $('tabL12').addEventListener('click', () => showSideTab('L12'));
 $('selKernel').addEventListener('change', e => { ENV.kernel = e.target.value; logEv('SIM', 0, 'ENV', M(ENV.kernel === 'GP' ? 'log.kernelGP' : 'log.kernelRT'), 'info'); });
