@@ -214,9 +214,6 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 .archi .ly{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;margin-bottom:5px;font-weight:600}
 .archi .ly:last-child{margin-bottom:0}
 .archi .ly small{display:block;font-weight:400;color:var(--muted);font-size:12px}
-.archi .ly.alt{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:none;border:none;padding:0}
-.archi .ly.alt>div{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-weight:600}
-.archi .ly.alt>div.opt{border-style:dashed;color:var(--muted)}
 .amid{display:flex;flex-direction:column;justify-content:center;gap:16px;text-align:center;font-size:12px;color:var(--muted)}
 @media (max-width:700px){.archi{grid-template-columns:minmax(0,1fr)}.amid{flex-direction:row;justify-content:space-around}}
 #cardScope{position:relative}
@@ -226,12 +223,14 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 #cardScope .mini{position:absolute;right:8px;top:6px;font:600 13px var(--body);letter-spacing:0;text-transform:none;border:1px solid var(--line);border-radius:50%;width:20px;height:20px;padding:0;line-height:1;color:var(--muted)}
 #cardScope .mini:hover{color:var(--accent);border-color:var(--accent)}
 /* ---- Guide ---- */
-dialog#guide{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0;width:min(900px,94vw);max-height:88vh}
+dialog#guide{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0;width:min(900px,94vw);height:min(88vh,860px)}
+/* Toutes les rubriques du guide ont la même fenêtre ; une rubrique longue défile à l'intérieur, l'en-tête reste en place. */
+dialog#guide[open]{display:flex;flex-direction:column}
 dialog#guide::backdrop{background:rgba(8,9,10,.7)}
-.ghead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:1}
+.ghead{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:1}
 .ghead h2{margin-right:auto}
 .gtabs{display:flex;flex-wrap:wrap;gap:6px}
-.gbody{padding:14px 18px 20px;overflow-y:auto;max-height:calc(88vh - 64px)}
+.gbody{padding:14px 18px 20px;overflow-y:auto;flex:1;min-height:0}
 .gbody section{display:none}.gbody section.on{display:block}
 .gbody h3{margin:14px 0 4px;color:var(--accent)}
 .gbody ol,.gbody ul{padding-left:20px;margin:6px 0 0}
@@ -458,7 +457,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li><b>ROS 2 / DDS ne portent pas le SIL.</b> La pile d'autonomie reste non certifiée ; la fonction de sûreté vit dans un superviseur indépendant (motif « doer / checker ») et dans les watchdogs des actionneurs. Le planificateur évite les bulles, le superviseur vérifie.</li>
         <li><b>Perte du lien FMS.</b> Le camion ne roule jamais au-delà de sa zone de circulation autorisée. Sans renouvellement, il s'arrête dans la zone déjà accordée : c'est un arrêt planifié, pas une réaction d'urgence.</li>
         <li><b>Le véhicule non équipé est un cas dégradé.</b> En exploitation, tout véhicule entrant en zone autonome porte un terminal et projette sa propre bulle ; l'accès est contrôlé. La perception embarquée est la barrière de dernier recours (famille ISO 21815, anticollision).</li>
-        <li><b>Référentiels.</b> IEC 61508 est la norme mère ; pour les engins on raisonne aussi ISO 19014 (en MPLr plutôt qu'en SIL), ISO 17757 (machines autonomes) et ISO 23725 (interface FMS ↔ AHS). Le sigle « SIL / HIL » est ambigu : écrire SiL pour Software-in-the-Loop.</li>
+        <li><b>Référentiels.</b> IEC 61508 est la norme mère ; ISO 13849 traite des parties des systèmes de commande relatives à la sécurité ; pour les engins on raisonne aussi ISO 19014 (en MPLr plutôt qu'en SIL), ISO 17757 (machines autonomes) et ISO 23725 (interface FMS ↔ AHS). Le sigle « SIL / HIL » est ambigu : écrire SiL pour Software-in-the-Loop.</li>
         <li><b>Réarmement.</b> L'état d'urgence est verrouillé et demande un acquittement : une reprise automatique après exception est un vrai mode de défaillance (voir l'incident WA dans les sources).</li>
         <li><b>Le niveau 1 propose, le niveau 2 autorise ou bloque.</b> Le calculateur d'autonomie est considéré comme non sûr par conception : ses consignes (vitesse demandée, horodatage, compteur de séquence, somme de contrôle) passent par un contrôleur de sûreté indépendant, qui les revérifie avec ses propres mesures de position et de vitesse. Rien n'arrive aux freins sans son accord. Le battement est surveillé : un niveau 1 silencieux, ou qui se trompe sans cesse, provoque un arrêt contrôlé à freinage maximal décidé par le niveau 2 seul.</li>
         <li><b>Pourquoi cet arrêt n'est pas verrouillé alors que l'urgence l'est.</b> La perte du niveau 1 est une panne du calculateur d'autonomie, pas un événement dangereux en soi : l'arrêt contrôlé suffit, et le niveau 2 le relâche quand le battement est de nouveau stable. L'état d'urgence reste verrouillé : une reprise automatique après un vrai événement est un mode de défaillance. Un niveau 1 de retour ne relâche jamais un freinage d'urgence verrouillé.</li>
@@ -468,13 +467,13 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
     <section data-gpane="archi" data-i18n-html="guide.archi">
       <h3>Deux calculateurs, deux rôles</h3>
       <p>Le niveau 1 propose, le niveau 2 autorise ou bloque. Le calculateur d'autonomie (niveau 1) perçoit, planifie et exécute les autorisations de mouvement du FMS ; il est considéré comme non sûr par conception. Le contrôleur de sûreté (niveau 2) revérifie chaque consigne avec ses propres mesures, surveille le battement du niveau 1 et décide seul de l'arrêt sûr. C'est le motif « doer / checker » du guide, rendu visible.</p>
-      <div class="archi" role="img" aria-label="Schéma illustratif : le niveau 1 (matériel, noyau PREEMPT_RT, Debian ou Yocto, DDS / ROS 2, applications) envoie ses consignes au niveau 2 (microcontrôleur de sûreté, RTOS ou bare metal, logiciel de sûreté), qui répond par un verdict.">
+      <div class="archi" role="img" aria-label="Schéma illustratif : le niveau 1 (matériel, noyau Linux temps réel ou standard, distribution Linux, DDS / ROS 2, applications) envoie ses consignes au niveau 2 (microcontrôleur de sûreté, RTOS ou bare metal, logiciel de sûreté), qui répond par un verdict.">
         <div class="acol l1">
           <h4>Niveau 1 · autonomie</h4>
           <div class="ly">Applications<small>perception, planification, exécution des autorisations de mouvement du FMS</small></div>
           <div class="ly">Intergiciel<small>DDS / ROS 2</small></div>
-          <div class="ly alt"><div>Debian<small>distribution généraliste</small></div><div class="opt">Option : Yocto<small>image minimale, reproductible, SBOM intégré</small></div></div>
-          <div class="ly">Noyau temps réel<small>PREEMPT_RT : latence bornée</small></div>
+          <div class="ly">Distribution Linux<small>variante temps réel ou standard</small></div>
+          <div class="ly">Noyau Linux<small>PREEMPT_RT (temps réel, latence bornée) ou généraliste (standard, sans borne)</small></div>
           <div class="ly">Matériel<small>calculateur embarqué</small></div>
         </div>
         <div class="amid"><div>consigne · horodatage · séquence · intégrité →</div><div>← verdict : accepté ou refusé</div></div>
@@ -486,7 +485,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         </div>
       </div>
       <h3>Niveau 1 : une pile logicielle sur un calculateur embarqué</h3>
-      <p>Matériel, noyau Linux PREEMPT_RT (latence d'ordonnancement bornée), système Debian, intergiciel DDS / ROS 2, puis les applications. Un noyau généraliste n'offre pas cette borne : la carte « Autonomie · niveau 1 » permet de comparer les deux profils, avec des latences illustratives. Une image Yocto (minimale, reproductible, avec une nomenclature logicielle SBOM intégrée) est présentée comme une option possible à la place de Debian, décrite par ses seules propriétés.</p>
+      <p>Matériel, noyau Linux, distribution Linux, intergiciel DDS / ROS 2, puis les applications. Le noyau et la distribution existent en variante temps réel ou standard, comme dans la carte « Autonomie · niveau 1 » : un noyau PREEMPT_RT borne la latence d'ordonnancement, un noyau généraliste n'offre pas cette borne. Les latences de la carte sont illustratives.</p>
       <h3>Niveau 2 : petit, simple, vérifiable</h3>
       <p>Un microcontrôleur de sûreté qui exécute un RTOS certifiable ou du code bare metal, en double canal : deux canaux qui calculent et se comparent. Peu de code, peu de dépendances, pas de ROS 2 : c'est ce qui permet de l'argumenter.</p>
       <h3>Référentiels</h3>
@@ -504,7 +503,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li>Niveaux 1 et 2 : les mesures du niveau 2 (position, vitesse, freins) sont des copies exactes de l'état simulé, sans bruit ni panne. Le niveau 2 ne tombe jamais en panne et ses deux canaux ne sont pas simulés (ils n'apparaissent que sur le schéma d'architecture).</li>
         <li>La somme de contrôle des consignes est un calcul maison, pas un vrai CRC ni un protocole de bout en bout normalisé. Les diagnostics des capteurs (LiDAR, radar, GNSS) arrivent au niveau 2 sans passer par le niveau 1.</li>
         <li>Les deux profils de noyau sont deux bornes illustratives du temps de calcul, pas des mesures d'un noyau réel. Seul l'écart avec PREEMPT_RT est simulé comme un retard des sorties du niveau 1 ; le temps de calcul lui-même est un terme du budget t_lat.</li>
-        <li>L'architecture du schéma (pile logicielle, Yocto, microcontrôleur de sûreté) est illustrative : ce n'est la description du système réel d'aucun constructeur. Les normes citées (IEC 61508, ISO 13849, ISO 17757) sont des cadres de référence, sans prétention de conformité.</li>
+        <li>L'architecture du schéma (pile logicielle, microcontrôleur de sûreté) est illustrative : ce n'est la description du système réel d'aucun constructeur. Les normes citées (IEC 61508, ISO 13849, ISO 17757) sont des cadres de référence, sans prétention de conformité.</li>
       </ul>
       <h3>Sources</h3>
       <ul>
@@ -642,7 +641,7 @@ const STATIC = {
         <li><b>ROS 2 / DDS do not carry the SIL.</b> The autonomy stack remains uncertified; the safety function lives in an independent supervisor (“doer / checker” pattern) and in the actuator watchdogs. The planner avoids the zones, the supervisor checks them.</li>
         <li><b>Loss of the FMS link.</b> The truck never drives beyond its authorised travel zone. Without renewal, it stops within the zone already granted: a planned stop, not an emergency reaction.</li>
         <li><b>The unequipped vehicle is a degraded case.</b> In operation, every vehicle entering the autonomous zone carries a terminal and projects its own zone; access is controlled. On-board perception is the last-resort barrier (ISO 21815 family, collision avoidance).</li>
-        <li><b>Standards.</b> IEC 61508 is the parent standard; for earth-moving machinery one also reasons with ISO 19014 (in MPLr rather than SIL), ISO 17757 (autonomous machines) and ISO 23725 (FMS ↔ AHS interface). The acronym “SIL / HIL” is ambiguous: write SiL for Software-in-the-Loop.</li>
+        <li><b>Standards.</b> IEC 61508 is the parent standard; ISO 13849 covers the safety-related parts of control systems; for earth-moving machinery one also reasons with ISO 19014 (in MPLr rather than SIL), ISO 17757 (autonomous machines) and ISO 23725 (FMS ↔ AHS interface). The acronym “SIL / HIL” is ambiguous: write SiL for Software-in-the-Loop.</li>
         <li><b>Re-arming.</b> The emergency state is latched and requires an acknowledgement: automatic resumption after an exception is a real failure mode (see the WA incident in the sources).</li>
         <li><b>Level 1 proposes, level 2 allows or blocks.</b> The autonomy computer is considered unsafe by design: its setpoints (requested speed, timestamp, sequence counter, checksum) go through an independent safety controller, which rechecks them with its own position and speed measurements. Nothing reaches the brakes without its agreement. The heartbeat is watched: a silent level 1, or one that is wrong all the time, leads to a controlled stop at maximum braking decided by level 2 alone.</li>
         <li><b>Why this stop is not latched while the emergency is.</b> Losing level 1 is a failure of the autonomy computer, not a dangerous event in itself: the controlled stop is enough, and level 2 releases it once the heartbeat is stable again. The emergency state stays latched: automatic resumption after a real event is a failure mode. A level 1 that comes back never releases a latched emergency brake.</li>
@@ -651,13 +650,13 @@ const STATIC = {
     'guide.archi': `
       <h3>Two computers, two roles</h3>
       <p>Level 1 proposes, level 2 allows or blocks. The autonomy computer (level 1) perceives, plans and carries out the FMS movement authorities; it is considered unsafe by design. The safety controller (level 2) rechecks every setpoint with its own measurements, watches the heartbeat of level 1 and alone decides on the safe stop. This is the “doer / checker” pattern of the guide, made visible.</p>
-      <div class="archi" role="img" aria-label="Illustrative diagram: level 1 (hardware, PREEMPT_RT kernel, Debian or Yocto, DDS / ROS 2, applications) sends its setpoints to level 2 (safety microcontroller, RTOS or bare metal, safety software), which answers with a verdict.">
+      <div class="archi" role="img" aria-label="Illustrative diagram: level 1 (hardware, real-time or standard Linux kernel, Linux distribution, DDS / ROS 2, applications) sends its setpoints to level 2 (safety microcontroller, RTOS or bare metal, safety software), which answers with a verdict.">
         <div class="acol l1">
           <h4>Level 1 · autonomy</h4>
           <div class="ly">Applications<small>perception, planning, execution of the FMS movement authorities</small></div>
           <div class="ly">Middleware<small>DDS / ROS 2</small></div>
-          <div class="ly alt"><div>Debian<small>general-purpose distribution</small></div><div class="opt">Option: Yocto<small>minimal, reproducible image, built-in SBOM</small></div></div>
-          <div class="ly">Real-time kernel<small>PREEMPT_RT: bounded latency</small></div>
+          <div class="ly">Linux distribution<small>real-time or standard variant</small></div>
+          <div class="ly">Linux kernel<small>PREEMPT_RT (real-time, bounded latency) or general-purpose (standard, no bound)</small></div>
           <div class="ly">Hardware<small>on-board computer</small></div>
         </div>
         <div class="amid"><div>setpoint · timestamp · sequence · integrity →</div><div>← verdict: accepted or rejected</div></div>
@@ -669,7 +668,7 @@ const STATIC = {
         </div>
       </div>
       <h3>Level 1: a software stack on an on-board computer</h3>
-      <p>Hardware, Linux PREEMPT_RT kernel (bounded scheduling latency), Debian, DDS / ROS 2 middleware, then the applications. A general-purpose kernel gives no such bound: the “Autonomy · level 1” card lets you compare the two profiles, with illustrative latencies. A Yocto image (minimal, reproducible, with a built-in software bill of materials, SBOM) is shown as a possible option in place of Debian, described by its properties only.</p>
+      <p>Hardware, Linux kernel, Linux distribution, DDS / ROS 2 middleware, then the applications. The kernel and the distribution exist in a real-time or a standard variant, as in the “Autonomy · level 1” card: a PREEMPT_RT kernel bounds the scheduling latency, a general-purpose kernel gives no such bound. The latencies of the card are illustrative.</p>
       <h3>Level 2: small, simple, verifiable</h3>
       <p>A safety microcontroller running a certifiable RTOS or bare-metal code, with two channels that compute and compare. Little code, few dependencies, no ROS 2: this is what makes it possible to build a safety argument.</p>
       <h3>Reference frameworks</h3>
@@ -687,7 +686,7 @@ const STATIC = {
         <li>Levels 1 and 2: the measurements of level 2 (position, speed, brakes) are exact copies of the simulated state, with no noise and no failure. Level 2 never fails and its two channels are not simulated (they only appear in the architecture diagram).</li>
         <li>The checksum of the setpoints is a home-made calculation, not a real CRC nor a standardised end-to-end protocol. Sensor diagnostics (LiDAR, radar, GNSS) reach level 2 without going through level 1.</li>
         <li>The two kernel profiles are two illustrative bounds on the computing time, not measurements of a real kernel. Only the difference from PREEMPT_RT is simulated, as a delay on the outputs of level 1; the computing time itself is a term of the t_lat budget.</li>
-        <li>The architecture of the diagram (software stack, Yocto, safety microcontroller) is illustrative: it is not the description of any manufacturer's real system. The standards cited (IEC 61508, ISO 13849, ISO 17757) are reference frameworks, with no claim of conformity.</li>
+        <li>The architecture of the diagram (software stack, safety microcontroller) is illustrative: it is not the description of any manufacturer's real system. The standards cited (IEC 61508, ISO 13849, ISO 17757) are reference frameworks, with no claim of conformity.</li>
       </ul>
       <h3>Sources</h3>
       <ul>
@@ -774,7 +773,7 @@ const STATIC = {
         <li><b>ROS 2 / DDS tragen kein SIL.</b> Der Autonomie-Stack bleibt unzertifiziert; die Sicherheitsfunktion liegt in einem unabhängigen Supervisor (Muster „Doer / Checker“) und in den Watchdogs der Aktoren. Der Planer meidet die Zonen, der Supervisor prüft sie.</li>
         <li><b>Verlust der FMS-Verbindung.</b> Der Muldenkipper fährt nie über seine freigegebene Fahrzone hinaus. Ohne Erneuerung hält er innerhalb der bereits erteilten Zone an: ein geplanter Halt, keine Notfallreaktion.</li>
         <li><b>Das Fahrzeug ohne V2X ist ein degradierter Fall.</b> Im Betrieb trägt jedes Fahrzeug, das in die autonome Zone einfährt, ein Terminal und projiziert seine eigene Zone; der Zugang ist kontrolliert. Die bordeigene Wahrnehmung ist die letzte Barriere (Normenreihe ISO 21815, Kollisionsvermeidung).</li>
-        <li><b>Normen.</b> IEC 61508 ist die Grundnorm; für Erdbaumaschinen argumentiert man auch mit ISO 19014 (in MPLr statt SIL), ISO 17757 (autonome Maschinen) und ISO 23725 (Schnittstelle FMS ↔ AHS). Das Kürzel „SIL / HIL“ ist mehrdeutig: SiL für Software-in-the-Loop schreiben.</li>
+        <li><b>Normen.</b> IEC 61508 ist die Grundnorm; ISO 13849 behandelt sicherheitsbezogene Teile von Steuerungen; für Erdbaumaschinen argumentiert man auch mit ISO 19014 (in MPLr statt SIL), ISO 17757 (autonome Maschinen) und ISO 23725 (Schnittstelle FMS ↔ AHS). Das Kürzel „SIL / HIL“ ist mehrdeutig: SiL für Software-in-the-Loop schreiben.</li>
         <li><b>Quittierung.</b> Der Notfallzustand ist verriegelt und erfordert eine Quittierung: Ein automatisches Wiederanlaufen nach einer Ausnahme ist ein realer Fehlermodus (siehe den WA-Vorfall in den Quellen).</li>
         <li><b>Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert.</b> Der Autonomierechner gilt als von Grund auf nicht sicher: Seine Sollwerte (geforderte Geschwindigkeit, Zeitstempel, Sequenzzähler, Prüfsumme) laufen über einen unabhängigen Sicherheitscontroller, der sie mit eigenen Messungen von Position und Geschwindigkeit erneut prüft. Nichts erreicht die Bremsen ohne seine Zustimmung. Der Herzschlag wird überwacht: Eine stumme oder ständig irrende Ebene 1 führt zu einem kontrollierten Halt mit maximaler Bremsung, den Ebene 2 allein beschließt.</li>
         <li><b>Warum dieser Halt nicht verriegelt ist, der Notfall aber schon.</b> Der Verlust von Ebene 1 ist ein Ausfall des Autonomierechners, kein gefährliches Ereignis an sich: Der kontrollierte Halt genügt, und Ebene 2 hebt ihn auf, sobald der Herzschlag wieder stabil ist. Der Notfallzustand bleibt verriegelt: Eine automatische Wiederaufnahme nach einem echten Ereignis ist ein Fehlermodus. Eine zurückgekehrte Ebene 1 hebt nie eine verriegelte Notbremsung auf.</li>
@@ -783,13 +782,13 @@ const STATIC = {
     'guide.archi': `
       <h3>Zwei Rechner, zwei Rollen</h3>
       <p>Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert. Der Autonomierechner (Ebene 1) nimmt wahr, plant und führt die Bewegungsfreigaben des FMS aus; er gilt als von Grund auf nicht sicher. Der Sicherheitscontroller (Ebene 2) prüft jeden Sollwert mit eigenen Messungen erneut, überwacht den Herzschlag von Ebene 1 und entscheidet allein über den sicheren Halt. Das ist das Muster „Doer / Checker“ der Anleitung, sichtbar gemacht.</p>
-      <div class="archi" role="img" aria-label="Illustratives Schema: Ebene 1 (Hardware, PREEMPT_RT-Kernel, Debian oder Yocto, DDS / ROS 2, Anwendungen) sendet ihre Sollwerte an Ebene 2 (Sicherheits-Mikrocontroller, RTOS oder Bare Metal, Sicherheitssoftware), die mit einem Urteil antwortet.">
+      <div class="archi" role="img" aria-label="Illustratives Schema: Ebene 1 (Hardware, Linux-Kernel in Echtzeit- oder Standardvariante, Linux-Distribution, DDS / ROS 2, Anwendungen) sendet ihre Sollwerte an Ebene 2 (Sicherheits-Mikrocontroller, RTOS oder Bare Metal, Sicherheitssoftware), die mit einem Urteil antwortet.">
         <div class="acol l1">
           <h4>Ebene 1 · Autonomie</h4>
           <div class="ly">Anwendungen<small>Wahrnehmung, Planung, Ausführung der FMS-Bewegungsfreigaben</small></div>
           <div class="ly">Middleware<small>DDS / ROS 2</small></div>
-          <div class="ly alt"><div>Debian<small>Allzweck-Distribution</small></div><div class="opt">Option: Yocto<small>minimales, reproduzierbares Image, integrierte SBOM</small></div></div>
-          <div class="ly">Echtzeit-Kernel<small>PREEMPT_RT: begrenzte Latenz</small></div>
+          <div class="ly">Linux-Distribution<small>Echtzeit- oder Standardvariante</small></div>
+          <div class="ly">Linux-Kernel<small>PREEMPT_RT (Echtzeit, begrenzte Latenz) oder Allzweck (Standard, ohne Grenze)</small></div>
           <div class="ly">Hardware<small>Bordrechner</small></div>
         </div>
         <div class="amid"><div>Sollwert · Zeitstempel · Sequenz · Integrität →</div><div>← Urteil: akzeptiert oder abgelehnt</div></div>
@@ -801,7 +800,7 @@ const STATIC = {
         </div>
       </div>
       <h3>Ebene 1: ein Software-Stack auf einem Bordrechner</h3>
-      <p>Hardware, Linux-Kernel PREEMPT_RT (begrenzte Scheduling-Latenz), Debian, Middleware DDS / ROS 2, darüber die Anwendungen. Ein Allzweck-Kernel bietet diese Grenze nicht: Mit der Karte „Autonomie · Ebene 1“ lassen sich die beiden Profile vergleichen, mit illustrativen Latenzen. Ein Yocto-Image (minimal, reproduzierbar, mit integrierter Software-Stückliste, SBOM) wird als mögliche Option anstelle von Debian gezeigt und nur durch seine Eigenschaften beschrieben.</p>
+      <p>Hardware, Linux-Kernel, Linux-Distribution, Middleware DDS / ROS 2, darüber die Anwendungen. Kernel und Distribution gibt es in einer Echtzeit- und in einer Standardvariante, wie in der Karte „Autonomie · Ebene 1“: Ein PREEMPT_RT-Kernel begrenzt die Scheduling-Latenz, ein Allzweck-Kernel bietet diese Grenze nicht. Die Latenzen der Karte sind illustrativ.</p>
       <h3>Ebene 2: klein, einfach, überprüfbar</h3>
       <p>Ein Sicherheits-Mikrocontroller, der ein zertifizierbares RTOS oder Bare-Metal-Code ausführt, zweikanalig: zwei Kanäle, die rechnen und sich vergleichen. Wenig Code, wenige Abhängigkeiten, kein ROS 2: Nur so lässt sich eine Sicherheitsargumentation aufbauen.</p>
       <h3>Bezugsrahmen</h3>
@@ -819,7 +818,7 @@ const STATIC = {
         <li>Ebenen 1 und 2: Die Messungen von Ebene 2 (Position, Geschwindigkeit, Bremsen) sind exakte Kopien des simulierten Zustands, ohne Rauschen und ohne Ausfall. Ebene 2 fällt nie aus, und ihre zwei Kanäle werden nicht simuliert (sie erscheinen nur im Architekturschema).</li>
         <li>Die Prüfsumme der Sollwerte ist eine eigene Rechnung, kein echtes CRC und kein genormtes Ende-zu-Ende-Protokoll. Die Sensordiagnosen (LiDAR, Radar, GNSS) erreichen Ebene 2, ohne über Ebene 1 zu laufen.</li>
         <li>Die beiden Kernel-Profile sind zwei illustrative Grenzen der Rechenzeit, keine Messungen eines echten Kernels. Nur die Differenz zu PREEMPT_RT wird als Verzögerung der Ausgaben von Ebene 1 simuliert; die Rechenzeit selbst ist ein Term des Budgets t_lat.</li>
-        <li>Die Architektur des Schemas (Software-Stack, Yocto, Sicherheits-Mikrocontroller) ist illustrativ: Sie beschreibt nicht das reale System eines Herstellers. Die genannten Normen (IEC 61508, ISO 13849, ISO 17757) sind Bezugsrahmen ohne Konformitätsanspruch.</li>
+        <li>Die Architektur des Schemas (Software-Stack, Sicherheits-Mikrocontroller) ist illustrativ: Sie beschreibt nicht das reale System eines Herstellers. Die genannten Normen (IEC 61508, ISO 13849, ISO 17757) sind Bezugsrahmen ohne Konformitätsanspruch.</li>
       </ul>
       <h3>Quellen</h3>
       <ul>

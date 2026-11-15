@@ -241,8 +241,10 @@ export function verifierTraductions({ MSG, STATIC, LANGS }, html) {
  * Spec 002, AC-18 : aucun constructeur n'est nommé comme propriétaire de l'architecture montrée.
  * La liste est volontairement courte (le nom que le brief mentionnait) : d'autres noms de matériel
  * figurent déjà, légitimement, dans les sources du guide.
+ * Amendement du 2026-11-15 (décision du propriétaire) : aucune distribution Linux ni aucun outil de construction n'est nommé non plus
+ * (ni Debian ni Yocto) : le schéma dit « distribution Linux », en variante temps réel ou standard.
  */
-export const NOMS_INTERDITS = ['Liebherr'];
+export const NOMS_INTERDITS = ['Liebherr', 'Yocto', 'Debian'];
 export function verifierSansConstructeur(readme, html) {
   const erreurs = [];
   for (const [fichier, texte] of [['README.md', readme], ['index.html', html]]) {
@@ -250,7 +252,7 @@ export function verifierSansConstructeur(readme, html) {
       const re = new RegExp(nom, 'gi');
       let m;
       while ((m = re.exec(texte))) {
-        erreurs.push({ fichier, ligne: lignesAvant(texte, m.index) + 1, message: `the manufacturer name "${nom}" must not appear in the shipped page or the README` });
+        erreurs.push({ fichier, ligne: lignesAvant(texte, m.index) + 1, message: `"${nom}" must not appear in the shipped page or the README (spec 002: no manufacturer, no Linux distribution, no build system is named)` });
       }
     }
   }

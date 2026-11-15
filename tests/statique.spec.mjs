@@ -194,6 +194,18 @@ test.describe('T-02 no manufacturer name (spec 002, AC-18)', () => {
     const e2 = verifierSansConstructeur('# aht\n\nBuilt like LIEBHERR trucks.\n', html);
     expect(e2.map(e => `${e.fichier}:${e.ligne}`), 'case does not matter').toEqual(['README.md:3']);
   });
+
+  // Amendement du 2026-11-15 : ni distribution Linux ni outil de construction nommés (le schéma dit « distribution Linux »).
+  for (const mot of ['Yocto', 'Debian']) {
+    test(`${mot} written in the page or in the README is reported with its file and line`, () => {
+      const lignes = html.split('\n'); lignes[11] += ` ${mot}`;
+      const e1 = verifierSansConstructeur(readme, lignes.join('\n'));
+      expect(e1.map(e => `${e.fichier}:${e.ligne}`)).toEqual(['index.html:12']);
+      expect(e1[0].message).toContain(mot);
+      const e2 = verifierSansConstructeur(`# aht\n\nBased on ${mot.toUpperCase()}.\n`, html);
+      expect(e2.map(e => `${e.fichier}:${e.ligne}`), 'case does not matter').toEqual(['README.md:3']);
+    });
+  }
 });
 
 test.describe('T-17 no latency written in the new HTML (spec 002, AC-15)', () => {

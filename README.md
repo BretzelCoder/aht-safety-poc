@@ -120,7 +120,7 @@ Changes follow a spec-driven workflow based on the [SDD kit](https://github.com/
 - Level 2's measurements (position, speed, brakes) are exact copies of the simulated state, with no noise and no failure. Level 2 never fails and its two channels are not simulated: they only appear in the architecture diagram.
 - The checksum of the setpoints is a home-made calculation, not a real CRC nor a standardised end-to-end protocol. Sensor diagnostics reach level 2 without going through level 1.
 - The two kernel profiles are two illustrative bounds on the computing time, not measurements of a real kernel. Only the difference from PREEMPT_RT is simulated, as a delay on the outputs of level 1; the computing time itself is a term of the `t_lat` budget.
-- The architecture shown (software stack, Yocto as an option, safety microcontroller) is illustrative. It is not the description of any manufacturer's real system.
+- The architecture shown (software stack with a real-time or standard Linux variant, safety microcontroller) is illustrative. It is not the description of any manufacturer's real system.
 
 ## References
 

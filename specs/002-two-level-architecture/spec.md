@@ -3,6 +3,7 @@
 > Status: APPROVED
 > Created: 2026-11-15 · Approved: 2026-11-15
 > Amended 2026-11-15 at plan approval, validated by the owner: S6 and AC-7 say that the verdict uses level 2's measured position, not its speed.
+> Amended 2026-11-15, after delivery, on the owner's request: the deployment view names no Linux distribution and no build system (no Debian, no Yocto): level 1 shows a "Linux distribution" layer with a real-time or standard variant, like the kernel profile (S16, AC-16, AC-18, section 5); and every tab of the guide has the same window size (new S21, AC-23).
 > Input: owner brief "Brief VS Code – Évolutions aht-safety-poc architecture à deux niveaux" (attached to the `/specify` request; not stored in the repository). No `docs/brainstorm/` note exists for this topic.
 
 ## 1. Problem / Why
@@ -50,12 +51,13 @@ Terms: **level 1** = the autonomy computer (perception, planning, execution of t
 - **S15 — The profile alone breaks nothing.** As a visitor, when I switch profile, then no heartbeat loss and no rejected setpoint appears because of the switch alone: each profile's worst-case latency stays inside the heartbeat deadline.
 
 ### Part 4 — Deployment view
-- **S16 — Software stack of level 1.** As a visitor, I can open a deployment view showing level 1 as layers: hardware, real-time kernel (PREEMPT_RT), Debian, middleware (DDS / ROS 2), applications. The Yocto-based variant (minimal, reproducible image, built-in software bill of materials) is shown as an **option** next to Debian, described by its properties only. Nothing claims which one a real project selected.
+- **S16 — Software stack of level 1.** As a visitor, I can open a deployment view showing level 1 as layers: hardware, kernel (real-time PREEMPT_RT or general-purpose), Linux distribution (real-time or standard variant), middleware (DDS / ROS 2), applications. The kernel and the distribution are shown in the same two variants as the kernel profile of the configuration card, so the diagram and the configuration agree. No distribution and no build system is named. Nothing claims which choice a real project made. *(Amended 2026-11-15, owner request: Debian and the Yocto option removed.)*
 - **S17 — Level 2 hardware and software.** The same view shows level 2 as a safety microcontroller running a certifiable RTOS or bare-metal code, with two channels.
 - **S18 — Reference standards without conformity.** The view and the guide name IEC 61508, ISO 13849 and ISO 17757 as reference frameworks and say the simulator does not claim conformity with any of them.
 
 ### Across the parts
 - **S19 — Honest framing.** Every new text states or keeps visible that the architecture is illustrative, is not a description of any manufacturer's real system, and that the simulator is not a safety tool. The guide's "Limitations and sources" tab and the README "Limitations" section list every simplification this spec adds (see section 9).
+- **S21 — Guide tabs of one size.** As a visitor, when I move between the tabs of the guide, then the window keeps the same width and the same height, whatever the length of the tab; a longer tab scrolls inside the window and the header with the tabs stays in place. *(Added 2026-11-15, owner request.)*
 - **S20 — Same rules as the rest of the page.** Every new text exists in French, English and German; new log entries and verdict reasons are stored as keyed messages and translated at display time; new codes are never translated.
 
 ## 4. Edge cases and errors
@@ -76,7 +78,7 @@ Terms: **level 1** = the autonomy computer (perception, planning, execution of t
 - Sensor noise or faults on level 2's own measurements. They are exact copies of the simulated state, stated as a limitation; the existing GNSS, LiDAR and radar faults keep their meaning.
 - Failure of level 2 itself, dual-channel comparison, lockstep behaviour: shown in the deployment view only, not simulated. The simulator assumes level 2 works.
 - A real integrity code, real message encoding or a real end-to-end protection profile. The integrity check is modelled as correct or incorrect.
-- Building or measuring a Yocto image, generating a real software bill of materials, installing anything.
+- Naming, choosing or describing a particular Linux distribution or build system, building or measuring an image, installing anything.
 - An interactive deployment diagram (zoom, drag, drill-down): a static, translated diagram is enough.
 - Any change to scenarios A to E, to the FMS, to the CAN or DDS models, to the physics, or to analytics beyond naming the new scenarios in the existing "scenario launched" event.
 - Naming any equipment manufacturer as the owner of the architecture shown.
@@ -107,13 +109,14 @@ Every criterion that says "always" is checked over at least 40 seeds and 60 simu
 - [x] AC-14 — In both profiles, without any injected fault, no heartbeat loss and no rejection appears, and the switch itself triggers none. *(evidence: tasks.md, "Nominal runs, both profiles" (T-08))*
 - [x] AC-15 — The interface and the guide present both latency values as illustrative; the profile names and values are model parameters, not hard-coded displayed numbers (CLAUDE.md, "Every number on screen is computed by the model"). *(evidence: tasks.md, "No hard-coded latency" (T-17))*
 - [x] AC-22 — With the general-purpose profile selected, launching each of scenarios A to E (and pressing reset) returns the profile to PREEMPT_RT, shows the message, and gives the pinned outcome of AC-1; launching F or G keeps the selected profile. *(evidence: tasks.md, "Profile reset at scenario launch" (T-11))*
+- [ ] AC-23 — In French, English and German, at 1600×900 and at 1920×1080, the window of the guide has exactly the same width and height on each of its tabs, the header with the tabs does not move, and a tab longer than the window scrolls inside it. *(evidence: tasks.md, "Guide window size" (T-25))*
 
 **Part 4**
-- [x] AC-16 — The deployment view lists, in the three languages, the five layers of level 1 and the elements of level 2, presents the Yocto variant as an option with its stated properties and without any claim about a real choice, and names IEC 61508, ISO 13849 and ISO 17757 with a non-conformity statement. *(evidence: tasks.md, "Deployment view" (T-18))*
+- [x] AC-16 — The deployment view lists, in the three languages, the five layers of level 1 (applications, middleware DDS / ROS 2, Linux distribution with its real-time or standard variant, kernel PREEMPT_RT or general-purpose, hardware) and the elements of level 2, names no distribution and no build system, makes no claim about a real choice, and names IEC 61508, ISO 13849 and ISO 17757 with a non-conformity statement. *(evidence: tasks.md, "Deployment view" (T-18) and its amendment (T-25))*
 
 **Across the parts**
 - [x] AC-17 — Every new `MSG` triplet has three entries and every new `data-i18n*` key exists in English and German (the existing translation checks enforce it at run time in the three languages). *(evidence: tasks.md, "Runtime translations" (T-19))*
-- [x] AC-18 — No manufacturer's name appears in the new texts as the owner of the architecture shown; a check fails if `Liebherr` appears in `index.html` or in the README (the other manufacturer names already present in the sources are untouched). *(evidence: tasks.md, "No `Liebherr`" (T-02))*
+- [x] AC-18 — No manufacturer's name appears in the new texts as the owner of the architecture shown, and neither `Yocto` nor `Debian` appears in the page or the README; a check fails if `Liebherr`, `Yocto` or `Debian` appears in `index.html` or in the README (the other manufacturer names already present in the sources are untouched). *(evidence: tasks.md, "No `Liebherr`" (T-02) and its amendment (T-25))*
 - [x] AC-19 — The guide ("Limitations and sources" tab) and the README ("Limitations" and the scenario and control tables) are updated in the three languages, and `docs/capture.png` is regenerated (English interface, 1600×900). *(evidence: tasks.md, "Guide text" (T-20), README (T-21), screenshot (T-22))*
 - [x] AC-20 — Each new check is listed in the evidence table of `tasks.md` next to its proof of failure (negative test or recorded deliberate breakage); a check with no row is not delivered. *(evidence: tasks.md, the Evidence table of tasks.md, every check with its proof of failure)*
 - [x] AC-21 — `npm test` is green locally and on GitHub for Node 22 and Node 24, within the existing 5-minute budget. *(evidence: tasks.md, "Runtime of the suite" (T-23): `Checks` run 43739397872, Node 22 in 1 min 42 s, Node 24 in 1 min 14 s)*
@@ -142,14 +145,14 @@ Points proposed in the draft and validated by the owner the same day:
 - Latency values are two named model parameters, shown as illustrative and changed by the maintainer in the code; no visitor sliders.
 - Launching scenario A to E, or pressing reset, returns the profile to PREEMPT_RT with an on-screen message; scenarios F and G and free exploration keep the visitor's choice (S12b, AC-22).
 - The brake state is shown among level 2's own measurements but is not a fifth cause of rejection.
-- No manufacturer is named in the app; the brief's remark on Yocto is not carried over (S19, AC-18).
+- No manufacturer is named in the app; the brief's remark on Yocto is not carried over (S19, AC-18). Amended 2026-11-15 on the owner's request: Debian and Yocto are not named either; the diagram says "Linux distribution" with a real-time or standard variant, as in the configuration.
 - The quantities of section 7 are pinned at `/plan`, and the placement of the views is decided at `/plan`.
 - Spec approved on 2026-11-15.
 
 `CLAUDE.md` checks:
 - **Spec before code** — applies: this spec, then plan, tasks and `/implement`, on branch `002-two-level-architecture`.
 - **Every number on screen is computed by the model** — applies: detection delay, freeze-to-standstill distance, `t_lat`, `d_stop` and the profile latencies come from model parameters (AC-4, AC-12, AC-15). Each simplification is added to the guide's "Limitations and sources" tab and to the README "Limitations": level 2's measurements are exact, the integrity check is a flag, the profiles are two worst cases, level 2 never fails.
-- **Three languages, never translated** — applies (S20, AC-17). Never translated: the new supervisor states if any, the new fault and log codes, `PREEMPT_RT`, `Yocto`, `DDS`, `ROS 2`, `RTOS`, standard references. Translated: the block names, the profile labels, the verdict reasons, the deployment view text. Home-made identifiers go through `vid()` and `codeName()`.
+- **Three languages, never translated** — applies (S20, AC-17). Never translated: the new supervisor states if any, the new fault and log codes, `PREEMPT_RT`, `DDS`, `ROS 2`, `RTOS`, standard references. Translated: the block names, the profile labels, the verdict reasons, the deployment view text. Home-made identifiers go through `vid()` and `codeName()`.
 - **British English** — applies to new English text in the UI and the README.
 - **Analytics** — applies as a subject: the new scenarios use the existing "scenario launched" event under the `aht-safety-poc/` prefix; nothing typed or personal is sent; no new event kind.
 - **Languages of the repository** — applies: code comments in French, README, commit messages and ADRs in English.

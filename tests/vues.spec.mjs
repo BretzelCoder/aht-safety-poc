@@ -395,9 +395,9 @@ test.describe('T-17 t_lat breakdown (S13)', () => {
 // T-18 : vue de déploiement, onglet « Architecture » du guide (S16, S17, S18 ; AC-16).
 test.describe('T-18 deployment view (S16, S17, S18)', () => {
   const TEXTES = {
-    fr: { nonConf: 'ne prétend à la conformité', illustratif: 'illustratif', couches: ['Applications', 'Intergiciel', 'Debian', 'Noyau temps réel', 'Matériel'], l2: ['Logiciel de sûreté', 'RTOS certifiable', 'Microcontrôleur de sûreté'], doubleCanal: 'double canal' },
-    en: { nonConf: 'claims no conformity', illustratif: 'Illustrative', couches: ['Applications', 'Middleware', 'Debian', 'Real-time kernel', 'Hardware'], l2: ['Safety software', 'Certifiable RTOS', 'Safety microcontroller'], doubleCanal: 'dual channel' },
-    de: { nonConf: 'erhebt keinen Anspruch auf Konformität', illustratif: 'Illustrativ', couches: ['Anwendungen', 'Middleware', 'Debian', 'Echtzeit-Kernel', 'Hardware'], l2: ['Sicherheitssoftware', 'Zertifizierbares RTOS', 'Sicherheits-Mikrocontroller'], doubleCanal: 'zweikanalig' },
+    fr: { nonConf: 'ne prétend à la conformité', illustratif: 'illustratif', couches: ['Applications', 'Intergiciel', 'Distribution Linux', 'Noyau Linux', 'Matériel'], variante: 'temps réel ou standard', noyau: 'PREEMPT_RT (temps réel', l2: ['Logiciel de sûreté', 'RTOS certifiable', 'Microcontrôleur de sûreté'], doubleCanal: 'double canal' },
+    en: { nonConf: 'claims no conformity', illustratif: 'Illustrative', couches: ['Applications', 'Middleware', 'Linux distribution', 'Linux kernel', 'Hardware'], variante: 'real-time or standard', noyau: 'PREEMPT_RT (real-time', l2: ['Safety software', 'Certifiable RTOS', 'Safety microcontroller'], doubleCanal: 'dual channel' },
+    de: { nonConf: 'erhebt keinen Anspruch auf Konformität', illustratif: 'Illustrativ', couches: ['Anwendungen', 'Middleware', 'Linux-Distribution', 'Linux-Kernel', 'Hardware'], variante: 'Echtzeit- oder Standardvariante', noyau: 'PREEMPT_RT (Echtzeit', l2: ['Sicherheitssoftware', 'Zertifizierbares RTOS', 'Sicherheits-Mikrocontroller'], doubleCanal: 'zweikanalig' },
   };
   async function ouvrirArchi(page, lang) {
     await openPage(page, lang);
@@ -407,7 +407,7 @@ test.describe('T-18 deployment view (S16, S17, S18)', () => {
   }
 
   for (const lang of ['fr', 'en', 'de']) {
-    test(`${lang}: the tab lists the five layers of level 1, the Yocto option, the elements of level 2 and the standards`, async ({ page }) => {
+    test(`${lang}: the tab lists the five layers of level 1 with the real-time or standard variant, no distribution name, the elements of level 2 and the standards`, async ({ page }) => {
       const x = TEXTES[lang];
       const section = await ouvrirArchi(page, lang);
       await expect(section).toBeVisible();
@@ -415,12 +415,10 @@ test.describe('T-18 deployment view (S16, S17, S18)', () => {
       await expect(couches, 'five layers of level 1').toHaveCount(5);
       for (let i = 0; i < 5; i++) await expect(couches.nth(i), `layer ${i + 1} from the top`).toContainText(x.couches[i]);
       await expect(couches.nth(1)).toContainText('DDS / ROS 2');
+      await expect(couches.nth(3), 'the kernel layer offers both variants of the configuration').toContainText(x.noyau);
       await expect(couches.nth(3)).toContainText('PREEMPT_RT');
-      const option = section.locator('.acol.l1 .opt');
-      await expect(option, 'Yocto is drawn beside Debian as an option').toContainText('Yocto');
-      await expect(option).toContainText(/option/i);
-      await expect(option).toContainText('SBOM');
-      await expect(couches.nth(2).locator('> div').first()).toContainText('Debian');
+      await expect(couches.nth(2), 'the Linux distribution has a real-time or standard variant, like the configuration').toContainText(x.variante);
+      await expect(section.locator('.acol.l1 .opt, .acol.l1 .alt'), 'no alternative distribution or build system is drawn').toHaveCount(0);
       const l2 = section.locator('.acol.l2 > .ly');
       await expect(l2, 'three elements of level 2').toHaveCount(3);
       for (let i = 0; i < 3; i++) await expect(l2.nth(i)).toContainText(x.l2[i]);
@@ -430,6 +428,8 @@ test.describe('T-18 deployment view (S16, S17, S18)', () => {
       for (const norme of ['IEC 61508', 'ISO 13849', 'ISO 17757']) expect(texte, norme).toContain(norme);
       expect(texte, 'conformity disclaimer').toContain(x.nonConf);
       expect(texte, 'framed as illustrative').toContain(x.illustratif);
+      expect(texte, 'no distribution and no build system named (owner request, 2026-11-15)').not.toMatch(/yocto|debian|sbom/i);
+      expect(await section.locator('.archi').getAttribute('aria-label'), 'nor in the text alternative of the diagram').not.toMatch(/yocto|debian/i);
       expect(texte, 'no claim about what a real project chose').not.toMatch(/retenu|chosen|selected|gewählt|ausgewählt|ausgesucht/i);
       const aria = await section.locator('.archi').getAttribute('aria-label');
       expect(aria.length, 'the diagram has a text alternative').toBeGreaterThan(40);
@@ -459,19 +459,19 @@ test.describe('T-20 guide text (S19, AC-19)', () => {
     fr: {
       prise: ['Autonomie · niveau 1', 'F et G partent aussitôt', 'Niveaux 1 ↔ 2', 'ⓘ'],
       visite: ['Scénario F', 'Scénario G', 'noyau généraliste'],
-      modele: ['Le niveau 1 propose, le niveau 2 autorise ou bloque', 'pas verrouillé alors que l\'urgence l\'est', 'pire cas, pas une mesure'],
+      modele: ['Le niveau 1 propose, le niveau 2 autorise ou bloque', 'pas verrouillé alors que l\'urgence l\'est', 'pire cas, pas une mesure', 'ISO 13849'],
       limites: ['copies exactes de l\'état simulé', 'ne tombe jamais en panne', 'calcul maison', 'sans passer par le niveau 1', 'bornes illustratives', 'Seul l\'écart avec PREEMPT_RT', 'sans prétention de conformité'],
     },
     en: {
       prise: ['Autonomy · level 1', 'F and G start at once', 'Levels 1 ↔ 2', 'ⓘ'],
       visite: ['Scenario F', 'Scenario G', 'general-purpose kernel'],
-      modele: ['Level 1 proposes, level 2 allows or blocks', 'not latched while the emergency is', 'worst case, not a measurement'],
+      modele: ['Level 1 proposes, level 2 allows or blocks', 'not latched while the emergency is', 'worst case, not a measurement', 'ISO 13849'],
       limites: ['exact copies of the simulated state', 'never fails', 'home-made calculation', 'without going through level 1', 'illustrative bounds', 'Only the difference from PREEMPT_RT', 'no claim of conformity'],
     },
     de: {
       prise: ['Autonomie · Ebene 1', 'F und G starten sofort', 'Ebenen 1 ↔ 2', 'ⓘ'],
       visite: ['Szenario F', 'Szenario G', 'Allzweck-Kernels'],
-      modele: ['Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert', 'nicht verriegelt ist, der Notfall aber schon', 'ungünstigster Fall, keine Messung'],
+      modele: ['Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert', 'nicht verriegelt ist, der Notfall aber schon', 'ungünstigster Fall, keine Messung', 'ISO 13849'],
       limites: ['exakte Kopien des simulierten Zustands', 'fällt nie aus', 'eigene Rechnung', 'ohne über Ebene 1 zu laufen', 'illustrative Grenzen', 'Nur die Differenz zu PREEMPT_RT', 'ohne Konformitätsanspruch'],
     },
   };
@@ -538,5 +538,38 @@ test.describe('Levels 1 ↔ 2 pane: configuration line and caption under each ti
         expect(m.l1.lignes[vitesse], `${kernel}: speed row aligned between level 1 and level 2`).toBe(m.l2.lignes[vitesse]);
       }
     });
+  }
+});
+
+// Fenêtre du guide : même largeur et même hauteur sur toutes les rubriques (spec 002, S21, AC-23, demande du propriétaire du 2026-11-15).
+test.describe('Guide window size (S21, AC-23)', () => {
+  const ONGLETS = ['prise', 'visite', 'modele', 'archi', 'limites'];
+  for (const [largeur, hauteur] of [[1600, 900], [1920, 1080], [1280, 720]]) {
+    for (const lang of ['fr', 'en', 'de']) {
+      test(`${largeur}×${hauteur}, ${lang}: every tab of the guide has the same window, the header stays put and a long tab scrolls inside`, async ({ page }) => {
+        await page.setViewportSize({ width: largeur, height: hauteur });
+        await openPage(page, lang);
+        await page.click('#bGuide');
+        const mesures = [];
+        for (const onglet of ONGLETS) {
+          await page.click(`[data-gtab="${onglet}"]`);
+          mesures.push(await page.evaluate(o => {
+            const r = e => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; };
+            const corps = document.querySelector('.gbody');
+            return { onglet: o, fenetre: r(document.getElementById('guide')), entete: r(document.querySelector('.ghead')), corps: r(corps), defile: corps.scrollHeight > corps.clientHeight + 1, deborde: document.getElementById('guide').scrollHeight > document.getElementById('guide').clientHeight + 1 };
+          }, onglet));
+        }
+        const ref = mesures[0];
+        for (const m of mesures) {
+          expect(m.fenetre, `tab ${m.onglet}: window (left, top, width, height)`).toEqual(ref.fenetre);
+          expect(m.entete, `tab ${m.onglet}: header with the tabs`).toEqual(ref.entete);
+          expect(m.corps, `tab ${m.onglet}: body`).toEqual(ref.corps);
+          expect(m.deborde, `tab ${m.onglet}: nothing sticks out of the window`).toBe(false);
+        }
+        expect(ref.fenetre[3], 'the window fits the screen').toBeLessThanOrEqual(hauteur);
+        expect(ref.fenetre[2], 'the window fits the screen width').toBeLessThanOrEqual(largeur);
+        expect(mesures.some(m => m.defile), 'a long tab scrolls inside the window').toBe(true);
+      });
+    }
   }
 });
