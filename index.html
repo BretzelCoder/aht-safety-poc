@@ -20,6 +20,8 @@
 window.AHT = {
   attendu: {
     'css/style.css': '2952db55',
+    'js/base.js': 'ba66a5b9',
+    'js/analytics.js': 'c450b1a7',
   },
   vu: {}, n: {}, erreur: null,
   inscrire(chemin, empreinte) { this.vu[chemin] = empreinte; this.n[chemin] = (this.n[chemin] || 0) + 1; }
@@ -304,35 +306,10 @@ window.AHT = {
 </dialog>
 <div class="toast" id="toast" role="status"></div>
 
+<script src="js/base.js"></script>
+<script src="js/analytics.js"></script>
 <script>
 'use strict';
-const $ = id => document.getElementById(id);
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-
-/* =====================================================================
-   Mesure d'audience — GoatCounter (sans cookie, données agrégées)
-   Actif uniquement sur le site GitHub Pages : rien n'est chargé ni compté
-   en local (file://, localhost). Les visites sont comptées sur le chemin
-   sans paramètres ; un éventuel ?ref=… est classé comme provenance par
-   GoatCounter. Événements : langue, scénarios lancés, ouverture du guide.
-   ===================================================================== */
-const GC_HOST = 'bretzelcoder.github.io', GC_ENDPOINT = 'https://bretzelgoatcounter.goatcounter.com/count';
-const gcQueue = [];
-function track(path, title) {
-  const gc = window.goatcounter;
-  if (gc && typeof gc.count === 'function') { try { gc.count({ path, title: title || path, event: true }); } catch (e) {} }
-  else if (location.hostname === GC_HOST && gcQueue.length < 20) gcQueue.push([path, title]);
-}
-function demarrerMesure() {
-  if (location.hostname === GC_HOST) {
-    window.goatcounter = { path: () => location.pathname };
-    const s = document.createElement('script');
-    s.async = true; s.src = 'https://gc.zgo.at/count.js'; s.dataset.goatcounter = GC_ENDPOINT;
-    s.onload = () => { while (gcQueue.length) track(...gcQueue.shift()); };
-    document.head.appendChild(s);
-  }
-}
-
 /* =====================================================================
    I18N — français (défaut) / anglais / allemand
    Textes statiques : le français reste dans le HTML, marqué par data-i18n

@@ -6,6 +6,7 @@ import { mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openPage } from './helpers/page.mjs';
+import { lireEmpreinte } from '../scripts/empreintes.mjs';
 
 const racine = fileURLToPath(new URL('..', import.meta.url));
 
@@ -43,7 +44,7 @@ async function verifierRefus(page, copie, fichier, raison) {
   expect(texte, 'German').toContain('konnte nicht starten');
   expect(texte, 'the file is named').toContain(fichier);
   expect(await page.evaluate(() => window.AHT.erreur)).toContain(`${fichier} (${raison})`);
-  expect(await page.evaluate(() => typeof window.__sim.sim), 'the simulation never started').toBe('undefined');
+  expect(await page.evaluate(() => typeof (window.__sim && window.__sim.sim)), 'the simulation never started').toBe('undefined');
   expect(await page.evaluate(() => typeof window.goatcounter), 'no analytics object either').toBe('undefined');
 }
 
@@ -86,6 +87,41 @@ test.describe('T-14 start-up guard (spec 003, S12, S13)', () => {
     const copie = copierPage();
     copie.ecrire('css/style.css', copie.lire('css/style.css').replace(/--aht-stamp: '[0-9a-f]{8}'/, "--aht-stamp: '00000000'"));
     await verifierRefus(page, copie, 'css/style.css', 'other version');
+    copie.retirer();
+  });
+
+  test('a script file deleted: the page says so and does not start', async ({ page }) => {
+    const copie = copierPage();
+    rmSync(join(copie.dossier, 'js/base.js'));
+    await verifierRefus(page, copie, 'js/base.js', 'missing');
+    copie.retirer();
+  });
+
+  test('a script file with a syntax error never registers: the page says so and does not start', async ({ page }) => {
+    const copie = copierPage();
+    copie.ecrire('js/analytics.js', copie.lire('js/analytics.js').replace("'use strict';", "'use strict';\nconst cassé = ;"));
+    await verifierRefus(page, copie, 'js/analytics.js', 'missing');
+    copie.retirer();
+  });
+
+  test('a file that registers twice (the same file run twice): the page says "loaded twice" and does not start', async ({ page }) => {
+    const copie = copierPage();
+    const stamp = lireEmpreinte(copie.lire('js/base.js'), 'js/base.js');
+    copie.ecrire('index.html', avantGarde(`AHT.inscrire('js/base.js', '${stamp}');`)(copie.lire('index.html')));
+    await verifierRefus(page, copie, 'js/base.js', 'loaded twice');
+    copie.retirer();
+  });
+
+  test('a script tag listed twice: the browser refuses the second run of the declarations, nothing is duplicated', async ({ page }) => {
+    const copie = copierPage(html => html.replace('<script src="js/analytics.js"></script>', '<script src="js/analytics.js"></script>\n<script src="js/analytics.js"></script>'));
+    const erreurs = [];
+    page.on('pageerror', e => erreurs.push(e.message));
+    await openPage(page, 'fr', { chemin: copie.index });
+    expect(erreurs.join('|'), 'the browser rejects the second run (constants declared twice)').toContain('already been declared');
+    // un seul écouteur par bouton : un clic sur Pause bascule la pause une seule fois
+    const avant = await page.evaluate(() => window.__sim.ENV.paused);
+    await page.locator('#bPause').click();
+    expect(await page.evaluate(() => window.__sim.ENV.paused), 'one click, one toggle').toBe(!avant);
     copie.retirer();
   });
 
