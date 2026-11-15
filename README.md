@@ -67,6 +67,15 @@ Physics runs at a fixed 50 Hz step, decoupled from rendering.
 
 An I18N block at the top of the script holds the translations. French static text stays in the HTML (`data-i18n*` attributes) with English and German in `STATIC`; dynamic messages are `[fr, en, de]` triplets in `MSG`. Log entries and supervisor reasons are stored as message keys with parameters and translated at display time, so switching language also re-translates the event history.
 
+## Development process
+
+Changes follow a spec-driven workflow based on the [SDD kit](https://github.com/BretzelCoder/sdd-kit): each feature starts with a written specification in `specs/NNN-slug/`, approved before a plan, a task list and the code, on its own branch.
+
+- [`CLAUDE.md`](CLAUDE.md): project rules, conventions and delivery checklist.
+- [`docs/constitution.md`](docs/constitution.md): non-negotiable principles.
+- [`docs/architecture-decisions.md`](docs/architecture-decisions.md): architecture decision records.
+- [`docs/continuous-improvement.md`](docs/continuous-improvement.md): retrospectives and action register.
+
 ## Limitations
 
 - Perfect path following (no lateral Ackermann control); reversing manoeuvres at the shovel are not simulated.
