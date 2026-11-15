@@ -216,6 +216,9 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 .amid{display:flex;flex-direction:column;justify-content:center;gap:16px;text-align:center;font-size:12px;color:var(--muted)}
 @media (max-width:700px){.archi{grid-template-columns:minmax(0,1fr)}.amid{flex-direction:row;justify-content:space-around}}
 #cardScope{position:relative}
+/* La carte du niveau 1 ne doit jamais élargir la colonne de gauche : ses listes se tronquent au lieu de la faire défiler sur le côté. */
+#cardL1{max-width:100%}
+#cardL1 select{width:100%;min-width:0;max-width:100%;text-overflow:ellipsis}
 #cardScope .mini{position:absolute;right:8px;top:6px;font:600 13px var(--body);letter-spacing:0;text-transform:none;border:1px solid var(--line);border-radius:50%;width:20px;height:20px;padding:0;line-height:1;color:var(--muted)}
 #cardScope .mini:hover{color:var(--accent);border-color:var(--accent)}
 /* ---- Guide ---- */
@@ -966,8 +969,8 @@ const MSG = {
   'sup.l1Back': ['Niveau 1 de retour : battement stable depuis {s} s sur {need} s avant la reprise', 'Level 1 is back: heartbeat stable for {s} s of {need} s before resuming', 'Ebene 1 zurück: Herzschlag seit {s} s stabil von {need} s vor der Wiederaufnahme'],
   'sup.l1Rej': ['{n} consignes de suite rejetées : niveau 1 jugé non fiable, arrêt contrôlé décidé par le niveau 2', '{n} setpoints rejected in a row: level 1 judged untrustworthy, controlled stop decided by level 2', '{n} Sollwerte in Folge abgelehnt: Ebene 1 als unzuverlässig eingestuft, kontrollierter Halt durch Ebene 2'],
   'sup.l1RejBack': ['Consignes de nouveau valides depuis {s} s sur {need} s avant la reprise', 'Setpoints valid again for {s} s of {need} s before resuming', 'Sollwerte seit {s} s wieder gültig von {need} s vor der Wiederaufnahme'],
-  'kern.rt': ['Noyau PREEMPT_RT · calcul {ms} ms', 'PREEMPT_RT kernel · compute {ms} ms', 'PREEMPT_RT-Kernel · Rechenzeit {ms} ms'],
-  'kern.gp': ['Noyau généraliste · calcul {ms} ms', 'General-purpose kernel · compute {ms} ms', 'Allzweck-Kernel · Rechenzeit {ms} ms'],
+  'kern.rt': ['PREEMPT_RT · calcul {ms} ms', 'PREEMPT_RT · compute {ms} ms', 'PREEMPT_RT · Rechenzeit {ms} ms'],
+  'kern.gp': ['Généraliste · calcul {ms} ms', 'General-purpose · compute {ms} ms', 'Allzweck · Rechenzeit {ms} ms'],
   'btn.l1Freeze': ['Figer le niveau 1', 'Freeze level 1', 'Ebene 1 einfrieren'],
   'btn.l1Restart': ['Redémarrer le niveau 1', 'Restart level 1', 'Ebene 1 neu starten'],
   'log.kernelRT': ["Noyau du calculateur d'autonomie : PREEMPT_RT", 'Autonomy computer kernel: PREEMPT_RT', 'Kernel des Autonomierechners: PREEMPT_RT'],

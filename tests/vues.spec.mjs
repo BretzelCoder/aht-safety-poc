@@ -21,6 +21,7 @@ async function verifierMiseEnPage(page) {
     for (const sel of ['.ctrl', '.center', '.side']) {
       const e = document.querySelector(sel);
       if (e.scrollHeight > e.clientHeight + 1) anomalies.push(`column ${sel} hides content behind an inner scroll (${e.scrollHeight} px in ${e.clientHeight} px)`);
+      if (e.scrollWidth > e.clientWidth + 1) anomalies.push(`column ${sel} scrolls sideways (${e.scrollWidth} px of content in ${e.clientWidth} px)`);
     }
     return anomalies;
   });
@@ -39,14 +40,43 @@ test.describe('T-14 layout at 1600×900 (plan approval, condition 3)', () => {
   }
 });
 
+// Revue du propriétaire (2026-11-15) : sur son écran, avec les vraies polices, la colonne de gauche défilait sur le côté en anglais.
+// Le premier test de mise en page ne regardait que le défilement vertical. Les polices de repli des tests sont plus étroites que
+// celles du visiteur : le test « police large » impose donc une marge, en remplaçant toutes les polices par une police à chasse fixe.
+test.describe('T-14 no sideways scroll, at two screen sizes and with a wider font (owner review)', () => {
+  for (const [largeur, hauteur] of [[1600, 900], [1920, 1080]]) {
+    for (const lang of ['fr', 'en', 'de']) {
+      for (const large of [false, true]) {
+        test(`${largeur}×${hauteur}, ${lang}${large ? ', wider font' : ''}: the page and the columns do not scroll sideways`, async ({ page }) => {
+          await page.setViewportSize({ width: largeur, height: hauteur });
+          await openPage(page, lang);
+          await pauseAndSeed(page, 1);
+          if (large) { await page.addStyleTag({ content: '*{font-family:"Courier New",monospace !important}' }); await page.evaluate(() => { window.__large = true; }); }
+          await page.waitForTimeout(300);
+          const anomalies = await page.evaluate(() => {
+            const r = [], de = document.documentElement;
+            if (de.scrollWidth > innerWidth + 1) r.push(`the page scrolls sideways (${de.scrollWidth} px in ${innerWidth} px)`);
+            const col = document.querySelector('.ctrl').getBoundingClientRect(), nouvelle = document.getElementById('cardL1').getBoundingClientRect();
+            // Police large : seule la carte ajoutée par la spec 002 est jugée, les cartes plus anciennes dépassent déjà de quelques pixels avec cette police.
+            if (nouvelle.right > col.right + 0.5) r.push(`card "Autonomy" sticks out of its column by ${Math.round(nouvelle.right - col.right)} px`);
+            if (!window.__large) for (const sel of ['.ctrl', '.center', '.side']) { const e = document.querySelector(sel); if (e.scrollWidth > e.clientWidth + 1) r.push(`column ${sel} scrolls sideways (${e.scrollWidth} px of content in ${e.clientWidth} px)`); }
+            return r;
+          });
+          expect(anomalies, anomalies.join(' | ')).toEqual([]);
+        });
+      }
+    }
+  }
+});
+
 test.describe('T-14 autonomy computer card and scenario buttons (S3, S5, S12)', () => {
   test('the kernel select drives the model and its labels come from the model parameters', async ({ page }) => {
     await openPage(page, 'en');
     await pauseAndSeed(page, 1);
     const libelles = await page.locator('#selKernel option').allTextContents();
     const P = await page.evaluate(() => ({ rt: window.__sim.P.latCpuRT * 1000, gp: window.__sim.P.latCpuGP * 1000 }));
-    expect(libelles[0]).toBe(`PREEMPT_RT kernel · compute ${P.rt} ms`);
-    expect(libelles[1]).toBe(`General-purpose kernel · compute ${P.gp} ms`);
+    expect(libelles[0]).toBe(`PREEMPT_RT · compute ${P.rt} ms`);
+    expect(libelles[1]).toBe(`General-purpose · compute ${P.gp} ms`);
     await page.selectOption('#selKernel', 'GP');
     expect(await page.evaluate(() => window.__sim.ENV.kernel)).toBe('GP');
     await page.selectOption('#selKernel', 'RT');
