@@ -11,6 +11,8 @@ import { PAS } from './page.mjs';
  *  - duree : secondes simulées à jouer depuis le début (scénario E, ou toute séquence sans lancement).
  *  - limiteLancement : attente maximale du lancement, en secondes simulées.
  *  - auLancement : code JavaScript exécuté dès que le véhicule est lancé (S = window.__sim, L = infos de lancement).
+ *  - sondeLancement : code JavaScript qui lit l'état de la page au lancement, avant `auLancement` ; sa valeur
+ *    de retour (`return …`) est rendue dans `rec.sonde`.
  *  - evenements : [{ t, js }] code exécuté à t secondes simulées après le début de l'exécution (mêmes variables S et L).
  *  - pasTrace : intervalle d'échantillonnage de la trace, en secondes simulées (0,5 par défaut). Un arrêt peut durer
  *    moins d'une seconde : pour le voir, échantillonner plus fin (0,1).
@@ -38,6 +40,7 @@ export async function executer(page, options) {
         const l = s.log.find(e => e.code === 'SCENARIO' && e.t >= t0);
         if (l) {
           rec.lancement = { t: l.t, cible: l.msg.p.t, vl: l.msg.p.lv };
+          if (o.sondeLancement) rec.sonde = aller(o.sondeLancement, rec.lancement);
           if (o.auLancement) aller(o.auLancement, rec.lancement);
         }
       }

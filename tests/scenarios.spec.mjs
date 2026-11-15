@@ -125,3 +125,65 @@ test.describe('T-11 scenario C: pickup without V2X inside a dust cloud (S6)', ()
     });
   }
 });
+
+test.describe('T-12 scenario D: stop order sent once in BEST_EFFORT with losses (S6)', () => {
+  const NIVEAU = { NOMINAL: 0, DEGRADED_SPEED: 1, CONTROLLED_STOP: 2, EMERGENCY_BRAKE: 3 };
+  // Le code des crochets pilote le camion visé : le scénario D ne fixe que le mode et le taux de perte de départ.
+  const regler = (mode, perte) => `const T = S.sim.trucks.find(x => x.id === L.cible); T.dds.mode = '${mode}'; T.dds.loss = ${perte};`;
+
+  test('the scenario arms the targeted truck in BEST_EFFORT with 50 % packet loss', async ({ page }) => {
+    await openPage(page, 'fr');
+    await pauseAndSeed(page, 1);
+    const rec = await executer(page, {
+      scenario: 'D', apresLancement: 1,
+      sondeLancement: 'const T = S.sim.trucks.find(x => x.id === L.cible); return { mode: T.dds.mode, perte: T.dds.loss };',
+    });
+    expect(rec.sonde, 'scenario D: BEST_EFFORT with 50 % loss').toEqual({ mode: 'EVENT_BE', perte: 0.5 });
+  });
+
+  for (const graine of [1, 2]) {
+    test(`outcome 1, order lost (BEST_EFFORT, losses forced to 100 %): ORDER_NOT_APPLIED is reported (seed ${graine})`, async ({ page }) => {
+      await openPage(page, 'fr');
+      await pauseAndSeed(page, graine);
+      const rec = await executer(page, { scenario: 'D', apresLancement: 45, pasTrace: 0.1, auLancement: regler('EVENT_BE', 1) });
+      const { cible } = rec.lancement;
+
+      expect(codesDe(rec, cible, 'DDS_SAMPLE_LOST').length, 'scenario D: a lost BEST_EFFORT sample is logged').toBeGreaterThan(0);
+      const ecarts = codesDe(rec, cible, 'ORDER_NOT_APPLIED');
+      expect(ecarts.length, 'scenario D: the log should report ORDER_NOT_APPLIED when the order is lost').toBeGreaterThan(0);
+      expect(ecarts[0].msg.k, 'scenario D: the mismatch message').toBe('log.mismatch');
+      expect(NIVEAU[ecarts[0].msg.p.sup], 'scenario D: the supervisor is ahead of the controller').toBeGreaterThan(NIVEAU[ecarts[0].msg.p.mc]);
+
+      const marche = trajet(rec, cible);
+      expect(marche.filter(p => NIVEAU[p.etat] > NIVEAU[p.applique]).length, 'scenario D: the order stays unapplied for at least 1 s').toBeGreaterThan(10);
+      expect(rec.etats[cible], 'scenario D: the supervisor did order a stop').toContain('CONTROLLED_STOP');
+      expect(marche.filter(p => p.applique === 'CONTROLLED_STOP' || p.applique === 'EMERGENCY_BRAKE'), 'scenario D: the stop never reaches the controller').toEqual([]);
+      const erreurs = verifierAutorisation(rec, 'scenario D');
+      expect(erreurs, decrire(erreurs)).toEqual([]);
+    });
+  }
+
+  // Les deux taux : celui du scénario (50 %, tirage au sort, plusieurs graines) et la perte totale.
+  for (const [perte, graines] of [[0.5, [1, 2, 3]], [1, [1]]]) {
+    for (const graine of graines) {
+      test(`outcome 2, periodic publishing with ${perte * 100} % loss: the controller reaches the stop state with no silent loss (seed ${graine})`, async ({ page }) => {
+        await openPage(page, 'fr');
+        await pauseAndSeed(page, graine);
+        const rec = await executer(page, { scenario: 'D', apresLancement: 45, pasTrace: 0.1, auLancement: regler('PERIODIC', perte) });
+        const { cible } = rec.lancement;
+
+        expect(codesDe(rec, cible, 'ORDER_NOT_APPLIED'), 'scenario D: no silent loss in periodic mode').toEqual([]);
+        const silence = codesDe(rec, cible, 'DDS_LIVELINESS_LOST').length + codesDe(rec, cible, 'DDS_DEADLINE_MISSED').length;
+        expect(silence, 'scenario D: the controller detects the silence (Deadline or Liveliness)').toBeGreaterThan(0);
+
+        const marche = trajet(rec, cible);
+        expect(marche.filter(p => p.applique === 'CONTROLLED_STOP').length, 'scenario D: the controller applies the stop state').toBeGreaterThan(5);
+        const apres = marche.filter(p => p.t > rec.lancement.t + 20);
+        expect(Math.min(...apres.map(p => p.v)), 'scenario D: the truck comes to a stop').toBeLessThan(SEUIL_ARRET);
+        expect(rec.collisions, 'scenario D: no collision').toBe(0);
+        const erreurs = verifierAutorisation(rec, 'scenario D');
+        expect(erreurs, decrire(erreurs)).toEqual([]);
+      });
+    }
+  }
+});
