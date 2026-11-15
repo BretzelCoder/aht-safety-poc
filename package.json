@@ -4,8 +4,9 @@
   "description": "Vérifications automatiques du simulateur (développement uniquement : le site ne charge aucun paquet, voir ADR-1).",
   "type": "module",
   "scripts": {
-    "test": "playwright test",
-    "test:browser": "playwright test"
+    "test": "playwright test && node scripts/check-links.mjs",
+    "test:browser": "playwright test",
+    "test:links": "node scripts/check-links.mjs"
   },
   "engines": {
     "node": ">=22"
