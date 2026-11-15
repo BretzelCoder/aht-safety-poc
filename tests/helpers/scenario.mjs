@@ -14,6 +14,8 @@ import { PAS } from './page.mjs';
  *  - sondeLancement : code JavaScript qui lit l'état de la page au lancement, avant `auLancement` ; sa valeur
  *    de retour (`return …`) est rendue dans `rec.sonde`.
  *  - evenements : [{ t, js }] code exécuté à t secondes simulées après le début de l'exécution (mêmes variables S et L).
+ *  - rendre : redessine l'interface toutes les `rendre` secondes simulées, pour que les textes traduits à
+ *    l'affichage soient réellement produits (vérification des traductions à l'exécution).
  *  - pasTrace : intervalle d'échantillonnage de la trace, en secondes simulées (0,5 par défaut). Un arrêt peut durer
  *    moins d'une seconde : pour le voir, échantillonner plus fin (0,1).
  *
@@ -31,10 +33,13 @@ export async function executer(page, options) {
     if (o.scenario) S.scenario(o.scenario);
 
     const limite = o.duree ?? (o.limiteLancement ?? 120) + (o.apresLancement ?? 0);
-    let n = 0;
+    let n = 0, prochainRendu = 0;
     for (;;) {
       const s = S.sim;
       const ecoule = s.t - t0;
+      // Rendu de l'interface (journal, alertes, puces) : les messages ne sont traduits qu'à l'affichage.
+      // setLang avec la langue courante redessine tout sans rien changer à la simulation.
+      if (o.rendre && ecoule >= prochainRendu) { S.setLang(document.documentElement.lang); prochainRendu += o.rendre; }
       while (restants.length && ecoule >= restants[0].t) { const e = restants.shift(); aller(e.js, rec.lancement); rec.evenementsJoues.push({ t: s.t, js: e.js }); }
       if (!rec.lancement) {
         const l = s.log.find(e => e.code === 'SCENARIO' && e.t >= t0);
