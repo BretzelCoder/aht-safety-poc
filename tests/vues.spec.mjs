@@ -118,3 +118,104 @@ test.describe('T-14 autonomy computer card and scenario buttons (S3, S5, S12)', 
     });
   }
 });
+
+// T-15 : onglet « Niveaux 1 ↔ 2 », les deux blocs (S8, S9, S10).
+test.describe('T-15 levels 1 ↔ 2 pane, blocks (S8, S9, S10)', () => {
+  async function ouvrir(page, lang = 'en') {
+    await openPage(page, lang);
+    await pauseAndSeed(page, 1);
+    await page.evaluate(() => { for (let i = 0; i < 250; i++) window.__sim.step(); });
+    await page.click('#tabL12');
+  }
+
+  test('the pane shows two distinct blocks, level 1 and level 2, each with a status', async ({ page }) => {
+    await ouvrir(page);
+    await expect(page.locator('#paneL12')).toBeVisible();
+    await expect(page.locator('#scope')).toBeHidden();
+    await expect(page.locator('#blkL1 h4')).toContainText('Level 1 · autonomy');
+    await expect(page.locator('#blkL2 h4')).toContainText('Level 2 · safety');
+    await expect(page.locator('#blkL1')).toHaveAttribute('data-status', 'running');
+    await expect(page.locator('#blkL1 .chip')).toContainText('running');
+    await expect(page.locator('#blkL2 .chip')).toContainText('NOMINAL');
+    const [b1, b2] = await Promise.all([page.locator('#blkL1').boundingBox(), page.locator('#blkL2').boundingBox()]);
+    expect(b1.x + b1.width, 'the blocks sit side by side').toBeLessThan(b2.x);
+    expect(await page.locator('#blkL1').evaluate(e => getComputedStyle(e).borderStyle), 'level 1 is drawn dashed').toBe('dashed');
+    expect(await page.locator('#blkL2').evaluate(e => getComputedStyle(e).borderStyle), 'level 2 is drawn solid').toBe('solid');
+  });
+
+  test('level 2 shows its own measurements, which follow the model', async ({ page }) => {
+    await ouvrir(page);
+    const m = await page.evaluate(() => { const T = window.__sim.sim.trucks[0]; return { s: Math.round(T.s), kmh: (T.v * 3.6).toFixed(1) }; });
+    const texte = await page.locator('#blkL2').innerText();
+    expect(texte).toContain(`${m.s} m`);
+    expect(texte).toContain(`${m.kmh} km/h`);
+    expect(texte).toMatch(/Brakes\s+released|Brakes\s+service braking/);
+    expect(await page.locator('#blkL2').getAttribute('data-brake')).toMatch(/released|service/);
+  });
+
+  test('a frozen level 1 shows as silent and level 2 shows full braking during the stop', async ({ page }) => {
+    await ouvrir(page);
+    await page.evaluate(() => { const S = window.__sim; S.l1Freeze(0); for (let i = 0; i < 60; i++) S.step(); });
+    await expect(page.locator('#blkL1')).toHaveAttribute('data-status', 'silent');
+    await expect(page.locator('#blkL1 .chip')).toContainText('silent');
+    await expect(page.locator('#blkL2')).toHaveAttribute('data-brake', 'full');
+    await expect(page.locator('#blkL2')).toContainText('full braking');
+    await expect(page.locator('#blkL2 .chip')).toContainText('CONTROLLED_STOP');
+  });
+
+  test('a level 1 sending defective setpoints shows as in fault', async ({ page }) => {
+    await ouvrir(page);
+    await page.evaluate(() => { const S = window.__sim, T = S.sim.trucks[0]; T.l1.defect = 'OVERSPEED'; T.l1.repeat = true; for (let i = 0; i < 5; i++) S.step(); });
+    await expect(page.locator('#blkL1')).toHaveAttribute('data-status', 'faulty');
+    await expect(page.locator('#blkL1 .chip')).toContainText('in fault');
+  });
+
+  test('selecting another truck changes the content of the blocks', async ({ page }) => {
+    await ouvrir(page);
+    await page.waitForSelector('#tabs button');
+    const avant = await page.locator('#blkL2').innerText();
+    await page.click('#tabs button[data-sel="1"]');
+    const s1 = await page.evaluate(() => Math.round(window.__sim.sim.trucks[1].s));
+    await expect(page.locator('#blkL2')).toContainText(`${s1} m`);
+    expect(await page.locator('#blkL2').innerText()).not.toBe(avant);
+    await page.evaluate(() => window.__sim.l1Freeze(1));
+    await page.evaluate(() => { for (let i = 0; i < 5; i++) window.__sim.step(); });
+    await expect(page.locator('#blkL1')).toHaveAttribute('data-status', 'silent');
+    await page.click('#tabs button[data-sel="0"]');
+    await expect(page.locator('#blkL1')).toHaveAttribute('data-status', 'running');
+  });
+
+  test('switching back to the oscilloscope gives its canvas a non-zero size again', async ({ page }) => {
+    await ouvrir(page);
+    await page.click('#tabScope');
+    await expect(page.locator('#scope')).toBeVisible();
+    await expect(page.locator('#paneL12')).toBeHidden();
+    await expect.poll(() => page.evaluate(() => { const c = document.getElementById('scope'); return [c.clientWidth, c.width, c.height]; })).toEqual(expect.arrayContaining([expect.any(Number)]));
+    const [cw, w, h] = await page.evaluate(() => { const c = document.getElementById('scope'); return [c.clientWidth, c.width, c.height]; });
+    expect(cw).toBeGreaterThan(100);
+    expect(w).toBeGreaterThan(100);
+    expect(h).toBeGreaterThan(50);
+  });
+
+  test('scenarios F and G open the pane', async ({ page }) => {
+    await openPage(page, 'en');
+    await pauseAndSeed(page, 1);
+    await page.evaluate(() => { for (let i = 0; i < 250; i++) window.__sim.step(); });
+    await expect(page.locator('#scope')).toBeVisible();
+    await page.click('[data-scen="F"]');
+    await expect(page.locator('#paneL12')).toBeVisible();
+    await page.click('#tabScope');
+    await page.click('[data-scen="G"]');
+    await expect(page.locator('#paneL12')).toBeVisible();
+  });
+
+  for (const lang of ['fr', 'en', 'de']) {
+    test(`${lang}: with the pane open, nothing leaves the screen at 1600×900`, async ({ page }) => {
+      await ouvrir(page, lang);
+      await page.evaluate(() => { window.__sim.l1Freeze(0); for (let i = 0; i < 60; i++) window.__sim.step(); });
+      await page.waitForTimeout(300);
+      const anomalies = await verifierMiseEnPage(page);
+      expect(anomalies, anomalies.join('\n')).toEqual([]);
+    });
+  }
+});

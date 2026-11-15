@@ -78,6 +78,7 @@ table.cmp td:first-child{text-align:left;color:var(--muted)}
 .chip i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:0}
 .g{background:var(--ok)}.a{background:var(--warn)}.r{background:var(--stop)}.x{background:#555}
 canvas#scope{width:100%;height:170px;display:block}
+canvas#scope[hidden]{display:none}
 .log{height:210px;overflow-y:auto;font:11.5px/1.45 var(--mono);background:#121315;border:1px solid var(--line);border-radius:6px;padding:4px 6px}
 .log div{white-space:nowrap}
 .log .l0{color:var(--muted)}.log .l1{color:var(--warn)}.log .l2{color:#ff8a7f}.log .l3{color:var(--emer)}.log .st{color:var(--cyan)}.log .off{color:#6c7178}.log .info{color:#c9c4b8}
@@ -134,6 +135,7 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
   .card{padding:6px 9px}
   .ctrl .card,.strip .card{gap:4px}
   h3{font-size:12.5px}
+  .tabs2 button{font-size:12.5px}
   label,.lbl,label.chk{font-size:12px}
   .row{gap:4px}
   .scen{grid-template-columns:1fr 1fr;gap:4px}
@@ -170,6 +172,24 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
   .logcard{flex-basis:90px;min-height:90px}
 }
 @media (min-width:1700px) and (min-height:700px){ .app{grid-template-columns:300px minmax(0,1fr) 360px} }
+/* ---- Carte oscilloscope à deux onglets et vue « niveaux 1 ↔ 2 » (spec 002) ---- */
+.tabs2{display:flex;flex-wrap:wrap;gap:2px 14px;margin-bottom:6px}
+.tabs2 button{font:600 15px var(--display);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;border-radius:0;padding:0 0 2px}
+.tabs2 button:hover{border-bottom-color:var(--line)}
+.tabs2 button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.l12blocks{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;align-items:stretch}
+.blk{border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:11px;line-height:1.35;min-width:0}
+.blk.l1{border-style:dashed;border-color:var(--cyan)}
+.blk.l2{border-color:var(--accent)}
+.blk h4{margin:0;font:600 10.5px var(--display);letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
+.blk.l1 h4{color:var(--cyan)}.blk.l2 h4{color:var(--accent)}
+.blk small{display:block;color:var(--muted);font-size:10px;margin-bottom:2px}
+.blk .chip{display:inline-block;font:500 10.5px var(--body);padding:0 5px;margin-bottom:2px;white-space:nowrap}
+.blk>div{display:flex;justify-content:space-between;gap:4px;border-bottom:1px dotted #2a2d32;padding:0}
+.blk>div:last-child{border-bottom:none}
+.blk>div>span:first-child{color:var(--muted)}
+.blk .num{white-space:nowrap}
+@media (min-width:1280px) and (min-height:700px){.tabs2 button{font-size:12.5px;letter-spacing:.05em}.tabs2{gap:2px 12px}}
 /* ---- Guide ---- */
 dialog#guide{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0;width:min(900px,94vw);max-height:88vh}
 dialog#guide::backdrop{background:rgba(8,9,10,.7)}
@@ -322,8 +342,17 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
     <div class="chips" id="chips" style="margin-top:2px"></div>
   </div>
   <div class="card">
-    <h3 data-i18n="ui.scopeH">Oscilloscope · 15 s</h3>
+    <div class="tabs2" role="tablist" aria-label="Vue de télémétrie" data-i18n-aria="ui.tabsAria">
+      <button role="tab" id="tabScope" class="on" aria-selected="true" aria-controls="scope" data-i18n="ui.scopeH">Oscilloscope · 15 s</button>
+      <button role="tab" id="tabL12" aria-selected="false" aria-controls="paneL12" data-i18n="ui.tabL12">Niveaux 1 ↔ 2</button>
+    </div>
     <canvas id="scope"></canvas>
+    <div id="paneL12" role="tabpanel" hidden>
+      <div class="l12blocks">
+        <div class="blk l1" id="blkL1"></div>
+        <div class="blk l2" id="blkL2"></div>
+      </div>
+    </div>
   </div>
   <div class="card logcard">
     <h3 data-i18n="ui.logH">Journal (DM1 / QoS / FMS)</h3>
@@ -488,7 +517,7 @@ const STATIC = {
     'ui.fmsT': 'Cuts the mine Wi-Fi / LTE: FMS authorities are no longer renewed.',
     'ui.canH': 'CAN bus J1939 · 250 kbit/s', 'ui.canTraffic': 'Background traffic', 'ui.misprio': 'Brake at low priority', 'ui.babble': 'Babbling node (babbling idiot)',
     'ui.ddsH': 'DDS · safety topic', 'ui.ddsLbl': 'Publication pattern', 'ui.ddsPer': 'Periodic + Deadline/Liveliness', 'ui.ddsRel': 'Event, RELIABLE', 'ui.ddsBe': 'Event, BEST_EFFORT', 'ui.loss': 'Packet loss',
-    'ui.sideAria': 'Telemetry', 'ui.bubbleH': 'Stop zone, live calculation', 'ui.sensH': 'Sensors and links', 'ui.scopeH': 'Oscilloscope · 15 s', 'ui.logH': 'Event log (DM1 / QoS / FMS)',
+    'ui.sideAria': 'Telemetry', 'ui.bubbleH': 'Stop zone, live calculation', 'ui.sensH': 'Sensors and links', 'ui.scopeH': 'Oscilloscope · 15 s', 'ui.tabL12': 'Levels 1 ↔ 2', 'ui.tabsAria': 'Telemetry view', 'ui.logH': 'Event log (DM1 / QoS / FMS)',
     'ui.gtPrise': 'Getting started', 'ui.gtVisite': 'Guided tour', 'ui.gtModele': 'Modelling choices', 'ui.gtLimites': 'Limitations and sources',
     'ui.gClose': 'Close', 'ui.gCloseAria': 'Close the guide',
     'guide.prise': `
@@ -581,7 +610,7 @@ const STATIC = {
     'ui.fmsT': 'Trennt das Minen-WLAN / LTE: FMS-Freigaben werden nicht mehr erneuert.',
     'ui.canH': 'CAN-Bus J1939 · 250 kbit/s', 'ui.canTraffic': 'Hintergrundlast', 'ui.misprio': 'Bremse mit niedriger Priorität', 'ui.babble': 'Plappernder Knoten (babbling idiot)',
     'ui.ddsH': 'DDS · Sicherheits-Topic', 'ui.ddsLbl': 'Publikationsmuster', 'ui.ddsPer': 'Periodisch + Deadline/Liveliness', 'ui.ddsRel': 'Ereignis, RELIABLE', 'ui.ddsBe': 'Ereignis, BEST_EFFORT', 'ui.loss': 'Paketverlust',
-    'ui.sideAria': 'Telemetrie', 'ui.bubbleH': 'Haltezone, Live-Berechnung', 'ui.sensH': 'Sensoren und Verbindungen', 'ui.scopeH': 'Oszilloskop · 15 s', 'ui.logH': 'Ereignisprotokoll (DM1 / QoS / FMS)',
+    'ui.sideAria': 'Telemetrie', 'ui.bubbleH': 'Haltezone, Live-Berechnung', 'ui.sensH': 'Sensoren und Verbindungen', 'ui.scopeH': 'Oszilloskop · 15 s', 'ui.tabL12': 'Ebenen 1 ↔ 2', 'ui.tabsAria': 'Telemetrieansicht', 'ui.logH': 'Ereignisprotokoll (DM1 / QoS / FMS)',
     'ui.gtPrise': 'Erste Schritte', 'ui.gtVisite': 'Geführte Tour', 'ui.gtModele': 'Modellierungsentscheidungen', 'ui.gtLimites': 'Grenzen und Quellen',
     'ui.gClose': 'Schließen', 'ui.gCloseAria': 'Anleitung schließen',
     'guide.prise': `
@@ -794,6 +823,16 @@ const MSG = {
   'btn.l1Restart': ['Redémarrer le niveau 1', 'Restart level 1', 'Ebene 1 neu starten'],
   'log.kernelRT': ["Noyau du calculateur d'autonomie : PREEMPT_RT", 'Autonomy computer kernel: PREEMPT_RT', 'Kernel des Autonomierechners: PREEMPT_RT'],
   'log.kernelGP': ["Noyau du calculateur d'autonomie : généraliste", 'Autonomy computer kernel: general-purpose', 'Kernel des Autonomierechners: Allzweck'],
+  'l12.l1': ['Niveau 1 · autonomie', 'Level 1 · autonomy', 'Ebene 1 · Autonomie'],
+  'l12.l2': ['Niveau 2 · sûreté', 'Level 2 · safety', 'Ebene 2 · Sicherheit'],
+  'l12.running': ['en marche', 'running', 'läuft'], 'l12.silent': ['silencieux', 'silent', 'stumm'], 'l12.faulty': ['en défaut', 'in fault', 'fehlerhaft'],
+  'l12.kernel': ['Noyau', 'Kernel', 'Kernel'], 'l12.kRT': ['PREEMPT_RT', 'PREEMPT_RT', 'PREEMPT_RT'], 'l12.kGP': ['généraliste', 'general-purpose', 'Allzweck'],
+  'l12.session': ['Session', 'Session', 'Sitzung'],
+  'l12.cl1': ["ce qu'il annonce", 'what it claims', 'was er angibt'], 'l12.cl2': ["ce qu'il mesure", 'what it measures', 'was er misst'],
+  'l12.hb': ['Battement', 'Heartbeat', 'Herzschlag'],
+  'l12.pos': ['Position', 'Position', 'Position'], 'l12.spd': ['Vitesse', 'Speed', 'Tempo'],
+  'l12.brake': ['Freins', 'Brakes', 'Bremsen'],
+  'l12.brRel': ['relâchés', 'released', 'gelöst'], 'l12.brSvc': ['freinage de service', 'service braking', 'Betriebsbremsung'], 'l12.brFull': ['freinage maximal', 'full braking', 'Vollbremsung'], 'l12.brWd': ['watchdog ECU frein', 'brake ECU watchdog', 'Brems-ECU-Watchdog'],
   'l1.freeze': ['Niveau 1 figé : plus aucune consigne émise', 'Level 1 frozen: no more setpoints sent', 'Ebene 1 eingefroren: keine Sollwerte mehr gesendet'],
   'l1.restart': ['Niveau 1 redémarré : nouvelle session {n}', 'Level 1 restarted: new session {n}', 'Ebene 1 neu gestartet: neue Sitzung {n}'],
   'l2.overspeed': ['Consigne n° {seq} rejetée : {v} km/h demandés, limite ici {lim} km/h', 'Setpoint #{seq} rejected: {v} km/h demanded, limit here {lim} km/h', 'Sollwert Nr. {seq} abgelehnt: {v} km/h gefordert, Limit hier {lim} km/h'],
@@ -1246,7 +1285,7 @@ function l2Receive(T) {
    n'est pas un battement valide. Il ne change jamais la consigne acceptée. */
 function l2Judge(T, sp) {
   const L = T.l2, age = sim.t - sp.ts;
-  const e = { session: sp.session, seq: sp.seq, ts: sp.ts, v: sp.vDemand, d: sp.dGoal, sumOk: sumOf(sp) === sp.sum, ok: false, code: null };
+  const e = { session: sp.session, seq: sp.seq, ts: sp.ts, v: sp.vDemand, d: sp.dGoal, sClaim: sp.sClaim, vClaim: sp.vClaim, sumOk: sumOf(sp) === sp.sum, ok: false, code: null };
   if (!e.sumOk) return l2Refuse(T, e, 'SETPOINT_INTEGRITY', 'l2.integrity', { seq: sp.seq });
   if (age > P.l1Stale) return l2Refuse(T, e, 'SETPOINT_STALE', 'l2.stale', { seq: sp.seq, ms: N(age * 1000) });
   if (sp.session < L.session || (sp.session === L.session && sp.seq <= L.seq)) return l2Refuse(T, e, 'SETPOINT_SEQUENCE', 'l2.sequence', { seq: sp.seq, last: L.seq });
@@ -1261,7 +1300,7 @@ function l2Judge(T, sp) {
 function l2Record(L, e) { L.ex.push(e); if (L.ex.length > 5) L.ex.shift(); }
 function l2Refuse(T, e, code, k, p) {
   const L = T.l2;
-  e.code = code; e.msg = M(k, p); L.rejRun++;
+  e.code = code; e.msg = M(k, p); e.t = sim.t; L.rejRun++;
   l2Record(L, e);
   L.rej.push(e); if (L.rej.length > 3) L.rej.shift();
   logEv(T.id, 1, code, e.msg);
@@ -1509,6 +1548,7 @@ function scenarioNiveau1(code) {
   sim.pending = null;
   const T = sim.trucks.reduce((b, x) => x.v > b.v ? x : b);
   selected = sim.trucks.indexOf(T);
+  showSideTab('L12');
   if (code === 'F') {
     l1Freeze(T);
     logEv('SIM', 0, 'SCENARIO', M('log.scenF', { t: T.id }), 'info');
@@ -1735,6 +1775,39 @@ function drawScope() {
 }
 
 /* ---------- HUD ---------- */
+/* Carte à deux onglets : oscilloscope ou vue « niveaux 1 ↔ 2 » (spec 002). */
+let sideTab = 'scope';
+function showSideTab(name) {
+  sideTab = name;
+  for (const [id, n] of [['tabScope', 'scope'], ['tabL12', 'L12']]) { $(id).classList.toggle('on', name === n); $(id).setAttribute('aria-selected', String(name === n)); }
+  $('scope').hidden = name !== 'scope'; $('paneL12').hidden = name !== 'L12';
+  scheduleResize();                                   // le canvas de l'oscilloscope retrouve sa taille quand on le réaffiche
+  if (sim) hud();
+}
+function l1Status(T) {
+  if (T.l1.frozen) return 'silent';
+  const rj = T.l2.rej[T.l2.rej.length - 1];
+  return T.l2.rejRun > 0 || T.l1.defect || (rj && sim.t - rj.t < 1) ? 'faulty' : 'running';
+}
+const BRAKE_ETAT = ['released', 'service', 'full', 'watchdog'], BRAKE_MSG = ['l12.brRel', 'l12.brSvc', 'l12.brFull', 'l12.brWd'];
+/* Les deux calculateurs du tombereau sélectionné : ce que le niveau 1 annonce, ce que le niveau 2 mesure. */
+function renderL12(T) {
+  const A = T.l1, L = T.l2, ex = L.ex[L.ex.length - 1], st = l1Status(T);
+  const br = T.ecuEmergency ? 3 : T.fullBrake ? 2 : T.lastCmd < -0.2 ? 1 : 0, hb = sim.t - L.lastValid;
+  const row = (k, v) => `<div><span>${k}</span><span class="num">${v}</span></div>`;
+  const b1 = $('blkL1'), b2 = $('blkL2');
+  b1.dataset.status = st; b2.dataset.brake = BRAKE_ETAT[br];
+  b1.innerHTML = `<h4>${t('l12.l1')}</h4><small>${t('l12.cl1')}</small>` +
+    `<span class="chip"><i class="${{ running: 'g', silent: 'r', faulty: 'a' }[st]}"></i>${t('l12.' + st)}</span>` +
+    row(t('l12.kernel'), t(ENV.kernel === 'GP' ? 'l12.kGP' : 'l12.kRT')) +
+    row(t('l12.session'), `${A.session} · #${A.seq}`) +
+    row(t('l12.pos'), ex ? `${fmt(ex.sClaim, 0)} m` : '—') + row(t('l12.spd'), ex ? `${fmt(ex.vClaim * 3.6, 1)} km/h` : '—');
+  b2.innerHTML = `<h4>${t('l12.l2')}</h4><small>${t('l12.cl2')}</small>` +
+    `<span class="chip"><i style="background:${STATE_COL[LEVEL[T.state]]}"></i>${T.state}</span>` +
+    row(t('l12.hb'), `${fmt(hb * 1000, 0)} ms`) +
+    row(t('l12.pos'), `${fmt(T.s, 0)} m`) + row(t('l12.spd'), `${fmt(T.v * 3.6, 1)} km/h`) +
+    row(t('l12.brake'), t(BRAKE_MSG[br]));
+}
 let logDirty = true, lastTabs = '';
 function chip(ok, label, tri) { return `<span class="chip"><i class="${tri || (ok ? 'g' : 'r')}"></i>${label}</span>`; }
 function hud() {
@@ -1778,7 +1851,7 @@ function hud() {
     el.innerHTML = sim.log.slice(-120).map(e => `<div class="${e.cls}">${fmt(e.t, 1).padStart(6, ' ')}s ${vid(e.id).padEnd(7, ' ')} ${codeName(e.code)} · ${rp(e.msg)}</div>`).join('');
     el.scrollTop = el.scrollHeight; logDirty = false;
   }
-  drawScope();
+  if (sideTab === 'scope') drawScope(); else renderL12(T);
   const U = sim.lvs.find(l => l.user), active = document.activeElement === cv;
   if (U) $('lvSpeed').textContent = `${fmt(U.v * 3.6, 0)} km/h`;
   const v2 = $('cV2x').checked;
@@ -1845,6 +1918,8 @@ $('cBabble').addEventListener('change', e => { sim.trucks[selected].can.babbling
 $('selDds').addEventListener('change', e => { const T = sim.trucks[selected]; T.dds.mode = e.target.value; T.mc.lastSent = null; T.mc.rxTime = sim.t; });
 $('rLoss').addEventListener('input', e => { sim.trucks[selected].dds.loss = +e.target.value / 100; $('vLoss').textContent = e.target.value + ' %'; });
 $('selMass').addEventListener('change', e => { sim.trucks[selected].massMode = e.target.value; });
+$('tabScope').addEventListener('click', () => showSideTab('scope'));
+$('tabL12').addEventListener('click', () => showSideTab('L12'));
 $('selKernel').addEventListener('change', e => { ENV.kernel = e.target.value; logEv('SIM', 0, 'ENV', M(ENV.kernel === 'GP' ? 'log.kernelGP' : 'log.kernelRT'), 'info'); });
 $('selDefect').addEventListener('change', e => { ENV.l1Defect = e.target.value; });
 $('cDefRepeat').addEventListener('change', e => { ENV.l1Repeat = e.target.checked; if (!ENV.l1Repeat) for (const T of sim.trucks) { T.l1.repeat = false; T.l1.defect = null; } });
