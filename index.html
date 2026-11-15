@@ -539,12 +539,14 @@ function track(path, title) {
   if (gc && typeof gc.count === 'function') { try { gc.count({ path, title: title || path, event: true }); } catch (e) {} }
   else if (location.hostname === GC_HOST && gcQueue.length < 20) gcQueue.push([path, title]);
 }
-if (location.hostname === GC_HOST) {
-  window.goatcounter = { path: () => location.pathname };
-  const s = document.createElement('script');
-  s.async = true; s.src = 'https://gc.zgo.at/count.js'; s.dataset.goatcounter = GC_ENDPOINT;
-  s.onload = () => { while (gcQueue.length) track(...gcQueue.shift()); };
-  document.head.appendChild(s);
+function demarrerMesure() {
+  if (location.hostname === GC_HOST) {
+    window.goatcounter = { path: () => location.pathname };
+    const s = document.createElement('script');
+    s.async = true; s.src = 'https://gc.zgo.at/count.js'; s.dataset.goatcounter = GC_ENDPOINT;
+    s.onload = () => { while (gcQueue.length) track(...gcQueue.shift()); };
+    document.head.appendChild(s);
+  }
 }
 
 /* =====================================================================
@@ -1771,8 +1773,10 @@ function resize() {
 // pendant le callback du ResizeObserver (sinon « ResizeObserver loop completed… »).
 let resizeQueued = false;
 function scheduleResize() { if (resizeQueued) return; resizeQueued = true; requestAnimationFrame(() => { resizeQueued = false; resize(); }); }
-window.addEventListener('resize', scheduleResize);
-if (window.ResizeObserver) { const ro = new ResizeObserver(scheduleResize); ro.observe($('mapbox')); ro.observe($('scope')); }
+function brancherRendu() {
+  window.addEventListener('resize', scheduleResize);
+  if (window.ResizeObserver) { const ro = new ResizeObserver(scheduleResize); ro.observe($('mapbox')); ro.observe($('scope')); }
+}
 function band(s0, s1, hw, fill) {
   if (s1 <= s0 + 0.5) return;
   const L = [], R = [];
@@ -2067,27 +2071,6 @@ let toastT = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 4500); }
 
 /* ---------- Câblage des commandes ---------- */
-document.addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  const T = sim.trucks[selected];
-  if (b.dataset.lang) setLang(b.dataset.lang);
-  else if (b.dataset.sel !== undefined) { selected = +b.dataset.sel; syncControls(); }
-  else if (b.dataset.scale) ENV.scale = +b.dataset.scale;
-  else if (b.dataset.scen) scenario(b.dataset.scen);
-  else if (b.dataset.fault) { const f = b.dataset.fault; T.faults[f] = !T.faults[f]; logEv(T.id, 0, 'INJECT', M(T.faults[f] ? 'inj.on' : 'inj.off', { f }), 'info'); }
-  else if (b.id === 'bFreeze') { if (T.l1.frozen) l1Restart(T); else l1Freeze(T); }
-  else if (b.id === 'bSendDef') { T.l1.defect = ENV.l1Defect; T.l1.repeat = ENV.l1Repeat; }
-  else if (b.id === 'bPause') ENV.paused = !ENV.paused;
-  else if (b.id === 'bReset') { const noyau = ENV.kernel !== 'RT'; resetSim(); selected = 0; if (noyau) toast(t('toast.kernelReset')); }
-  else if (b.id === 'bDust') { ENV.dust = !ENV.dust; logEv('SIM', 0, 'INJECT', M(ENV.dust ? 'dust.on' : 'dust.off'), 'info'); }
-  else if (b.id === 'bFms') { ENV.fms = !ENV.fms; logEv('SIM', ENV.fms ? 0 : 2, 'INJECT', M(ENV.fms ? 'net.on' : 'net.off'), 'info'); }
-  else if (b.id === 'bAck') {
-    T.faults.estop = false; T.collided = false; T.ecuEmergency = false; T.latched = false; T.lowerAt = 0;
-    if (T.can.babbling || (T.can.misprio && canResponse(T.can.load / 100) > P.canWatchdog)) toast(t('toast.cause'));
-    logEv(T.id, 0, 'ACK', M('log.ack'), 'info');
-  }
-  syncControls(true);
-});
 function setLang(l) {
   if (!LANGS.includes(l)) return;
   if (l !== LANG) track('aht-safety-poc/lang-switch/' + l, 'aht-safety-poc · langue choisie : ' + l.toUpperCase());
@@ -2097,40 +2080,10 @@ function setLang(l) {
   applyStatic();
   logDirty = true; hud(); syncControls(true);
 }
-$('selMu').addEventListener('change', e => { ENV.mu = +e.target.value; logEv('SIM', 0, 'ENV', M('log.mu', { mu: N(ENV.mu, 2) }), 'info'); });
-$('rRamp').addEventListener('input', e => { ENV.ramp = +e.target.value / 100; $('vRamp').textContent = e.target.value + ' %'; });
-$('rLoad').addEventListener('input', e => { sim.trucks[selected].can.load = +e.target.value; $('vLoad').textContent = e.target.value + ' %'; });
-$('cMisprio').addEventListener('change', e => { sim.trucks[selected].can.misprio = e.target.checked; });
-$('cBabble').addEventListener('change', e => { sim.trucks[selected].can.babbling = e.target.checked; });
-$('selDds').addEventListener('change', e => { const T = sim.trucks[selected]; T.dds.mode = e.target.value; T.mc.lastSent = null; T.mc.rxTime = sim.t; });
-$('rLoss').addEventListener('input', e => { sim.trucks[selected].dds.loss = +e.target.value / 100; $('vLoss').textContent = e.target.value + ' %'; });
-$('selMass').addEventListener('change', e => { sim.trucks[selected].massMode = e.target.value; });
-$('bArchi').addEventListener('click', () => openGuide('archi'));
-$('tabScope').addEventListener('click', () => showSideTab('scope'));
-$('tabL12').addEventListener('click', () => showSideTab('L12'));
-$('selKernel').addEventListener('change', e => { ENV.kernel = e.target.value; logEv('SIM', 0, 'ENV', M(ENV.kernel === 'GP' ? 'log.kernelGP' : 'log.kernelRT'), 'info'); });
-$('selDefect').addEventListener('change', e => { ENV.l1Defect = e.target.value; });
-$('cDefRepeat').addEventListener('change', e => { ENV.l1Repeat = e.target.checked; if (!ENV.l1Repeat) for (const T of sim.trucks) { T.l1.repeat = false; T.l1.defect = null; } });
-document.querySelectorAll('[data-layer]').forEach(c => c.addEventListener('change', () => { layers[c.dataset.layer] = c.checked; }));
-cv.addEventListener('mousedown', e => {
-  const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
-  let best = 20, idx = -1;
-  sim.trucks.forEach((T, i) => { const d = Math.hypot(T.pose.x - x, T.pose.y - y); if (d < best) { best = d; idx = i; } });
-  if (idx >= 0) { selected = idx; syncControls(); }
-});
 const KEYMAP = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
 const charMap = { z: 'up', s: 'down', q: 'left', d: 'right', w: 'up', a: 'left' };
 function keyOf(e) { return charMap[(e.key || '').toLowerCase()] || KEYMAP[e.code]; }
 const releaseKeys = () => { for (const k in keys) keys[k] = false; };
-window.addEventListener('keydown', e => {
-  if (e.target.closest && e.target.closest('input,select,textarea')) return;
-  if ((e.key || '').toLowerCase() === 'h' && !e.ctrlKey && !e.metaKey && !e.altKey) { guide.open ? guide.close() : openGuide(); return; }
-  const k = keyOf(e); if (!k || document.activeElement !== cv) return;   // pilotage seulement carte active
-  e.preventDefault(); keys[k] = true;
-});
-window.addEventListener('keyup', e => { const k = keyOf(e); if (k) keys[k] = false; });
-window.addEventListener('blur', releaseKeys);
-cv.addEventListener('blur', releaseKeys);
 const guide = $('guide'); let pausedBefore = false;
 function openGuide(tab) {
   if (guide.open) return;
@@ -2143,17 +2096,69 @@ function showTab(t) {
   guide.querySelectorAll('[data-gtab]').forEach(b => { b.classList.toggle('on', b.dataset.gtab === t); b.setAttribute('aria-selected', String(b.dataset.gtab === t)); });
   guide.querySelectorAll('[data-gpane]').forEach(p => p.classList.toggle('on', p.dataset.gpane === t));
 }
-guide.addEventListener('close', () => { ENV.paused = pausedBefore; });
-$('gClose').addEventListener('click', () => guide.close());
-guide.addEventListener('click', e => { if (e.target === guide) guide.close(); const b = e.target.closest('[data-gtab]'); if (b) showTab(b.dataset.gtab); });
-$('bGuide').addEventListener('click', () => openGuide());
-$('bV2x').addEventListener('click', () => { const c = $('cV2x'); c.checked = !c.checked; logEv('VL-VOUS', 0, 'V2X', M(c.checked ? 'v2x.on' : 'v2x.off'), 'info'); });
-$('bLvHome').addEventListener('click', () => { const L = sim.lvs.find(l => l.user); if (L) { Object.assign(L, { x: 336, y: 210, h: -Math.PI / 2, v: 0, steer: 0 }); L.pose = poseOf(L); } cv.focus(); });
+
+function brancherCommandes() {
+  document.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const T = sim.trucks[selected];
+    if (b.dataset.lang) setLang(b.dataset.lang);
+    else if (b.dataset.sel !== undefined) { selected = +b.dataset.sel; syncControls(); }
+    else if (b.dataset.scale) ENV.scale = +b.dataset.scale;
+    else if (b.dataset.scen) scenario(b.dataset.scen);
+    else if (b.dataset.fault) { const f = b.dataset.fault; T.faults[f] = !T.faults[f]; logEv(T.id, 0, 'INJECT', M(T.faults[f] ? 'inj.on' : 'inj.off', { f }), 'info'); }
+    else if (b.id === 'bFreeze') { if (T.l1.frozen) l1Restart(T); else l1Freeze(T); }
+    else if (b.id === 'bSendDef') { T.l1.defect = ENV.l1Defect; T.l1.repeat = ENV.l1Repeat; }
+    else if (b.id === 'bPause') ENV.paused = !ENV.paused;
+    else if (b.id === 'bReset') { const noyau = ENV.kernel !== 'RT'; resetSim(); selected = 0; if (noyau) toast(t('toast.kernelReset')); }
+    else if (b.id === 'bDust') { ENV.dust = !ENV.dust; logEv('SIM', 0, 'INJECT', M(ENV.dust ? 'dust.on' : 'dust.off'), 'info'); }
+    else if (b.id === 'bFms') { ENV.fms = !ENV.fms; logEv('SIM', ENV.fms ? 0 : 2, 'INJECT', M(ENV.fms ? 'net.on' : 'net.off'), 'info'); }
+    else if (b.id === 'bAck') {
+      T.faults.estop = false; T.collided = false; T.ecuEmergency = false; T.latched = false; T.lowerAt = 0;
+      if (T.can.babbling || (T.can.misprio && canResponse(T.can.load / 100) > P.canWatchdog)) toast(t('toast.cause'));
+      logEv(T.id, 0, 'ACK', M('log.ack'), 'info');
+    }
+    syncControls(true);
+  });
+  $('selMu').addEventListener('change', e => { ENV.mu = +e.target.value; logEv('SIM', 0, 'ENV', M('log.mu', { mu: N(ENV.mu, 2) }), 'info'); });
+  $('rRamp').addEventListener('input', e => { ENV.ramp = +e.target.value / 100; $('vRamp').textContent = e.target.value + ' %'; });
+  $('rLoad').addEventListener('input', e => { sim.trucks[selected].can.load = +e.target.value; $('vLoad').textContent = e.target.value + ' %'; });
+  $('cMisprio').addEventListener('change', e => { sim.trucks[selected].can.misprio = e.target.checked; });
+  $('cBabble').addEventListener('change', e => { sim.trucks[selected].can.babbling = e.target.checked; });
+  $('selDds').addEventListener('change', e => { const T = sim.trucks[selected]; T.dds.mode = e.target.value; T.mc.lastSent = null; T.mc.rxTime = sim.t; });
+  $('rLoss').addEventListener('input', e => { sim.trucks[selected].dds.loss = +e.target.value / 100; $('vLoss').textContent = e.target.value + ' %'; });
+  $('selMass').addEventListener('change', e => { sim.trucks[selected].massMode = e.target.value; });
+  $('bArchi').addEventListener('click', () => openGuide('archi'));
+  $('tabScope').addEventListener('click', () => showSideTab('scope'));
+  $('tabL12').addEventListener('click', () => showSideTab('L12'));
+  $('selKernel').addEventListener('change', e => { ENV.kernel = e.target.value; logEv('SIM', 0, 'ENV', M(ENV.kernel === 'GP' ? 'log.kernelGP' : 'log.kernelRT'), 'info'); });
+  $('selDefect').addEventListener('change', e => { ENV.l1Defect = e.target.value; });
+  $('cDefRepeat').addEventListener('change', e => { ENV.l1Repeat = e.target.checked; if (!ENV.l1Repeat) for (const T of sim.trucks) { T.l1.repeat = false; T.l1.defect = null; } });
+  document.querySelectorAll('[data-layer]').forEach(c => c.addEventListener('change', () => { layers[c.dataset.layer] = c.checked; }));
+  cv.addEventListener('mousedown', e => {
+    const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
+    let best = 20, idx = -1;
+    sim.trucks.forEach((T, i) => { const d = Math.hypot(T.pose.x - x, T.pose.y - y); if (d < best) { best = d; idx = i; } });
+    if (idx >= 0) { selected = idx; syncControls(); }
+  });
+  window.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input,select,textarea')) return;
+    if ((e.key || '').toLowerCase() === 'h' && !e.ctrlKey && !e.metaKey && !e.altKey) { guide.open ? guide.close() : openGuide(); return; }
+    const k = keyOf(e); if (!k || document.activeElement !== cv) return;   // pilotage seulement carte active
+    e.preventDefault(); keys[k] = true;
+  });
+  window.addEventListener('keyup', e => { const k = keyOf(e); if (k) keys[k] = false; });
+  window.addEventListener('blur', releaseKeys);
+  cv.addEventListener('blur', releaseKeys);
+  guide.addEventListener('close', () => { ENV.paused = pausedBefore; });
+  $('gClose').addEventListener('click', () => guide.close());
+  guide.addEventListener('click', e => { if (e.target === guide) guide.close(); const b = e.target.closest('[data-gtab]'); if (b) showTab(b.dataset.gtab); });
+  $('bGuide').addEventListener('click', () => openGuide());
+  $('bV2x').addEventListener('click', () => { const c = $('cV2x'); c.checked = !c.checked; logEv('VL-VOUS', 0, 'V2X', M(c.checked ? 'v2x.on' : 'v2x.off'), 'info'); });
+  $('bLvHome').addEventListener('click', () => { const L = sim.lvs.find(l => l.user); if (L) { Object.assign(L, { x: 336, y: 210, h: -Math.PI / 2, v: 0, steer: 0 }); L.pose = poseOf(L); } cv.focus(); });
+}
 
 /* ---------- Boucle : physique à pas fixe 50 Hz, rendu découplé ---------- */
-applyStatic(); resetSim(); resize();
-track('aht-safety-poc/lang-start/' + LANG, 'aht-safety-poc · langue à l\'ouverture : ' + LANG.toUpperCase());
-let last = performance.now(), acc = 0, lastHud = 0;
+let last = 0, acc = 0, lastHud = 0;
 function frame(now) {
   const dtR = Math.min(0.1, (now - last) / 1000); last = now;
   if (!ENV.paused) { acc += dtR * ENV.scale; let n = 0; while (acc >= DT && n < 50) { step(); acc -= DT; n++; } if (n >= 50) acc = 0; }
@@ -2161,7 +2166,13 @@ function frame(now) {
   if (now - lastHud > 120) { hud(); lastHud = now; }
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+function demarrer() {
+  demarrerMesure(); brancherRendu(); brancherCommandes();
+  applyStatic(); resetSim(); resize();
+  track('aht-safety-poc/lang-start/' + LANG, 'aht-safety-poc · langue à l\'ouverture : ' + LANG.toUpperCase());
+  last = performance.now();
+  requestAnimationFrame(frame);
+}
 window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelope, stopDistance, resetSim, setSel: i => { selected = i; }, setLang,
   // Réservé aux vérifications automatiques (spec 002) : envoie une consigne du niveau 1 du tombereau i, les champs de `patch`
   // remplaçant ceux d'une consigne normale ; la somme de contrôle est recalculée sauf si `patch.sum` est fourni.
@@ -2174,6 +2185,7 @@ window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelop
   },
   // Réservé aux vérifications automatiques (spec 001) : tables de traduction et clés introuvables.
   i18n: { MSG, STATIC, LANGS, t }, i18nMissing };
+demarrer();
 </script>
 </body>
 </html>
