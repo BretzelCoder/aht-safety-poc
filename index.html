@@ -798,14 +798,17 @@ const P = {
   Fbrake: 1.15e6, Ftrac: 0.9e6, Pmax: 2.6e6, Crr: 0.02,
   len: 15, wid: 9, marginSIL: 5, marginCaution: 15,
   vNom: 45 / 3.6, vRamp: 30 / 3.6, vCorner: 25 / 3.6, vDeg: 15 / 3.6,
-  latPer: 0.10, latCpu: 0.05, latAct: 0.25, tauAct: 0.25,
+  latPer: 0.10, latCpuRT: 0.05, latCpuGP: 0.25, latAct: 0.25, tauAct: 0.25,   // latCpu* : calcul du niveau 1, noyau PREEMPT_RT / généraliste (valeurs illustratives, spec 002)
   lidarRange: 110, lidarHalf: 60 * Math.PI / 180, radarRange: 170, radarHalf: 18 * Math.PI / 180, v2xRange: 300,
   ddsPeriod: 0.02, ddsDeadline: 0.04, ddsLiveliness: 0.10, ddsRetx: 0.03,
   canFrame: 0.00054, canDeadline: 0.04, canWatchdog: 0.10,
   fmsPeriod: 0.5, fmsLease: 2.0, authHorizon: 160, tokenReq: 175,
-  gnssDR: 5.0, loadTime: 10, dumpTime: 6
+  gnssDR: 5.0, loadTime: 10, dumpTime: 6,
+  // Niveau 1 → niveau 2 (spec 002) : échéance du battement, péremption d'une consigne, stabilité avant reprise, rejets consécutifs tolérés, historique du niveau 2
+  l1Deadline: 0.30, l1Stale: 0.25, l1Stable: 1.0, l1RejBound: 10, l1Hist: 1.0
 };
-const ENV = { mu: 0.6, ramp: 0.10, dust: false, fms: true, scale: 2, paused: false };
+const ENV = { mu: 0.6, ramp: 0.10, dust: false, fms: true, scale: 2, paused: false, kernel: 'RT' };   // kernel : profil du calculateur d'autonomie, 'RT' (PREEMPT_RT, défaut) ou 'GP' (généraliste)
+const latCpu = () => ENV.kernel === 'GP' ? P.latCpuGP : P.latCpuRT;
 const DUST = { x: 352, y: 72, r: 68 };
 const LEVEL = { NOMINAL: 0, DEGRADED_SPEED: 1, CONTROLLED_STOP: 2, EMERGENCY_BRAKE: 3 };
 const NAMES = ['NOMINAL', 'DEGRADED_SPEED', 'CONTROLLED_STOP', 'EMERGENCY_BRAKE'];
@@ -1019,7 +1022,7 @@ function bubble(T) {
   T.m.runaway = env.aEff < 0.15;
   T.m.env = env; T.m.grade = gmin; T.m.aEff = Math.max(env.aEff, 0.15);
   T.m.ddsLat = ddsBudget(T);
-  T.m.tLat = P.latPer + P.latCpu + T.m.ddsLat + (isFinite(T.m.brakeLat) ? T.m.brakeLat : 0.1) + P.latAct;
+  T.m.tLat = P.latPer + latCpu() + T.m.ddsLat + (isFinite(T.m.brakeLat) ? T.m.brakeLat : 0.1) + P.latAct;
   T.m.dStop = stopDistance(T.v, T.m.tLat, T.m.aEff, P.marginSIL);
   T.m.dCaution = stopDistance(T.v, T.m.tLat, 0.5 * T.m.aEff, P.marginCaution);
 }
@@ -1192,6 +1195,9 @@ const keys = { up: false, down: false, left: false, right: false };
 const layers = { bubbles: true, auth: true, sensors: true, links: true };
 const TRUCK_COLORS = ['#f0c24b', '#7fd0e0', '#f29a6b'];
 
+/* Niveau 1 (calculateur d'autonomie) et niveau 2 (contrôleur de sûreté), état par tombereau (spec 002). */
+function newL1() { return { frozen: false, session: 0, seq: 0, defect: null, repeat: false, captured: [], ev: { tFreeze: null, sFreeze: null, tDetect: null, sStill: null } }; }
+function newL2() { return { link: [], vAccepted: 0, obs: { dObs: Infinity, obsId: null, obsPred: false }, lastValid: 0, stableSince: 0, session: 0, seq: -1, rejRun: 0, hist: [], ex: [], rej: [] }; }
 function makeTruck(id, s, color) {
   const loaded = isLoadedSection(s);
   return {
@@ -1201,6 +1207,7 @@ function makeTruck(id, s, color) {
     can: { load: 25, misprio: false, babbling: false }, dds: { mode: 'PERIODIC', loss: 0 },
     state: 'NOMINAL', stopKind: 'AUTH', latched: false, lowerAt: 0, reasons: [], active: new Map(),
     mc: { rxMode: 'NOMINAL', rxKind: 'AUTH', rxTime: 0, rxSent: -1, lastLat: 0, queue: [], lastSent: null, applied: 'NOMINAL', appliedKind: 'AUTH', localLvl: 0, localUntil: 0, codes: [] },
+    l1: newL1(), l2: newL2(),
     ecuEmergency: false, cmdBuf: [], lastCmd: 0, auth: { sEnd: s + P.authHorizon, lastRx: 0 }, vPlan: 0, planTag: '',
     m: { dObs: Infinity, brakeLat: 0, diagLat: 0, busLoad: 0, aEff: 1, tLat: 0.5, dStop: 0, dCaution: 0, lidarOk: true, radarOk: true, env: null, grade: 0, ddsLat: 0 },
     perceived: [], hist: [], collided: false, mismatchSince: 0, pose: null
@@ -1213,7 +1220,7 @@ function resetSim() {
   sim.lvs = [makeLV('VL-VOUS', 336, 210, -Math.PI / 2, { user: true, v2x: $('cV2x').checked, color: '#f4f1ea' })];
   for (const T of sim.trucks) T.pose = poseOf(T);
   for (const I of INTER) I.holder = null;
-  ENV.dust = false; ENV.fms = true;
+  ENV.dust = false; ENV.fms = true; ENV.kernel = 'RT';
   logEv('SIM', 0, 'INFO', M('log.started'), 'info');
   syncControls();
 }
@@ -1296,6 +1303,7 @@ function clearAll() {
     T.faults = { lidar: false, radar: false, gnss: false, estop: false };
     T.can = { load: 25, misprio: false, babbling: false }; T.dds = { mode: 'PERIODIC', loss: 0 };
     T.latched = false; T.ecuEmergency = false; T.collided = false; T.massMode = 'AUTO';
+    T.l1 = newL1(); T.l2 = newL2();
   }
   ENV.dust = false; ENV.fms = true;
   sim.lvs = sim.lvs.filter(l => !l.ai);
