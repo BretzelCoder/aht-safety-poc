@@ -50,6 +50,15 @@ Most recent first. Template:
 **Follow-up of previous actions**: A-x: status and evidence.
 ```
 
+### 2026-11-15 — Spec 001 (amendment T-25: Node 22 and 24, acceptance criteria ticked)
+
+**Self-critique**
+- **SC-6 — "Node 22 or later" was announced for weeks and never exercised.** `package.json` (`engines`), README and CLAUDE.md say Node 22 or later; the plan itself said "CI uses Node 24", and neither the review nor the delivery checklist asked whether the announced minimum ran anywhere. I flagged it only as a reserve after delivery. Impact: none found (both versions pass 135 tests), but a Node 24-only syntax or API could have shipped. Root cause: the plan treated "Node >= 22" as a statement for contributors, not as a promise to check. → fixed in session (T-25, matrix on 22 and 24, proved red on one version only).
+
+**Rapport d'étonnement**: nothing to report.
+
+**Follow-up of previous actions**: no open action left in the register.
+
 ### 2026-11-15 — Spec 001 (review of the delivery, T-22 and T-23)
 
 **Self-critique**

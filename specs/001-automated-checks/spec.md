@@ -58,23 +58,23 @@ The constitution makes "the test is the judge" non-negotiable, and `CLAUDE.md` s
 - Any change to the simulator's behaviour, interface or texts: this spec adds checks, it changes nothing the visitor sees.
 
 ## 6. Acceptance criteria (testable)
-- [ ] AC-1 — One documented command, run from the repository root, executes all the checks of S3 to S11 and ends with an overall pass or fail.
-- [ ] AC-2 — On the current `main` content (once this spec's own work is in), every check passes and the link check reports its result.
-- [ ] AC-3 — A push to any branch and every pull request trigger the checks on GitHub; the result appears on the commit and on the pull request, for Node 22 and for Node 24 separately.
-- [ ] AC-4 — Introducing a syntax error in the page script makes the checks fail with a message pointing to it.
-- [ ] AC-5 — Removing one key from the German static translations, removing the English version of one dynamic message, and using an undefined key each make the checks fail, naming the key and the language.
-- [ ] AC-6 — The page opens in French, English and German without any console error, and in each language at least one log message and the interface title appear in that language.
-- [ ] AC-7 — Each scenario A to E is checked against the outcome listed in S6; breaking one outcome on purpose (for example removing the token revocation) makes the corresponding check fail and name the scenario.
-- [ ] AC-8 — Each invariant of S7 is checked; breaking one on purpose makes its check fail.
-- [ ] AC-9 — Ten consecutive runs on unchanged content give identical results.
-- [ ] AC-10 — A spec with the status DRAFT or IN REVIEW (outside the template) makes the status check fail.
-- [ ] AC-11 — Removing the disclaimer from the README or from the header comment of `index.html` makes the checks fail.
-- [ ] AC-12 — Removing the host restriction of the analytics code, or adding an event without the `aht-safety-poc/` prefix, makes the checks fail.
-- [ ] AC-13 — A dead link produces a warning naming it, and the overall result stays a pass if nothing else failed. A 403 from a listed host is reported as unverifiable, not as a warning; a 403 from an unlisted host, and any 404, timeout or network error, stay warnings.
-- [ ] AC-14 — With the network cut, every check except the link check passes.
-- [ ] AC-15 — The published site is unchanged in what it loads: no file used only by the checks is fetched by the page, and the page still opens from a downloaded copy with nothing installed.
-- [ ] AC-16 — `CLAUDE.md` ("Project commands" and "Delivery checklist") and the README explain how to install what the checks need and how to run them; the "to be defined" placeholders are gone.
-- [ ] AC-17 — A full run completes in under 5 minutes on GitHub.
+- [x] AC-1 — One documented command, run from the repository root, executes all the checks of S3 to S11 and ends with an overall pass or fail. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
+- [x] AC-2 — On the current `main` content (once this spec's own work is in), every check passes and the link check reports its result. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
+- [x] AC-3 — A push to any branch and every pull request trigger the checks on GitHub; the result appears on the commit and on the pull request, for Node 22 and for Node 24 separately. *(evidence: tasks.md, "AC-3, AC-17 (CI, duration)" and "Node 22 and 24 (T-25)")*
+- [x] AC-4 — Introducing a syntax error in the page script makes the checks fail with a message pointing to it. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-5 — Removing one key from the German static translations, removing the English version of one dynamic message, and using an undefined key each make the checks fail, naming the key and the language. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-6 — The page opens in French, English and German without any console error, and in each language at least one log message and the interface title appear in that language. *(evidence: tasks.md, "AC-6, 12, 15 (render)")*
+- [x] AC-7 — Each scenario A to E is checked against the outcome listed in S6; breaking one outcome on purpose (for example removing the token revocation) makes the corresponding check fail and name the scenario. *(evidence: tasks.md, "AC-7 (scenarios)")*
+- [x] AC-8 — Each invariant of S7 is checked; breaking one on purpose makes its check fail. *(evidence: tasks.md, "AC-8 (invariants)")*
+- [x] AC-9 — Ten consecutive runs on unchanged content give identical results. *(evidence: tasks.md, "AC-9 (ten runs)")*
+- [x] AC-10 — A spec with the status DRAFT or IN REVIEW (outside the template) makes the status check fail. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-11 — Removing the disclaimer from the README or from the header comment of `index.html` makes the checks fail. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-12 — Removing the host restriction of the analytics code, or adding an event without the `aht-safety-poc/` prefix, makes the checks fail. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-13 — A dead link produces a warning naming it, and the overall result stays a pass if nothing else failed. A 403 from a listed host is reported as unverifiable, not as a warning; a 403 from an unlisted host, and any 404, timeout or network error, stay warnings. *(evidence: tasks.md, "AC-13 (dead link)" and "AC-13 amendment (T-24)")*
+- [x] AC-14 — With the network cut, every check except the link check passes. *(evidence: tasks.md, "AC-14 (offline)")*
+- [x] AC-15 — The published site is unchanged in what it loads: no file used only by the checks is fetched by the page, and the page still opens from a downloaded copy with nothing installed. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
+- [x] AC-16 — `CLAUDE.md` ("Project commands" and "Delivery checklist") and the README explain how to install what the checks need and how to run them; the "to be defined" placeholders are gone. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
+- [x] AC-17 — A full run completes in under 5 minutes on GitHub. *(evidence: tasks.md, "AC-3, AC-17 (CI, duration)" and "Node 22 and 24 (T-25)")*
 
 ## 7. Open questions
 None. Both points raised during review were settled by the owner on 2026-11-15 (see section 9):
