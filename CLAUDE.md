@@ -4,11 +4,11 @@
 An interactive, single-page simulator that shows how an Autonomous Haul Truck (AHT) in an open-pit mine stays safe in mixed traffic: braking envelopes, FMS movement authority, CAN J1939 arbitration, DDS quality of service and an independent safety supervisor. It is a teaching proof of concept for engineers, students and decision-makers discovering autonomous haulage safety, published at https://bretzelcoder.github.io/aht-safety-poc/. It is not a safety tool and is not affiliated with any equipment manufacturer or mining company. See `docs/constitution.md` for the non-negotiable principles and `docs/architecture-decisions.md` for the ADRs.
 
 ## Stack
-- One self-contained `index.html`: HTML5, CSS and vanilla JavaScript on an HTML5 canvas. No framework, no build step, and the page loads no package (ADR-1).
-- Script organisation: an I18N block and an analytics block, then four modules: MineWorld & PhysicsEngine, EmbeddedCommsBus, AutonomyAndSafetyCore, FaultInjector & TelemetryHUD. Physics runs at a fixed 50 Hz step, decoupled from rendering.
+- An entry file `index.html` (markup, French static text and guide, load guard) plus its own plain files, with HTML5, CSS and vanilla JavaScript on an HTML5 canvas: `css/style.css` and the scripts `js/base.js`, `js/analytics.js`, `js/i18n-engine.js`, `js/i18n-en-ui.js`, `js/i18n-en-guide.js`, `js/i18n-de-ui.js`, `js/i18n-de-guide.js`, `js/i18n-messages.js`, `js/i18n-apply.js`, `js/m1-world-physics.js`, `js/m2-comms-bus.js`, `js/m3-perception.js`, `js/m3-fms-planner.js`, `js/m3-levels.js`, `js/m3-supervisor-control.js`, `js/m4-state.js`, `js/m4-scenarios.js`, `js/m4-render.js`, `js/m4-hud.js`, `js/m4-controls.js`, `js/m4-start.js`, `js/test-hook.js`, loaded by classic `<script src>` tags in that order and sharing the global scope. No framework, no build step, no module, and the page loads no package (ADR-1, amended by spec 003). `node scripts/stamps.mjs` keeps the release stamp of each file up to date (a check fails when one is stale); the map with a line per file is in the README ("Where things are").
+- Script organisation: two small helpers (`js/base.js`, `js/analytics.js`) and the translations first, then four modules: MineWorld & PhysicsEngine, EmbeddedCommsBus, AutonomyAndSafetyCore, FaultInjector & TelemetryHUD. Physics runs at a fixed 50 Hz step, decoupled from rendering.
 - External resources: Google Fonts (optional, system fonts as fallback) and GoatCounter `count.js` (GitHub Pages only, ADR-3).
 - Hosting: GitHub Pages, branch `main`, folder `/`.
-- Automated checks, development only (ADR-1 amendment, spec 001): Node.js 22 or later and `@playwright/test` (the only `devDependency`, version pinned) in `package.json`; tests in `tests/`, link check in `scripts/check-links.mjs`, CI in `.github/workflows/checks.yml`. The tests open `index.html` from disk and read the model through the test-only hook `window.__sim` (`i18n` and `i18nMissing` were added for them; keep them).
+- Automated checks, development only (ADR-1 amendment, spec 001): Node.js 24 or later and `@playwright/test` (the only `devDependency`, version pinned) in `package.json`; tests in `tests/`, link check in `scripts/check-links.mjs`, CI in `.github/workflows/checks.yml`. The tests open `index.html` from disk and read the model through the test-only hook `window.__sim` (`i18n` and `i18nMissing` were added for them; keep them).
 
 ## Spec-Driven Development workflow — STRICT RULES
 
@@ -32,7 +32,8 @@ Rules recorded before the kit was adopted are dated; from now on, each new rule 
   - static text: French stays in the HTML, marked with `data-i18n`, `data-i18n-html`, `data-i18n-title` or `data-i18n-aria`; English and German go in `STATIC`;
   - dynamic text: `[fr, en, de]` triplets in `MSG`, rendered with `t(key, params)`;
   - log entries and supervisor reasons are stored as `{k, p}` messages (`M()`, `N()`, `RAW()`) and translated at display time, never as pre-translated strings;
-  - numbers go through `fmt()` or `N()`: decimal comma in French and German, point in English.
+  - numbers go through `fmt()` or `N()`: decimal comma in French and German, point in English;
+  - one exception (spec 003, plan decision 5): the page's load-failure message in `index.html` is written inline in the three languages, because the translation files may be the ones that are missing; the reason written next to each file name in it (`missing`, `other version`, `loaded twice`, `not expected`) is an English technical token, like the path.
 - **Never translated** (2026-11-13): supervisor states (`NOMINAL`, `EMERGENCY_BRAKE`…), fault and log codes (`DM1_…`, `DDS_…`, `CAN_…`), DDS QoS names (RELIABLE, BEST_EFFORT, Deadline, Liveliness), acronyms (SIL, FMS, V2X, LiDAR, GNSS RTK, ECU, IMU, AHT), standard references and formula variables (`a_eff`, `d_stop`, `t_lat`, μ). Home-made identifiers are localised through `vid()` and `codeName()` (`VL-VOUS` / `LV-YOU` / `LV-SIE`).
 - **English** text in the UI and the README uses British spelling.
 - **Analytics** (2026-11-13, ADR-3): GoatCounter loads only on `bretzelcoder.github.io`. Events are namespaced `aht-safety-poc/…` because the dashboard is shared with other projects. Never send anything the visitor typed or anything personal.
@@ -43,12 +44,13 @@ Rules recorded before the kit was adopted are dated; from now on, each new rule 
 - **Re-measure before declaring a gap** (2026-11-15, decided spec 001): before stopping on a suspected gap between a scenario and its spec, re-measure at the model's own step (0.02 s), with the model's own thresholds (stopped = under 0.3 m/s) and over enough seeds and time (scenario D: 40 seeds, 60 s). Only a gap that survives is taken back to the spec (rule 5).
 
 ## Project commands
-Install once (Node.js 22 or later; nothing is installed for the page itself):
+Install once (Node.js 24 or later; nothing is installed for the page itself):
 - `npm ci`, then `npx playwright install chromium`.
 
 Run:
-- `npm test`: everything, in under a minute. Static checks (script syntax, disclaimer, analytics guard, spec statuses, no manufacturer name, no latency written in the new HTML), translations (static tables, then at runtime in FR, EN and DE), rendering in the three languages, scenarios A to E, physics invariants (mass and road, movement authority, network cut, emergency latch), levels 1 and 2 (setpoints, rejections, heartbeat loss, scenarios F and G over 40 seeds), the kernel profile, the views and the layout at 1600×900, then the link check. The same command runs on GitHub (`Checks` workflow) on every push and pull request.
-- `node scripts/compare-traces.mjs`: development only, not part of `npm test`. Replays 60 s of simulation on `main` and on the working copy with the same seeds and reports the first difference. Run it after any change to the model that must not move the default behaviour (spec 002, S2).
+- `npm test`: everything, in about three minutes. Static checks (script syntax of every page file, disclaimer, analytics guard, spec statuses, no manufacturer name, no latency written in the new HTML), translations (static tables, then at runtime in FR, EN and DE), rendering in the three languages, scenarios A to E, physics invariants (mass and road, movement authority, network cut, emergency latch), levels 1 and 2 (setpoints, rejections, heartbeat loss, scenarios F and G over 40 seeds), the kernel profile, the page files (map, concerns, release stamps, nothing loaded from outside, one Node version), the start-up guard on broken copies, the downloaded copy and the GitHub Pages rehearsal (a local server under `/aht-safety-poc/`), one check per module loaded alone, the views and the layout at 1600×900, then the link check. The same command runs on GitHub (`Checks` workflow) on every push and pull request.
+- `node scripts/stamps.mjs` (`--check` to only verify): rewrites the release stamp of each page file and the manifest in `index.html`. Run it after any change to a file of `js/` or `css/`; `npm test` fails when a stamp is stale.
+- `node scripts/compare-traces.mjs`: development only, not part of `npm test`. Replays 60 s of simulation on `main` and on the working copy with the same seeds (28 cases, scenarios F and G under both kernel profiles included) and reports the first difference; the reference page may be one file or several. Run it after any change to the model that must not move the default behaviour (spec 002, S2).
 - `npm run test:browser`: the Playwright tests only, no network needed.
 - `npm run test:links`: the link check only. A dead or unreachable link is a warning and never fails the run; a 403 from a host known to refuse robots (list in `scripts/check-links.mjs`) is an information line, "unverifiable".
 - One test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`.
@@ -64,7 +66,8 @@ Lint, typecheck, build: none. There is no build step (ADR-1), and the syntax che
 - Never force-push `main`: it is what GitHub Pages publishes.
 
 ## Delivery checklist (end of spec / before merge)
-- `npm test` green locally, and the `Checks` run of the branch green on GitHub for Node 22 and Node 24. The link check may only warn.
+- `npm test` green locally, and the `Checks` run of the branch green on GitHub for Node 24. The link check may only warn.
+- Every file of the page is in the README map ("Where things are") and in the Stack part above, and its release stamp is current (`node scripts/stamps.mjs`); `npm test` enforces both.
 - No string missing a translation: every new `MSG` triplet has three entries, every new `data-i18n*` key exists in `STATIC.en` and `STATIC.de` (`npm test` enforces it).
 - Every new rule has its check, with the proof that the check can fail (see Conventions).
 - Every check delivered is listed next to its proof of failure (negative test or recorded deliberate breakage) in the evidence table of the spec; a check with no row is not delivered.

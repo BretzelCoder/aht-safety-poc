@@ -12,7 +12,7 @@ It is a teaching proof of concept. The physics is simplified but consistent: eve
 
 ## Run it
 
-No build, no dependencies. Use the [live demo](https://bretzelcoder.github.io/aht-safety-poc/), open `index.html` in a recent browser, or serve your own copy with GitHub Pages (Settings → Pages → deploy from branch `main`, folder `/`). Only the [automated checks](#automated-checks) need anything installed, and the page never loads it.
+No build, no dependencies. Use the [live demo](https://bretzelcoder.github.io/aht-safety-poc/), open `index.html` in a recent browser (from the downloaded folder: `index.html` needs the `css/` and `js/` folders next to it, and says so in French, English and German if one is missing), or serve your own copy with GitHub Pages (Settings → Pages → deploy from branch `main`, folder `/`). Only the [automated checks](#automated-checks) need anything installed, and the page never loads it.
 
 The page loads Google Fonts if online and falls back to system fonts otherwise.
 
@@ -66,7 +66,7 @@ Scenarios A to E and the Reset button set the kernel profile back to PREEMPT_RT,
 
 ## Code structure
 
-Everything lives in `index.html` (vanilla JavaScript, HTML5 canvas, no framework). The script is split into four modules:
+The simulator is vanilla JavaScript on an HTML5 canvas, with no framework, no build step and no package for the page (ADR-1). The script is split into four modules:
 
 1. **MineWorld & PhysicsEngine:** haul road graph, grades, longitudinal dynamics with traction, braking and adhesion limits.
 2. **EmbeddedCommsBus:** CAN response-time model per priority class, DDS safety topic with loss, retransmission, Deadline and Liveliness, and the ordered link from level 1 to level 2 (delayed by the kernel profile, with a home-made checksum).
@@ -75,32 +75,68 @@ Everything lives in `index.html` (vanilla JavaScript, HTML5 canvas, no framework
 
 Physics runs at a fixed 50 Hz step, decoupled from rendering.
 
-An I18N block at the top of the script holds the translations. French static text stays in the HTML (`data-i18n*` attributes) with English and German in `STATIC`; dynamic messages are `[fr, en, de]` triplets in `MSG`. Log entries and supervisor reasons are stored as message keys with parameters and translated at display time, so switching language also re-translates the event history.
+The translation files (`js/i18n-*.js`) hold the translations; they load right after the two small files `js/base.js` and `js/analytics.js`. French static text stays in the HTML (`data-i18n*` attributes) with English and German in `STATIC`; dynamic messages are `[fr, en, de]` triplets in `MSG`. Log entries and supervisor reasons are stored as message keys with parameters and translated at display time, so switching language also re-translates the event history.
+
+### Where things are
+
+The page is `index.html` plus its own plain files, loaded by ordinary `<script src>` and `<link>` tags in the order below (no module, no build, no installation; it opens from a downloaded folder). The code is the one script that used to sit in `index.html`, cut along its own joints and moved line for line (the private scope of the script is gone, and the lines that used to run at load time sit in four start-up functions that the load guard calls, see `js/m4-start.js`). The files share the page's global scope. Each file starts with a comment that names its concern and ends with a release stamp that `node scripts/stamps.mjs` keeps up to date; the page starts only if every file is present and of the same release, and otherwise says so in French, English and German (that message is written inline in `index.html`, because the translation files may be the ones that are missing). A check fails when this table, the tags and the files disagree.
+
+| File | Concern | What it holds |
+|---|---|---|
+| `index.html` | entry | Entry file: markup, French static text and French guide (ADR-2), the load registry, the script tags in load order, the load guard and its failure message in French, English and German. |
+| `css/style.css` | style | The style sheet. |
+| `js/base.js` | base | Two helpers used everywhere (`$`, `clamp`). |
+| `js/analytics.js` | analytics | GoatCounter, on the published site only (ADR-3). |
+| `js/i18n-engine.js` | i18n | Current language, `fmt`, `M`, `N`, `RAW`, `t`, and the empty `STATIC` tables. |
+| `js/i18n-en-ui.js` | i18n | English interface strings (`STATIC.en`). |
+| `js/i18n-en-guide.js` | guide | English guide text (`STATIC.en`, `guide.*`). |
+| `js/i18n-de-ui.js` | i18n | German interface strings (`STATIC.de`). |
+| `js/i18n-de-guide.js` | guide | German guide text (`STATIC.de`, `guide.*`). |
+| `js/i18n-messages.js` | i18n | `MSG`: the `[fr, en, de]` triplets of dynamic messages. |
+| `js/i18n-apply.js` | i18n | `applyStatic`: puts the static translations into the HTML. |
+| `js/m1-world-physics.js` | module-1 | Module 1 (MineWorld & PhysicsEngine): road graph, model parameters, braking envelope. |
+| `js/m2-comms-bus.js` | module-2 | Module 2 (EmbeddedCommsBus): CAN, DDS, the level 1 → level 2 link. |
+| `js/m3-perception.js` | module-3 | Module 3 (AutonomyAndSafetyCore): sensors, obstacle distance, stop bubble. |
+| `js/m3-fms-planner.js` | module-3 | Module 3: FMS tokens and movement authority, operating cycle, planner. |
+| `js/m3-levels.js` | module-3 | Module 3: level 1 emission and failure, level 2 measurements and judgement of setpoints. |
+| `js/m3-supervisor-control.js` | module-3 | Module 3: safety supervisor, motion controller, truck physics. |
+| `js/m4-state.js` | module-4 | Module 4 (FaultInjector & TelemetryHUD): simulation state, trucks, light vehicles, event log, `step`. |
+| `js/m4-scenarios.js` | module-4 | Module 4: scenarios A to G and fault injection. |
+| `js/m4-render.js` | module-4 | Module 4: map and oscilloscope drawing. |
+| `js/m4-hud.js` | module-4 | Module 4: telemetry panels, levels 1 ↔ 2 view, toast. |
+| `js/m4-controls.js` | module-4 | Module 4: the visitor's controls, language switch, guide opening. |
+| `js/m4-start.js` | module-4 | Module 4: the 50 Hz loop and the start-up of the page. |
+| `js/test-hook.js` | test-hook | `window.__sim`, the door reserved for the automated checks. |
 
 ## Automated checks
 
-The simulator needs nothing installed. The checks that keep it honest do, for development only: Node.js 22 or later. The page itself still loads no package and still opens from a downloaded copy.
+The simulator needs nothing installed. The checks that keep it honest do, for development only: Node.js 24 or later. The page itself still loads no package and still opens from a downloaded copy.
 
 ```bash
 npm ci                            # installs the test runner (@playwright/test, version pinned)
 npx playwright install chromium   # once: downloads the browser used by the tests
-npm test                          # runs everything, under a minute
+npm test                          # runs everything, in about three minutes
 ```
 
 | Check | What it proves |
 |---|---|
-| Script syntax | The page script compiles; a syntax error is reported with its line in `index.html`. |
+| Script syntax | Every script of the page compiles, whichever of its files it sits in; a syntax error is reported with its file and line. |
 | Translations | Every text exists in French, English and German: static keys, dynamic messages and, at run time, every key the scenarios display. Terms identical by design are not flagged. |
-| Rendering | The page opens in French, English and German without a console error, in the right language, and loads nothing from the network or from the analytics service when opened from disk. |
+| Rendering | The page opens in French, English and German without a console error, in the right language, and requests nothing but `index.html`, its own files (each once) and the blocked Google Fonts, and nothing from the analytics service, when opened from disk. |
 | Scenarios A to E | Each built-in scenario produces the outcome described above: token revoked and a planned stop (A), on-board perception only (B), LiDAR blinded and radar fallback at 15 km/h or less (C), a lost stop order reported as `ORDER_NOT_APPLIED` against periodic publishing reaching the stop state (D), brake deadline missed from 67 % CAN load and watchdog from 84 % (E). |
 | Levels 1 and 2 | Each truck sends one complete setpoint per step with a sequence number rising by one; level 2 rejects each of the five defects, with its code, and never applies a rejected setpoint; a frozen level 1 is detected within the deadline and the truck is stopped at maximum braking in every seed; recovery needs a stable heartbeat and never releases a latched emergency; judging uses level 2's own position. |
 | Kernel profile | PREEMPT_RT keeps exactly the previous reaction time and stopping distances; the general-purpose profile adds exactly the latency difference to the reaction time and to the distance the truck really travels; scenarios A to E start from PREEMPT_RT. |
 | Layout | At 1600×900, in the three languages, nothing leaves the screen, including with the levels view open and its exchange list full. |
 | Physics invariants | Loaded downhill stops later than empty on the flat; mass cancels out when adhesion-limited; a watered road lengthens the empty distance only; no truck ever goes beyond its movement authority; after a network cut every truck stops inside its authority without emergency braking; the emergency state stays latched until it is acknowledged. |
 | Repository rules | The disclaimer is still in the README and the page header; no manufacturer is named as the owner of the architecture shown; analytics load only on the live site and every event is prefixed `aht-safety-poc/`; no spec is `DRAFT` or `IN REVIEW` on `main`. |
+| Page files | The tags of `index.html`, the files in `js/` and `css/`, the map "Where things are" above, the paths in `CLAUDE.md` and the files git tracks all agree (exact case, no mixed line endings); every file declares one concern in its header, the same as the map; every file carries the current release stamp (`node scripts/stamps.mjs` rewrites them); nothing is loaded from outside the repository except Google Fonts and, on the published site only, GoatCounter; `package.json` has no build script. |
+| Start-up guard | On copies of the page: a missing file, a file with a syntax error, a file of another release, a file run twice or a stale style sheet each make the page refuse to start, with a message in French, English and German that names the file; a script tag listed twice runs nothing twice. |
+| Downloaded copy and GitHub Pages rehearsal | The files git tracks, copied to another folder, run the simulator with the network blocked. A small local server then serves the page under `/aht-safety-poc/` with exact-case names, only tracked files and the MIME types of Pages: every file answers 200 once and scenario A plays; a wrong-case tag, an absolute `/js/…` path or an untracked file answers 404 and the page refuses to start. The real CDN cache and HTTPS are only checked on the live site. |
+| Modules | Each of the four modules is loaded alone in a bare Node context (no document, no window), with test doubles for what it calls upward, and checked on a pinned behaviour: stopping distances 20.2 m and 42.2 m (module 1); the CAN deadline missed from 67 % load and the brake watchdog from 84 %, the ordered level 1 → level 2 link (module 2); the five setpoint rejections with their tolerances and the heartbeat loss (module 3); scenarios F and G choosing the fastest truck and the event log (module 4, its non-drawing half). |
+| Node version | `package.json`, its lock file, this README, `CLAUDE.md` and the workflow all announce the same Node version, and the workflow has one job. |
 | External links | The links of this README and of the in-app guide. A dead or unreachable link is a warning and never fails the run. The hosts known to refuse automated requests (ISO, USPTO: answer 403) are reported on an information line as unverifiable, to be checked by hand, so that a real dead link stays visible; the list is in `scripts/check-links.mjs`. |
 
-The tests open `index.html` from disk with the network blocked and the random generator seeded, so a run gives the same result every time. The same command runs on GitHub (workflow `Checks`, on Node 22 and on Node 24) for every push and pull request; the result shows on the commit and the pull request and does not lock the merge. To run a single test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`; to run only the browser tests or only the link check: `npm run test:browser`, `npm run test:links`. Values pinned from the model (for example the CAN load boundaries) live in `tests/` and change together with the model.
+The tests open `index.html` from disk with the network blocked and the random generator seeded, so a run gives the same result every time. `node scripts/compare-traces.mjs` (development only, not part of `npm test`) replays 28 cases of 60 s on `main` and on the working copy, including scenarios F and G under both kernel profiles, and reports the first difference; it reads the reference page whether it is one file or several. `node scripts/stamps.mjs` rewrites the release stamps after a change to a page file (`--check` only verifies). The same command runs on GitHub (workflow `Checks`, on Node 24) for every push and pull request; the result shows on the commit and the pull request and does not lock the merge. To run a single test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`; to run only the browser tests or only the link check: `npm run test:browser`, `npm run test:links`. Values pinned from the model (for example the CAN load boundaries) live in `tests/` and change together with the model.
 
 ## Development process
 

@@ -3,13 +3,15 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { readPage } from '../scripts/read-page.mjs';
 import {
   verifierSyntaxe, verifierAvertissement, verifierAnalytics,
   verifierStatuts, estContexteMain, lireSpecs, brancheCourante, verifierSansConstructeur, verifierLatenceSansChiffre,
 } from './helpers/controles-statiques.mjs';
 
 const lire = chemin => readFileSync(fileURLToPath(new URL(chemin, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
-const html = lire('../index.html');
+// La page complète : index.html avec ses fichiers propres (spec 003), lue par scripts/read-page.mjs.
+const html = readPage(fileURLToPath(new URL('..', import.meta.url))).html;
 const readme = lire('../README.md');
 
 const decrire = erreurs => erreurs.map(e => `${e.fichier}:${e.ligne} ${e.message}`).join('\n');

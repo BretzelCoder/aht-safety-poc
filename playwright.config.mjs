@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test';
 
 // Contrôles qui lisent des fichiers sans ouvrir de page : ils passent en premier, rapides, et leurs
 // messages (ligne d'une erreur de syntaxe, clé manquante…) sont donc toujours dans le rapport.
-const SANS_NAVIGATEUR = ['**/statique.spec.mjs', '**/liens.spec.mjs'];
+const SANS_NAVIGATEUR = ['**/statique.spec.mjs', '**/liens.spec.mjs', '**/versions.spec.mjs', '**/fichiers.spec.mjs', '**/modules.spec.mjs'];
 
 export default defineConfig({
   testDir: 'tests',

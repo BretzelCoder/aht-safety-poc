@@ -11,20 +11,16 @@ permissions:
 
 jobs:
   checks:
-    # Deux versions de Node : le minimum annoncé (engines >=22) et la version courante. Chaque version a son résultat.
-    name: Checks (Node ${{ matrix.node }})
+    # Une seule version de Node : celle que le projet annonce (engines >=24), voir la spec 003.
+    name: Checks (Node 24)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24]
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24
           cache: npm
 
       - run: npm ci

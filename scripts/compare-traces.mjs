@@ -9,8 +9,8 @@
 // appliqué, latence de réaction, distance à l'obstacle, puis le journal complet. Rend 0 si tout est identique,
 // 1 à la première différence (cas, pas, tombereau, grandeur).
 import { chromium } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { extraireBase } from './lire-base.mjs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -35,15 +35,19 @@ function installerHasard(graine) {
 }
 
 // Rejoue un cas dans la page et rend la trace : une ligne de valeurs par pas, plus le journal final.
-function rejouer({ graine, scenario, secondes, dt }) {
+function rejouer({ graine, scenario, secondes, dt, noyau, avant }) {
   const S = window.__sim;
   S.ENV.paused = true; window.__reseed(graine); S.resetSim(); S.setSel(0);
-  if (scenario === 'E') { S.scenario('E'); } else if (scenario) { S.scenario(scenario); }
+  // Profil de noyau choisi par le visiteur (spec 003, AC-6) : posé avant le scénario, que F et G respectent.
+  if (noyau) S.ENV.kernel = noyau;
   const n = Math.round(secondes / dt), trace = [];
+  const nAvant = Math.round((avant || 0) / dt);   // F et G s'attaquent au tombereau le plus rapide : on laisse d'abord rouler
+  if (!nAvant) { if (scenario === 'E') { S.scenario('E'); } else if (scenario) { S.scenario(scenario); } }
   for (let i = 0; i < n; i++) {
+    if (nAvant && i === nAvant && scenario) S.scenario(scenario);
     S.step();
     const ligne = [];
-    for (const T of S.sim.trucks) ligne.push(T.s, T.v, T.state, T.mc.applied, T.m.tLat, T.m.dObs, T.m.dStop, T.F);
+    for (const T of S.sim.trucks) ligne.push(T.s, T.v, T.state, T.mc.applied, T.m.tLat, T.m.dObs, T.m.dStop, T.F, T.l2.vAccepted, T.l2.seq, T.l2.rejRun);
     for (const L of S.sim.lvs) ligne.push(L.x, L.y, L.v);
     trace.push(ligne);
   }
@@ -51,8 +55,8 @@ function rejouer({ graine, scenario, secondes, dt }) {
   return { trace, journal, collisions: S.sim.collisions };
 }
 
-const NOMS = ['s', 'v', 'state', 'applied', 'tLat', 'dObs', 'dStop', 'F'];
-function decrire(i) { return i < 24 ? `AHT-0${Math.floor(i / 8) + 1}.${NOMS[i % 8]}` : `light vehicle value ${i - 24}`; }
+const NOMS = ['s', 'v', 'state', 'applied', 'tLat', 'dObs', 'dStop', 'F', 'vAccepted', 'seq', 'rejRun'];
+function decrire(i) { return i < 3 * NOMS.length ? `AHT-0${Math.floor(i / NOMS.length) + 1}.${NOMS[i % NOMS.length]}` : `light vehicle value ${i - 3 * NOMS.length}`; }
 
 function comparer(cas, a, b) {
   const pas = Math.min(a.trace.length, b.trace.length);
@@ -72,16 +76,18 @@ function comparer(cas, a, b) {
   return null;
 }
 
-// Page de référence : le fichier de la base, copié dans un dossier temporaire.
+// Page de référence : les fichiers de la page dans la révision de base (index.html seul, ou avec css/ et js/),
+// recopiés dans un dossier temporaire (spec 003).
 const dossier = mkdtempSync(join(tmpdir(), 'aht-base-'));
-const fichierBase = join(dossier, 'index.html');
-writeFileSync(fichierBase, execFileSync('git', ['show', `${base}:index.html`], { cwd: racine, maxBuffer: 64 * 1024 * 1024 }));
-const urlBase = pathToFileURL(fichierBase).href;
+const fichiersBase = extraireBase(base, racine, dossier);
+const urlBase = pathToFileURL(join(dossier, 'index.html')).href;
 const urlBranche = pathToFileURL(join(racine, 'index.html')).href;
 
 const cas = [];
 for (let g = 1; g <= nbGraines; g++) cas.push({ nom: `seed ${g}, no scenario`, graine: g, scenario: null });
 for (const sc of ['A', 'B', 'C', 'D', 'E']) for (const g of [1, 2]) cas.push({ nom: `seed ${g}, scenario ${sc}`, graine: g, scenario: sc });
+// Scénarios F et G sous les deux profils de noyau (spec 003, AC-6 et règle A-14), lancés après 15 s de roulage.
+for (const sc of ['F', 'G']) for (const noyau of ['RT', 'GP']) for (const g of [1, 2]) cas.push({ nom: `seed ${g}, scenario ${sc}, kernel ${noyau}`, graine: g, scenario: sc, noyau, avant: 15 });
 
 async function ouvrir(browser, url) {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
@@ -97,7 +103,7 @@ let difference = null;
 try {
   const pageBase = await ouvrir(browser, urlBase), pageBranche = await ouvrir(browser, urlBranche);
   for (const c of cas) {
-    const arg1 = { graine: c.graine, scenario: c.scenario, secondes, dt: 0.02 };
+    const arg1 = { graine: c.graine, scenario: c.scenario, secondes, dt: 0.02, noyau: c.noyau, avant: c.avant };
     const a = await pageBase.evaluate(rejouer, arg1);
     const b = await pageBranche.evaluate(rejouer, arg1);
     difference = comparer(c.nom, a, b);
@@ -107,4 +113,4 @@ try {
   await browser.close();
 }
 if (difference) { console.log(`DIFFERENT — ${difference}`); process.exit(1); }
-console.log(`identical — ${cas.length} cases of ${secondes} s at 0.02 s (${nbGraines} seeds without scenario, scenarios A to E on seeds 1 and 2), compared with ${base}.`);
+console.log(`identical — ${cas.length} cases of ${secondes} s at 0.02 s (${nbGraines} seeds without scenario, scenarios A to E on seeds 1 and 2, scenarios F and G on seeds 1 and 2 under both kernel profiles), compared with ${base} (${fichiersBase.length} file${fichiersBase.length > 1 ? "s" : ""} of the page).`);
