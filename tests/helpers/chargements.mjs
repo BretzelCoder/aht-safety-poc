@@ -31,7 +31,9 @@ const APPELS_RESEAU = /\.src\s*=|\bfetch\s*\(|XMLHttpRequest|\bimport\s*\(|impor
 /**
  * AC-9 : la page ne charge rien d'extérieur au dépôt sauf Google Fonts (les polices, par des balises) et GoatCounter
  * (seulement depuis js/analytics.js, sur le site publié) ; le dépôt ne contient aucun script de construction de la page.
- *  - `html` : le texte de index.html lui-même (balises) ; `fichiers` : [{ chemin, texte }] des fichiers propres ;
+ *  - `html` : le texte de index.html lui-même : ses balises, mais aussi ses scripts en ligne, son balisage (images, cadres…)
+ *    et ses styles en ligne sont regardés (revue de la spec 003, G4) ;
+ *  - `fichiers` : [{ chemin, texte }] des fichiers propres, scripts (.js) et feuille de style (.css) ;
  *  - `pkg` : le texte de package.json.
  */
 export function verifierChargements({ html, fichiers, pkg }) {
@@ -47,12 +49,40 @@ export function verifierChargements({ html, fichiers, pkg }) {
     try { hote = new URL(m[1]).hostname; } catch { /* adresse illisible : refusée */ }
     if (!HOTES_POLICES.includes(hote)) err('index.html', `links ${m[1]}, which is neither a file of the repository nor Google Fonts`);
   }
-  for (const { chemin, texte } of fichiers) {
+  // Adresse hors du dépôt, sauf Google Fonts.
+  const externe = adresse => {
+    if (!/^(https?:)?\/\//i.test(adresse.trim())) return false;
+    try { return !HOTES_POLICES.includes(new URL(adresse.trim().replace(/^\/\//, 'https://')).hostname); } catch { return true; }
+  };
+  const ligneDe = (texte, position) => texte.slice(0, position).split('\n').length;
+  const appelsReseau = (chemin, texte, decalage = 0) => {
     texte.split('\n').forEach((ligne, i) => {
       if (!APPELS_RESEAU.test(ligne)) return;
       const autorise = chemin === 'js/analytics.js' && /gc\.zgo\.at/.test(ligne);
-      if (!autorise) erreurs.push({ fichier: chemin, ligne: i + 1, message: `makes the page load or send something (${ligne.trim().slice(0, 70)}): only js/analytics.js may, and only to gc.zgo.at` });
+      if (!autorise) erreurs.push({ fichier: chemin, ligne: i + 1 + decalage, message: `makes the page load or send something (${ligne.trim().slice(0, 70)}): only js/analytics.js may, and only to gc.zgo.at` });
     });
+  };
+  const regles = (chemin, texte, decalage = 0) => {
+    for (const m of texte.matchAll(/@import\s+(?:url\(\s*)?["']?([^"')\s;]+)/gi)) {
+      if (externe(m[1])) erreurs.push({ fichier: chemin, ligne: ligneDe(texte, m.index) + decalage, message: `@import ${m[1]}: a style loads from outside the repository` });
+    }
+    for (const m of texte.matchAll(/url\(\s*["']?([^"')\s]+)/gi)) {
+      if (externe(m[1])) erreurs.push({ fichier: chemin, ligne: ligneDe(texte, m.index) + decalage, message: `url(${m[1]}): a style loads from outside the repository` });
+    }
+  };
+  for (const { chemin, texte } of fichiers) {
+    if (chemin.endsWith('.css')) regles(chemin, texte);
+    else appelsReseau(chemin, texte);
+  }
+  // index.html lui-même : scripts en ligne, blocs de style, styles en ligne, ressources du balisage.
+  for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+    if (/\bsrc\s*=/.test(m[1]) || !m[2].trim()) continue;
+    appelsReseau('index.html', m[2], ligneDe(html, m.index + m[0].indexOf('>') + 1) - 1);
+  }
+  for (const m of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) regles('index.html', m[1], ligneDe(html, m.index));
+  for (const m of html.matchAll(/\bstyle\s*=\s*"([^"]*)"/gi)) regles('index.html', m[1], ligneDe(html, m.index) - 1);
+  for (const m of html.matchAll(/<(?:img|iframe|frame|embed|object|source|audio|video|track|input)\b[^>]*?\b(?:src|data|poster)\s*=\s*["']([^"']+)["']/gi)) {
+    if (externe(m[1])) err('index.html', `line ${ligneDe(html, m.index)}: the markup loads ${m[1]} from outside the repository`);
   }
   let scripts = {};
   try { scripts = JSON.parse(pkg).scripts ?? {}; } catch { err('package.json', 'unreadable'); }

@@ -404,6 +404,29 @@ test.describe('T-28 nothing is loaded from outside the repository, and no build 
     expect(e2.map(x => x.fichier)).toEqual(['js/analytics.js']);
   });
 
+  // Revue de la spec 003, G4 : index.html lui-même (scripts en ligne, balisage, styles) et la feuille de style sont regardés aussi.
+  test('a fetch inside an inline script of index.html is reported with its line', () => {
+    const e = verifierChargements({ ...sain(), html: html + "<script>\nconst a = 1;\nfetch('https://tracker.example.org/x');\n</script>\n" });
+    expect(e.map(x => `${x.fichier}:${x.ligne}`)).toEqual(['index.html:7']);
+    expect(e[0].message).toContain('makes the page load or send something');
+  });
+
+  test('an image, a frame or an object from outside the repository in the markup is reported, a local one is not', () => {
+    const dehors = verifierChargements({ ...sain(), html: html + '<img src="https://example.org/p.png">\n<iframe src="//example.org/f"></iframe>\n' });
+    expect(dehors.map(x => x.message).join('|')).toMatch(/https:\/\/example\.org\/p\.png from outside the repository/);
+    expect(dehors.map(x => x.message).join('|')).toContain('//example.org/f from outside the repository');
+    expect(verifierChargements({ ...sain(), html: html + '<img src="img/p.png">\n' }), 'a file of the repository is fine').toEqual([]);
+  });
+
+  test('an @import or a url() to another host in the style sheet, in a style block or in a style attribute is reported', () => {
+    const css = (chemin, texte) => ({ ...sain(), fichiers: [...sain().fichiers, { chemin, texte }] });
+    expect(verifierChargements(css('css/style.css', "@import url('https://example.org/x.css');\n")).map(x => x.message).join('|')).toContain('@import https://example.org/x.css');
+    expect(verifierChargements(css('css/style.css', 'a { background: url(https://example.org/p.png) }\n')).map(x => x.message).join('|')).toContain('url(https://example.org/p.png)');
+    expect(verifierChargements({ ...sain(), html: html + '<style>\nb { background: url("//example.org/q.png") }\n</style>\n' }).map(x => x.fichier)).toEqual(['index.html']);
+    expect(verifierChargements({ ...sain(), html: html + '<div style="background:url(https://example.org/r.png)"></div>\n' }).map(x => x.fichier)).toEqual(['index.html']);
+    expect(verifierChargements(css('css/style.css', 'a { background: url(data:image/png;base64,AAAA) } @import url(base.css);\n')), 'a data URI and a local @import are fine').toEqual([]);
+  });
+
   test('a build script in package.json is reported', () => {
     const e = verifierChargements({ ...sain(), pkg: JSON.stringify({ scripts: { test: 'playwright test', build: 'node scripts/bundle.mjs' } }) });
     expect(e.map(x => x.message).join('|')).toContain('the script "build"');
@@ -413,7 +436,7 @@ test.describe('T-28 nothing is loaded from outside the repository, and no build 
     const { fichiers } = readPage(racine);
     const erreurs = verifierChargements({
       html: lireTexte(racine + 'index.html'),
-      fichiers: fichiers.filter(f => f.endsWith('.js')).map(chemin => ({ chemin, texte: lireTexte(racine + chemin) })),
+      fichiers: fichiers.map(chemin => ({ chemin, texte: lireTexte(racine + chemin) })),   // scripts et feuille de style
       pkg: readFileSync(racine + 'package.json', 'utf8'),
     });
     expect(erreurs, erreurs.map(e => `${e.fichier}:${e.ligne}: ${e.message}`).join('\n')).toEqual([]);

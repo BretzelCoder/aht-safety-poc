@@ -35,6 +35,18 @@ const avantGarde = code => html => html.replace(/<script>(\r?\n)\/\/ Garde de d�
 
 /** La page refuse de démarrer : message visible dans les trois langues, erreur nommée, aucune simulation. */
 async function verifierRefus(page, copie, fichier, raison) {
+  // Compte, avant tout script de la page, les images d'animation demandées et les écouteurs posés : la page refusée n'en pose aucun.
+  await page.addInitScript(() => {
+    window.__rafs = 0; window.__ecouteurs = 0;
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = f => { window.__rafs++; return raf(f); };
+    const ajouter = EventTarget.prototype.addEventListener;
+    // Seuls comptent les écouteurs posés depuis un fichier de la page (ceux de l'outil de test ont une autre origine).
+    EventTarget.prototype.addEventListener = function (...a) {
+      if (/(\/js\/[^:)\s]+\.js|index\.html)/.test(new Error().stack)) window.__ecouteurs++;
+      return ajouter.apply(this, a);
+    };
+  });
   await expect(openPage(page, 'fr', { chemin: copie.index })).rejects.toThrow(new RegExp(`${fichier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\(${raison}\\)`));
   const boite = page.locator('#chargementErreur');
   await expect(boite, 'the failure message is shown').toBeVisible();
@@ -46,6 +58,8 @@ async function verifierRefus(page, copie, fichier, raison) {
   expect(await page.evaluate(() => window.AHT.erreur)).toContain(`${fichier} (${raison})`);
   expect(await page.evaluate(() => typeof (window.__sim && window.__sim.sim)), 'the simulation never started').toBe('undefined');
   expect(await page.evaluate(() => typeof window.goatcounter), 'no analytics object either').toBe('undefined');
+  expect(await page.evaluate(() => window.__rafs), 'no animation frame requested by the page').toBe(0);
+  expect(await page.evaluate(() => window.__ecouteurs), 'no listener attached by the page').toBe(0);
 }
 
 test.describe('T-14 start-up guard (spec 003, S12, S13)', () => {
