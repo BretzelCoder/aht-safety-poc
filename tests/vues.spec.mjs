@@ -339,19 +339,28 @@ test.describe('T-16 levels 1 ↔ 2 pane, exchanges (S8, S11)', () => {
     });
   }
 
-  test('worst case for the layout: three isolated rejections still listed, a recovery under way, in every language', async ({ page }) => {
-    for (const lang of ['fr', 'en', 'de']) {
-      await ouvrir(page, lang);
-      await page.evaluate(() => {
-        const S = window.__sim, T = S.sim.trucks[0];
-        for (const d of ['STALE', 'BEYOND_MA', 'INTEGRITY']) { T.l1.defect = d; S.step(); for (let i = 0; i < 12; i++) S.step(); }
-        S.l1Freeze(0); for (let i = 0; i < 40; i++) S.step(); S.l1Restart(0); for (let i = 0; i < 12; i++) S.step();
-      });
-      await page.waitForTimeout(300);
-      const anomalies = await verifierMiseEnPage(page);
-      expect(anomalies, `${lang}: ${anomalies.join(' | ')}`).toEqual([]);
-    }
-  });
+  // Pire cas : trois rejets isolés encore listés, un gel détecté puis arrêté (ligne « Gel »), une reprise en cours, noyau généraliste.
+  // Rejoué avec une police plus large (celle des machines de la CI et de certains visiteurs) : la première version, sans cette épreuve,
+  // passait ici et échouait sur GitHub (colonne de droite trop haute de 18 px en allemand).
+  for (const large of [false, true]) {
+    test(`worst case for the layout${large ? ' with a wider font' : ''}: three isolated rejections still listed, a freeze line, a recovery under way, in every language`, async ({ page }) => {
+      for (const lang of ['fr', 'en', 'de']) {
+        await ouvrir(page, lang);
+        if (large) await page.addStyleTag({ content: '*{font-family:Verdana,"DejaVu Sans",sans-serif !important}' });
+        await page.evaluate(() => {
+          const S = window.__sim, T = S.sim.trucks[0];
+          S.ENV.kernel = 'GP';
+          for (const d of ['STALE', 'BEYOND_MA', 'INTEGRITY']) { T.l1.defect = d; S.step(); for (let i = 0; i < 12; i++) S.step(); }
+          S.l1Freeze(0); for (let i = 0; i < 400; i++) S.step(); S.l1Restart(0); for (let i = 0; i < 25; i++) S.step();
+        });
+        await page.waitForTimeout(300);
+        // Avec la police large, seule la colonne de droite et la page sont jugées : la colonne de gauche dépasse déjà de 4 px sans la carte du niveau 1
+        // (carte « Pannes », mesuré), un défaut ancien qui n'est pas l'objet de cette épreuve.
+        const anomalies = (await verifierMiseEnPage(page)).filter(a => !large || !a.includes('.ctrl'));
+        expect(anomalies, `${lang}: ${anomalies.join(' | ')}`).toEqual([]);
+      }
+    });
+  }
 });
 
 // T-17 : décomposition de t_lat (S13, AC-12, AC-15).
@@ -470,19 +479,19 @@ test.describe('T-20 guide text (S19, AC-19)', () => {
   const GUIDE = {
     fr: {
       prise: ['Autonomie · niveau 1', 'F et G partent aussitôt', 'et la réinitialisation remettent', 'Niveaux 1 ↔ 2', 'ⓘ'],
-      visite: ['Scénario F', 'Scénario G', 'noyau généraliste', 'le délai de détection ainsi que la distance parcourue s\'affichent', 'la détection est plus lente'],
+      visite: ['Scénario F', 'Scénario G', 'noyau généraliste', 'la ligne « Gel » du niveau 1 donne le délai de détection puis la distance parcourue', 'la détection est plus lente'],
       modele: ['Le niveau 1 propose, le niveau 2 autorise ou bloque', 'pas verrouillé alors que l\'urgence l\'est', 'pire cas, pas une mesure', 'ISO 13849', 'sa propre mesure de position', 'compte à rebours jusqu\'au relâchement réel', 'retarde en revanche la détection'],
       limites: ['copies exactes de l\'état simulé', 'ne tombe jamais en panne', 'calcul maison', 'sans passer par le niveau 1', 'bornes illustratives', 'Seul l\'écart avec PREEMPT_RT', 'sans prétention de conformité'],
     },
     en: {
       prise: ['Autonomy · level 1', 'F and G start at once', 'and the reset button set', 'Levels 1 ↔ 2', 'ⓘ'],
-      visite: ['Scenario F', 'Scenario G', 'general-purpose kernel', 'the detection delay and the distance travelled are shown', 'detection is slower'],
+      visite: ['Scenario F', 'Scenario G', 'general-purpose kernel', 'the “Freeze” line of level 1 gives the detection delay, then the distance travelled', 'detection is slower'],
       modele: ['Level 1 proposes, level 2 allows or blocks', 'not latched while the emergency is', 'worst case, not a measurement', 'ISO 13849', 'its own position measurement', 'counts down to the real release', 'does delay the detection'],
       limites: ['exact copies of the simulated state', 'never fails', 'home-made calculation', 'without going through level 1', 'illustrative bounds', 'Only the difference from PREEMPT_RT', 'no claim of conformity'],
     },
     de: {
       prise: ['Autonomie · Ebene 1', 'F und G starten sofort', 'die Schaltfläche Zurücksetzen setzen', 'Ebenen 1 ↔ 2', 'ⓘ'],
-      visite: ['Szenario F', 'Szenario G', 'Allzweck-Kernels', 'die Erkennungszeit sowie die zurückgelegte Strecke werden angezeigt', 'erfolgt die Erkennung später'],
+      visite: ['Szenario F', 'Szenario G', 'Allzweck-Kernels', 'die Zeile „Einfr.“ der Ebene 1 zeigt die Erkennungszeit, dann die zurückgelegte Strecke', 'erfolgt die Erkennung später'],
       modele: ['Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert', 'nicht verriegelt ist, der Notfall aber schon', 'ungünstigster Fall, keine Messung', 'ISO 13849', 'eigenen Positionsmessung', 'bis zur tatsächlichen Aufhebung herunter', 'verzögert aber die Erkennung'],
       limites: ['exakte Kopien des simulierten Zustands', 'fällt nie aus', 'eigene Rechnung', 'ohne über Ebene 1 zu laufen', 'illustrative Grenzen', 'Nur die Differenz zu PREEMPT_RT', 'ohne Konformitätsanspruch'],
     },
@@ -593,9 +602,9 @@ test.describe('Guide window size (S21, AC-23)', () => {
 // Revue de la spec 002 (T-27) : délai de détection et distance du scénario F à l'écran ; liste des échanges selon le camion ; journal retraduit ; infobulle de G.
 test.describe('Review fixes: freeze measurements on screen, exchange list per truck, log, tooltip', () => {
   const GEL = {
-    fr: { vite: s => `Gel : détecté en ${s}`, enCours: m => `${m} m parcourus`, fini: m => `arrêt après ${m} m`, virgule: true },
-    en: { vite: s => `Freeze: detected in ${s}`, enCours: m => `${m} m travelled so far`, fini: m => `stopped after ${m} m`, virgule: false },
-    de: { vite: s => `Einfrieren: erkannt nach ${s}`, enCours: m => `bisher ${m} m zurückgelegt`, fini: m => `Halt nach ${m} m`, virgule: true },
+    fr: { lbl: 'Gel', vite: s => `Gel : détecté en ${s}`, enCours: m => `${m} m parcourus`, fini: m => `arrêt après ${m} m`, virgule: true },
+    en: { lbl: 'Freeze', vite: s => `Freeze: detected in ${s}`, enCours: m => `${m} m travelled so far`, fini: m => `stopped after ${m} m`, virgule: false },
+    de: { lbl: 'Einfr.', vite: s => `Einfrieren: erkannt nach ${s}`, enCours: m => `bisher ${m} m zurückgelegt`, fini: m => `Halt nach ${m} m`, virgule: true },
   };
   for (const lang of ['fr', 'en', 'de']) {
     test(`${lang}: scenario F shows the detection delay and the distance travelled, equal to the model's own measurement`, async ({ page }) => {
@@ -603,7 +612,9 @@ test.describe('Review fixes: freeze measurements on screen, exchange list per tr
       await pauseAndSeed(page, 1);
       await page.evaluate(() => { for (let i = 0; i < 500; i++) window.__sim.step(); });
       await page.click('#tabL12');
-      await expect(page.locator('#exL12 .frz'), 'nothing before a freeze').toHaveCount(0);
+      const g0 = GEL[lang];
+      const ligneGel = page.locator('#blkL1 > div', { hasText: g0.lbl });
+      await expect(ligneGel, 'nothing before a freeze').toHaveCount(0);
       const g = GEL[lang], fmt = (x, d) => (g.virgule ? x.toFixed(d).replace('.', ',') : x.toFixed(d));
       // En cours : détecté, le camion freine encore, la distance est celle parcourue jusqu'ici.
       const mi = await page.evaluate(() => {
@@ -613,13 +624,19 @@ test.describe('Review fixes: freeze measurements on screen, exchange list per tr
         return { delai: T.l1.ev.tDetect - T.l1.ev.tFreeze, distance: T.s - T.l1.ev.sFreeze, enMouvement: T.v > 0.3, arrete: T.l1.ev.sStill !== null };
       });
       expect(mi.enMouvement && !mi.arrete, 'the truck is still braking').toBe(true);
-      await expect(page.locator('#exL12 .frz')).toHaveText(`${g.vite(fmt(mi.delai, 2))} s, ${g.enCours(fmt(mi.distance, 1))}`);
+      const valeur = (d, m, fini) => `${fmt(d, 2)} s · ${fmt(m, 1)} m${fini ? '' : ' …'}`;
+      await expect(ligneGel.locator('span').nth(1)).toHaveText(valeur(mi.delai, mi.distance, false));
+      await expect(ligneGel).toHaveAttribute('title', `${g.vite(fmt(mi.delai, 2))} s, ${g.enCours(fmt(mi.distance, 1))}`);
       // Terminé : la distance est celle de l'arrêt, mesurée par le modèle.
       const fin = await page.evaluate(() => {
         const S = window.__sim, T = S.sim.trucks[0]; let n = 0; while (T.l1.ev.sStill === null && n++ < 2000) S.step(); S.step();
         return { delai: T.l1.ev.tDetect - T.l1.ev.tFreeze, distance: T.l1.ev.sStill - T.l1.ev.sFreeze };
       });
-      await expect(page.locator('#exL12 .frz')).toHaveText(`${g.vite(fmt(fin.delai, 2))} s, ${g.fini(fmt(fin.distance, 1))}`);
+      await expect(ligneGel.locator('span').nth(1)).toHaveText(valeur(fin.delai, fin.distance, true));
+      await expect(ligneGel).toHaveAttribute('title', `${g.vite(fmt(fin.delai, 2))} s, ${g.fini(fmt(fin.distance, 1))}`);
+      const tops = await page.evaluate(() => { const top = e => Math.round(e.getBoundingClientRect().top); const l1 = [...document.querySelectorAll('#blkL1 > div')], l2 = [...document.querySelectorAll('#blkL2 > div')]; return [top(l1[l1.length - 1]), top(l2[l2.length - 1]), l1.length, l2.length]; });
+      expect(tops[2], 'the freeze line is the free fourth row of level 1').toBe(tops[3]);
+      expect(tops[0], 'it sits level with the last row of level 2, so the pane gets no taller').toBe(tops[1]);
       expect(fin.distance, 'the truck travelled before it stopped (m)').toBeGreaterThan(5);
     });
   }
@@ -629,13 +646,16 @@ test.describe('Review fixes: freeze measurements on screen, exchange list per tr
     await pauseAndSeed(page, 1);
     await page.evaluate(() => { const S = window.__sim; for (let i = 0; i < 500; i++) S.step(); S.scenario('F'); for (let i = 0; i < 400; i++) S.step(); });
     await page.click('#tabL12');
-    await expect(page.locator('#exL12 .frz')).toContainText('stopped after');
+    await expect(page.locator('#blkL1 > div[title]')).toHaveAttribute('title', /stopped after/);
+    await expect(page.locator('#blkL1 > div[title] span').first()).toHaveText('Freeze');
     await expect(page.locator('#log')).toContainText('Scenario F: level 1 of');
     await page.click('[data-lang="fr"]');
-    await expect(page.locator('#exL12 .frz')).toContainText('arrêt après');
+    await expect(page.locator('#blkL1 > div[title]')).toHaveAttribute('title', /arrêt après/);
+    await expect(page.locator('#blkL1 > div[title] span').first()).toHaveText('Gel');
     await expect(page.locator('#log')).toContainText('Scénario F : le niveau 1 de');
     await page.click('[data-lang="de"]');
-    await expect(page.locator('#exL12 .frz')).toContainText('Halt nach');
+    await expect(page.locator('#blkL1 > div[title]')).toHaveAttribute('title', /Halt nach/);
+    await expect(page.locator('#blkL1 > div[title] span').first()).toHaveText('Einfr.');
     await expect(page.locator('#log')).toContainText('Szenario F: Ebene 1 von');
   });
 
