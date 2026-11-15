@@ -215,3 +215,78 @@ test.describe('T-33 module 3, AutonomyAndSafetyCore (spec 003, S11, AC-13)', () 
     expect(appels.some(a => a[2] === 'STATE'), 'the state change is logged').toBe(true);
   });
 });
+
+test.describe('T-34 module 4, FaultInjector & TelemetryHUD, non-drawing half (spec 003, S11, AC-13)', () => {
+  // Module 4 sans dessin : l'état de la simulation, le journal, les scénarios et l'injection de pannes. Ses fichiers de dessin,
+  // de tableau de bord et de commandes ne sont pas chargés ; ce que l'état et les scénarios leur demandent (le message éphémère,
+  // le rafraîchissement du journal, l'onglet, la synchro des commandes, la mesure d'audience, une case à cocher) a des doublures.
+  // Les scénarios composent des textes (le message éphémère) : les messages MSG, qui sont plus bas que le module, sont chargés.
+  const FICHIERS = ['js/base.js', 'js/i18n-engine.js', 'js/i18n-messages.js', 'js/m1-world-physics.js', 'js/m2-comms-bus.js',
+    'js/m3-perception.js', 'js/m3-fms-planner.js', 'js/m3-levels.js', 'js/m3-supervisor-control.js',
+    'js/m4-state.js', 'js/m4-scenarios.js'];
+  const charger = () => {
+    const appels = [];
+    const note = nom => (...a) => appels.push([nom, ...a]);
+    const m = chargerModule(FICHIERS, {
+      doubles: {
+        document: { getElementById: () => ({ checked: true }) },
+        toast: note('toast'), showSideTab: note('showSideTab'), syncControls: note('syncControls'), track: note('track'), logDirty: false,
+      },
+    });
+    m.executer('resetSim()');
+    return { m, appels };
+  };
+
+  test('resetSim builds the three trucks and the pickup, and logs the start as a {k, p} message, never a translated string', () => {
+    const { m } = charger();
+    expect(m.lire('sim.trucks.map(T => T.id)')).toEqual(['AHT-01', 'AHT-02', 'AHT-03']);
+    expect(m.lire('sim.lvs.map(L => L.id)')).toEqual(['VL-VOUS']);
+    expect(m.lire('sim.log.length')).toBe(1);
+    expect(m.lire('sim.log[0].code')).toBe('INFO');
+    expect(m.lire("typeof sim.log[0].msg"), 'a message object resolved at display time').toBe('object');
+    expect(m.lire('sim.log[0].msg.k')).toBe('log.started');
+    expect(m.lire('ENV.kernel'), 'the profile is back to PREEMPT_RT').toBe('RT');
+  });
+
+  test('the event log throttles a repeated code for 3 s, except state changes and collisions, and keeps at most 250 entries', () => {
+    const { m } = charger();
+    m.executer("sim.t = 5; logEv('AHT-01', 1, 'X_CODE', M('log.started')); logEv('AHT-01', 1, 'X_CODE', M('log.started'))");
+    expect(m.lire("sim.log.filter(e => e.code === 'X_CODE').length"), 'the same code inside 3 s is logged once').toBe(1);
+    m.executer("sim.t = 9; logEv('AHT-01', 1, 'X_CODE', M('log.started'))");
+    expect(m.lire("sim.log.filter(e => e.code === 'X_CODE').length"), 'after 3 s it is logged again').toBe(2);
+    m.executer("logEv('AHT-01', 3, 'STATE', RAW('a')); logEv('AHT-01', 3, 'STATE', RAW('b'))");
+    expect(m.lire("sim.log.filter(e => e.code === 'STATE').length"), 'state changes are never throttled').toBe(2);
+    m.executer("for (let i = 0; i < 400; i++) { sim.t += 4; logEv('SIM', 0, 'C' + i, M('log.started')); }");
+    expect(m.lire('sim.log.length')).toBe(250);
+  });
+
+  test('scenario F freezes the level 1 of the FASTEST moving truck, selects it, and logs which one', () => {
+    const { m, appels } = charger();
+    m.executer('sim.trucks[0].v = 3; sim.trucks[1].v = 9; sim.trucks[2].v = 5');
+    m.executer("scenario('F')");
+    expect(m.lire('sim.trucks.map(T => T.l1.frozen)'), 'only the fastest truck (AHT-02) is frozen').toEqual([false, true, false]);
+    expect(m.lire('selected'), 'and it is selected').toBe(1);
+    const scen = m.lire("sim.log.find(e => e.code === 'SCENARIO')");
+    expect(scen.msg.k).toBe('log.scenF');
+    expect(scen.msg.p.t).toBe('AHT-02');
+    expect(m.lire("sim.log.some(e => e.code === 'INJECT' && e.msg.k === 'l1.freeze')"), 'the injection is logged').toBe(true);
+    expect(appels.some(a => a[0] === 'showSideTab' && a[1] === 'L12'), 'the levels 1 and 2 view is opened').toBe(true);
+    expect(appels.some(a => a[0] === 'track' && a[1] === 'aht-safety-poc/scenario/F'), 'the launch is counted under the project prefix').toBe(true);
+  });
+
+  test('scenario G arms the chosen defect on the fastest truck, and F and G keep the visitor\'s kernel profile while A to E reset it', () => {
+    const { m } = charger();
+    m.executer("sim.trucks[0].v = 3; sim.trucks[1].v = 4; sim.trucks[2].v = 9; ENV.l1Defect = 'STALE'; ENV.l1Repeat = true");
+    m.executer("scenario('G')");
+    expect(m.lire('sim.trucks[2].l1.defect')).toBe('STALE');
+    expect(m.lire('sim.trucks[2].l1.repeat')).toBe(true);
+    expect(m.lire('sim.trucks[0].l1.defect'), 'the other trucks are untouched').toBeNull();
+    expect(m.lire("sim.log.find(e => e.code === 'SCENARIO').msg.k")).toBe('log.scenG');
+    m.executer("ENV.kernel = 'GP'; scenario('F')");
+    expect(m.lire('ENV.kernel'), 'F keeps the general-purpose profile').toBe('GP');
+    m.executer("ENV.kernel = 'GP'; scenario('E')");
+    expect(m.lire('ENV.kernel'), 'E resets it to PREEMPT_RT').toBe('RT');
+    expect(m.lire("sim.log.some(e => e.code === 'KERNEL_RESET')")).toBe(true);
+    expect(m.lire('sim.trucks[selected].can.load'), 'E loads the bus of the selected truck').toBe(75);
+  });
+});
