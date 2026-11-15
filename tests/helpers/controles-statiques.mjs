@@ -236,3 +236,23 @@ export function verifierTraductions({ MSG, STATIC, LANGS }, html) {
   }
   return erreurs;
 }
+
+/**
+ * Spec 002, AC-18 : aucun constructeur n'est nommé comme propriétaire de l'architecture montrée.
+ * La liste est volontairement courte (le nom que le brief mentionnait) : d'autres noms de matériel
+ * figurent déjà, légitimement, dans les sources du guide.
+ */
+export const NOMS_INTERDITS = ['Liebherr'];
+export function verifierSansConstructeur(readme, html) {
+  const erreurs = [];
+  for (const [fichier, texte] of [['README.md', readme], ['index.html', html]]) {
+    for (const nom of NOMS_INTERDITS) {
+      const re = new RegExp(nom, 'gi');
+      let m;
+      while ((m = re.exec(texte))) {
+        erreurs.push({ fichier, ligne: lignesAvant(texte, m.index) + 1, message: `the manufacturer name "${nom}" must not appear in the shipped page or the README` });
+      }
+    }
+  }
+  return erreurs;
+}

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   verifierSyntaxe, verifierAvertissement, verifierAnalytics,
-  verifierStatuts, estContexteMain, lireSpecs, brancheCourante,
+  verifierStatuts, estContexteMain, lireSpecs, brancheCourante, verifierSansConstructeur,
 } from './helpers/controles-statiques.mjs';
 
 const lire = chemin => readFileSync(fileURLToPath(new URL(chemin, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
@@ -176,5 +176,22 @@ test.describe('T-06 spec status (S8)', () => {
     expect(estContexteMain({}, 'main'), 'local, on main').toBe(true);
     expect(estContexteMain({}, '001-automated-checks'), 'local, on a feature branch').toBe(false);
     expect(estContexteMain({}, null), 'local, branch unknown').toBe(false);
+  });
+});
+
+test.describe('T-02 no manufacturer name (spec 002, AC-18)', () => {
+  test('the shipped page and the README name no manufacturer as owner of the architecture', () => {
+    const erreurs = verifierSansConstructeur(readme, html);
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('the name in the README or in the page is reported with its file and line', () => {
+    const lignes = html.split('\n'); lignes[9] += ' Liebherr';
+    const e1 = verifierSansConstructeur(readme, lignes.join('\n'));
+    expect(e1).toHaveLength(1);
+    expect(e1[0].fichier).toBe('index.html');
+    expect(e1[0].ligne).toBe(10);
+    const e2 = verifierSansConstructeur('# aht\n\nBuilt like LIEBHERR trucks.\n', html);
+    expect(e2.map(e => `${e.fichier}:${e.ligne}`), 'case does not matter').toEqual(['README.md:3']);
   });
 });
