@@ -368,3 +368,51 @@ test.describe('T-10 persistent rejection (S7)', () => {
     expect(r.v).toBeLessThan(0.3);
   });
 });
+
+// T-11 : scénarios F et G (S3, S5).
+test.describe('T-11 scenarios F and G', () => {
+  test('scenario F freezes the level 1 of the fastest truck and level 2 stops it', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim;
+      for (let i = 0; i < 500; i++) S.step();
+      const vitesses = S.sim.trucks.map(T => T.v), plusRapide = vitesses.indexOf(Math.max(...vitesses));
+      S.scenario('F');
+      const T = S.sim.trucks[plusRapide];
+      const sel = S.sim.trucks.findIndex(x => x.l1.frozen);
+      for (let i = 0; i < 50; i++) S.step();
+      return { plusRapide, gele: sel, autres: S.sim.trucks.filter(x => x !== T).map(x => x.l1.frozen), etat: T.state, code: S.sim.log.some(l => l.id === T.id && l.code === 'L1_HEARTBEAT_LOST'),
+               ligne: S.sim.log.find(l => l.code === 'SCENARIO' && l.msg.k === 'log.scenF')?.msg.p.t };
+    });
+    expect(r.gele, 'the fastest truck is the one frozen').toBe(r.plusRapide);
+    expect(r.autres, 'the other trucks keep their level 1').toEqual([false, false]);
+    expect(r.etat).toBe('CONTROLLED_STOP');
+    expect(r.code).toBe(true);
+    expect(r.ligne, 'the scenario line names the truck').toBe(`AHT-0${r.plusRapide + 1}`);
+  });
+
+  test('scenario G sends one defective setpoint of the chosen kind; level 2 rejects it and the truck carries on', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, res = {};
+      for (let i = 0; i < 500; i++) S.step();
+      for (const d of ['OVERSPEED', 'BEYOND_MA', 'STALE', 'REPLAY', 'INTEGRITY']) {
+        S.ENV.l1Defect = d; S.scenario('G');
+        const T = S.sim.trucks.find(x => x.l1.defect === d);
+        S.step();
+        const code = T.l2.rej[T.l2.rej.length - 1]?.code;
+        for (let i = 0; i < 100; i++) S.step();
+        res[d] = { code, etat: T.state, v: T.v, defaut: T.l1.defect };
+      }
+      return res;
+    });
+    const attendu = { OVERSPEED: 'SETPOINT_OVERSPEED', BEYOND_MA: 'SETPOINT_BEYOND_MA', STALE: 'SETPOINT_STALE', REPLAY: 'SETPOINT_SEQUENCE', INTEGRITY: 'SETPOINT_INTEGRITY' };
+    for (const [d, c] of Object.entries(attendu)) {
+      expect(r[d].code, `${d}: the verdict names the defect`).toBe(c);
+      expect(r[d].defaut, `${d}: one setpoint only`).toBeNull();
+      expect(r[d].etat, `${d}: the truck carries on`).not.toBe('CONTROLLED_STOP');
+    }
+  });
+});

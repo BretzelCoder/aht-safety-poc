@@ -666,6 +666,12 @@ const MSG = {
   'coll.moving': ['tombereau à {v} km/h', 'truck at {v} km/h', 'Muldenkipper mit {v} km/h'],
   'coll.contact': ['Contact avec {o} ({how})', 'Contact with {o} ({how})', 'Kontakt mit {o} ({how})'],
   'toast.scenE': ['Scénario E sur {id} : poussez le curseur CAN vers 90 % pour déclencher le watchdog frein.', 'Scenario E on {id}: push the CAN slider towards 90 % to trip the brake watchdog.', 'Szenario E auf {id}: CAN-Regler Richtung 90 % schieben, um den Brems-Watchdog auszulösen.'],
+  'toast.kernelReset': ['Profil du noyau remis sur PREEMPT_RT.', 'Kernel profile set back to PREEMPT_RT.', 'Kernel-Profil auf PREEMPT_RT zurückgesetzt.'],
+  'toast.scenF': ['Scénario F sur {id} : le niveau 1 est figé, le niveau 2 doit arrêter le camion seul.', 'Scenario F on {id}: level 1 is frozen, level 2 must stop the truck on its own.', 'Szenario F auf {id}: Ebene 1 ist eingefroren, Ebene 2 muss den Lkw allein anhalten.'],
+  'toast.scenG': ['Scénario G sur {id} : le niveau 1 envoie une consigne défectueuse, le niveau 2 doit la rejeter.', 'Scenario G on {id}: level 1 sends a defective setpoint, level 2 must reject it.', 'Szenario G auf {id}: Ebene 1 sendet einen fehlerhaften Sollwert, Ebene 2 muss ihn ablehnen.'],
+  'log.kernelReset': ['Profil du noyau remis sur PREEMPT_RT (scénarios A à E et réinitialisation)', 'Kernel profile set back to PREEMPT_RT (scenarios A to E and reset)', 'Kernel-Profil auf PREEMPT_RT zurückgesetzt (Szenarien A bis E und Zurücksetzen)'],
+  'log.scenF': ['Scénario F : le niveau 1 de {t} est figé', 'Scenario F: level 1 of {t} is frozen', 'Szenario F: Ebene 1 von {t} ist eingefroren'],
+  'log.scenG': ['Scénario G : le niveau 1 de {t} envoie une consigne défectueuse ({d})', 'Scenario G: level 1 of {t} sends a defective setpoint ({d})', 'Szenario G: Ebene 1 von {t} sendet einen fehlerhaften Sollwert ({d})'],
   'toast.armed': ['Scénario armé : le pick-up partira dès qu\'un tombereau chargé quittera la pelle.', 'Scenario armed: the pickup will start as soon as a loaded truck leaves the shovel.', 'Szenario scharfgeschaltet: Der Pick-up startet, sobald ein beladener Muldenkipper den Bagger verlässt.'],
   'toast.cause': ['La cause est toujours présente : le watchdog va se redéclencher.', 'The cause is still present: the watchdog will trip again.', 'Die Ursache besteht weiterhin: Der Watchdog wird erneut auslösen.'],
   'log.scenario': ['Scénario {c} : {lv} {eq} coupe I1 à 30 km/h face à {t}', 'Scenario {c}: {lv} {eq} crosses I1 at 30 km/h in front of {t}', 'Szenario {c}: {lv} {eq} quert I1 mit 30 km/h vor {t}'],
@@ -819,7 +825,7 @@ const P = {
   // Niveau 1 → niveau 2 (spec 002) : échéance du battement, péremption d'une consigne, stabilité avant reprise, rejets consécutifs tolérés, historique du niveau 2
   l1Deadline: 0.30, l1Stale: 0.25, l1Stable: 1.0, l1RejBound: 10, l1Hist: 1.0
 };
-const ENV = { mu: 0.6, ramp: 0.10, dust: false, fms: true, scale: 2, paused: false, kernel: 'RT' };   // kernel : profil du calculateur d'autonomie, 'RT' (PREEMPT_RT, défaut) ou 'GP' (généraliste)
+const ENV = { mu: 0.6, ramp: 0.10, dust: false, fms: true, scale: 2, paused: false, kernel: 'RT', l1Defect: 'OVERSPEED', l1Repeat: false };   // kernel : profil du calculateur d'autonomie, 'RT' (PREEMPT_RT, défaut) ou 'GP' (généraliste)
 const latCpu = () => ENV.kernel === 'GP' ? P.latCpuGP : P.latCpuRT;
 const DUST = { x: 352, y: 72, r: 68 };
 const LEVEL = { NOMINAL: 0, DEGRADED_SPEED: 1, CONTROLLED_STOP: 2, EMERGENCY_BRAKE: 3 };
@@ -1343,8 +1349,10 @@ function resetSim() {
   sim.lvs = [makeLV('VL-VOUS', 336, 210, -Math.PI / 2, { user: true, v2x: $('cV2x').checked, color: '#f4f1ea' })];
   for (const T of sim.trucks) T.pose = poseOf(T);
   for (const I of INTER) I.holder = null;
+  const noyau = ENV.kernel;
   ENV.dust = false; ENV.fms = true; ENV.kernel = 'RT';
   logEv('SIM', 0, 'INFO', M('log.started'), 'info');
+  if (noyau !== 'RT') logEv('SIM', 0, 'ENV', M('log.kernelReset'), 'info');
   syncControls();
 }
 /* msg : message {k, p} traduit à l'affichage (voir I18N), ou RAW(texte). */
@@ -1427,7 +1435,11 @@ function clearAll() {
     T.faults = { lidar: false, radar: false, gnss: false, estop: false };
     T.can = { load: 25, misprio: false, babbling: false }; T.dds = { mode: 'PERIODIC', loss: 0 };
     T.latched = false; T.ecuEmergency = false; T.collided = false; T.massMode = 'AUTO';
-    T.l1 = newL1(); T.l2 = newL2();
+    // Niveaux 1 et 2 : on répare les pannes injectées (gel, défaut) sans effacer l'historique des consignes ni la session,
+    // pour qu'un rejeu reste un rejeu et que les numéros de séquence continuent là où ils en étaient.
+    const A = T.l1, L = T.l2;
+    A.frozen = false; A.defect = null; A.repeat = false; A.ev = { tFreeze: null, sFreeze: null, tDetect: null, sStill: null };
+    L.hbLost = false; L.rejLost = false; L.rejRun = 0; L.stableSince = 0; L.rejStable = 0; L.lastValid = sim.t; L.rej = [];
   }
   ENV.dust = false; ENV.fms = true;
   sim.lvs = sim.lvs.filter(l => !l.ai);
@@ -1435,14 +1447,35 @@ function clearAll() {
 function scenario(code) {
   track('aht-safety-poc/scenario/' + code, 'aht-safety-poc · scénario ' + code);
   clearAll();
+  if (code === 'F' || code === 'G') { scenarioNiveau1(code); return; }   // F et G gardent le profil de noyau choisi (spec 002, S12b)
+  // A à E sont calibrés sur PREEMPT_RT : le profil y revient, et le visiteur en est averti.
+  const noyau = ENV.kernel !== 'RT';
+  if (noyau) { ENV.kernel = 'RT'; logEv('SIM', 0, 'ENV', M('log.kernelReset'), 'info'); }
+  const avis = noyau ? ' ' + t('toast.kernelReset') : '';
   if (code === 'E') {
     const T = sim.trucks[selected]; T.can.load = 75; T.can.misprio = true;
-    toast(t('toast.scenE', { id: T.id }));
+    toast(t('toast.scenE', { id: T.id }) + avis);
     syncControls(); return;
   }
   if (code === 'C') ENV.dust = true;
   sim.pending = code;
-  if (!tryLaunch()) toast(t('toast.armed'));
+  if (!tryLaunch()) toast(t('toast.armed') + avis); else if (noyau) toast(t('toast.kernelReset'));
+  syncControls();
+}
+/* Scénarios F et G (spec 002) : on s'en prend au niveau 1 du tombereau le plus rapide. Rien n'est tiré au hasard. */
+function scenarioNiveau1(code) {
+  sim.pending = null;
+  const T = sim.trucks.reduce((b, x) => x.v > b.v ? x : b);
+  selected = sim.trucks.indexOf(T);
+  if (code === 'F') {
+    l1Freeze(T);
+    logEv('SIM', 0, 'SCENARIO', M('log.scenF', { t: T.id }), 'info');
+    toast(t('toast.scenF', { id: T.id }));
+  } else {
+    T.l1.defect = ENV.l1Defect; T.l1.repeat = ENV.l1Repeat;
+    logEv('SIM', 0, 'SCENARIO', M('log.scenG', { t: T.id, d: RAW(ENV.l1Defect) }), 'info');
+    toast(t('toast.scenG', { id: T.id }));
+  }
   syncControls();
 }
 function tryLaunch() {
@@ -1738,7 +1771,7 @@ document.addEventListener('click', e => {
   else if (b.dataset.scen) scenario(b.dataset.scen);
   else if (b.dataset.fault) { const f = b.dataset.fault; T.faults[f] = !T.faults[f]; logEv(T.id, 0, 'INJECT', M(T.faults[f] ? 'inj.on' : 'inj.off', { f }), 'info'); }
   else if (b.id === 'bPause') ENV.paused = !ENV.paused;
-  else if (b.id === 'bReset') { resetSim(); selected = 0; }
+  else if (b.id === 'bReset') { const noyau = ENV.kernel !== 'RT'; resetSim(); selected = 0; if (noyau) toast(t('toast.kernelReset')); }
   else if (b.id === 'bDust') { ENV.dust = !ENV.dust; logEv('SIM', 0, 'INJECT', M(ENV.dust ? 'dust.on' : 'dust.off'), 'info'); }
   else if (b.id === 'bFms') { ENV.fms = !ENV.fms; logEv('SIM', ENV.fms ? 0 : 2, 'INJECT', M(ENV.fms ? 'net.on' : 'net.off'), 'info'); }
   else if (b.id === 'bAck') {

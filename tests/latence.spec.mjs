@@ -98,3 +98,65 @@ test.describe('T-08 nominal operation in both profiles (AC-14)', () => {
     }
   }
 });
+
+// T-11 : les scénarios A à E et la réinitialisation remettent PREEMPT_RT ; F et G gardent le choix du visiteur (S12b, AC-22).
+test.describe('T-11 kernel profile at scenario launch (S12b, AC-22)', () => {
+  for (const code of ['A', 'B', 'C', 'D', 'E']) {
+    test(`scenario ${code} brings the profile back to PREEMPT_RT and says so`, async ({ page }) => {
+      await openPage(page);
+      await pauseAndSeed(page, 1);
+      const r = await page.evaluate(c => {
+        const S = window.__sim;
+        for (let i = 0; i < 250; i++) S.step();
+        S.ENV.kernel = 'GP';
+        S.scenario(c);
+        return {
+          kernel: S.ENV.kernel,
+          journal: S.sim.log.some(l => l.code === 'ENV' && l.msg.k === 'log.kernelReset'),
+          avis: document.getElementById('toast').textContent,
+        };
+      }, code);
+      expect(r.kernel, 'profile after launch').toBe('RT');
+      expect(r.journal, 'a line in the event log').toBe(true);
+      expect(r.avis, 'a message on screen').toContain('PREEMPT_RT');
+    });
+  }
+
+  test('with PREEMPT_RT already selected, launching a scenario says nothing about the profile', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim; S.scenario('B');
+      return { journal: S.sim.log.some(l => l.msg && l.msg.k === 'log.kernelReset'), avis: document.getElementById('toast').textContent };
+    });
+    expect(r.journal).toBe(false);
+    expect(r.avis).not.toContain('PREEMPT_RT');
+  });
+
+  test('the reset button brings the profile back to PREEMPT_RT and says so', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    await page.evaluate(() => { window.__sim.ENV.kernel = 'GP'; });
+    await page.click('#bReset');
+    const r = await page.evaluate(() => ({ kernel: window.__sim.ENV.kernel, avis: document.getElementById('toast').textContent, journal: window.__sim.sim.log.some(l => l.msg && l.msg.k === 'log.kernelReset') }));
+    expect(r.kernel).toBe('RT');
+    expect(r.avis).toContain('PREEMPT_RT');
+    expect(r.journal).toBe(true);
+  });
+
+  for (const code of ['F', 'G']) {
+    test(`scenario ${code} keeps the profile the visitor chose`, async ({ page }) => {
+      await openPage(page);
+      await pauseAndSeed(page, 1);
+      const r = await page.evaluate(c => {
+        const S = window.__sim;
+        for (let i = 0; i < 250; i++) S.step();
+        S.ENV.kernel = 'GP';
+        S.scenario(c);
+        return { kernel: S.ENV.kernel, journal: S.sim.log.some(l => l.msg && l.msg.k === 'log.kernelReset') };
+      }, code);
+      expect(r.kernel).toBe('GP');
+      expect(r.journal).toBe(false);
+    });
+  }
+});
