@@ -189,6 +189,9 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 .blk>div:last-child{border-bottom:none}
 .blk>div>span:first-child{color:var(--muted)}
 .blk .num{white-space:nowrap}
+.tlat{display:flex;flex-wrap:wrap;gap:0 5px;font:10.5px/1.3 var(--body);color:var(--muted);margin-top:3px}
+.tlat span+span::before{content:'+ '}
+.tlat .hl{color:var(--accent);font-weight:600}
 .l12ex{margin-top:4px;font:10px/1.2 var(--mono)}
 .l12ex .xr{display:grid;grid-template-columns:3.6em 3.6em 3.2em 2.8em 1.3em minmax(0,1fr);gap:0 4px;white-space:nowrap}
 .l12ex .xr.hd{color:var(--muted);border-bottom:1px solid var(--line)}
@@ -343,6 +346,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
   <div class="card">
     <h3 data-i18n="ui.bubbleH">Bulle d'arrêt, calcul en direct</h3>
     <div class="formula" id="formula"></div>
+    <div class="tlat" id="tlat"></div>
     <div class="grid2" id="metrics" style="margin-top:6px"></div>
     <table class="cmp" id="cmp"></table>
   </div>
@@ -833,6 +837,7 @@ const MSG = {
   'btn.l1Restart': ['Redémarrer le niveau 1', 'Restart level 1', 'Ebene 1 neu starten'],
   'log.kernelRT': ["Noyau du calculateur d'autonomie : PREEMPT_RT", 'Autonomy computer kernel: PREEMPT_RT', 'Kernel des Autonomierechners: PREEMPT_RT'],
   'log.kernelGP': ["Noyau du calculateur d'autonomie : généraliste", 'Autonomy computer kernel: general-purpose', 'Kernel des Autonomierechners: Allzweck'],
+  'hud.tPer': ['perc.', 'perc.', 'Wahrn.'], 'hud.tCpu': ['calc.', 'comp.', 'Rech.'], 'hud.tAct': ['act.', 'act.', 'Akt.'],
   'l12.l1': ['Niveau 1 · autonomie', 'Level 1 · autonomy', 'Ebene 1 · Autonomie'],
   'l12.l2': ['Niveau 2 · sûreté', 'Level 2 · safety', 'Ebene 2 · Sicherheit'],
   'l12.running': ['en marche', 'running', 'läuft'], 'l12.silent': ['silencieux', 'silent', 'stumm'], 'l12.faulty': ['en défaut', 'in fault', 'fehlerhaft'],
@@ -1854,6 +1859,9 @@ function hud() {
     `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = min(<span class="hl">${fmt(env.aCap, 2)}</span>, <span class="hl">${fmt(env.aAdh, 2)}</span>) ${env.gsin < 0 ? '− ' + fmt(-env.gsin, 2) : '+ ' + fmt(env.gsin, 2)} = <span class="hl">${fmt(m.aEff, 2)} m/s²</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#9a9ea6">${t('hud.limit', { l: M(env.limit) })}</span><br>` +
     `d_stop = v·t_lat + v²/(2·a_eff) + ${t('hud.margin')}<br>` +
     `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = ${fmt(v * m.tLat, 1)} + ${fmt(v * v / (2 * m.aEff), 1)} + 5 = <span class="hl">${fmt(m.dStop, 1)} m</span>`;
+  // Décomposition de t_lat : le terme de calcul du niveau 1 change avec le profil de noyau (spec 002, S13).
+  const ms = (x, d = 0) => fmt(x * 1000, d);
+  $('tlat').innerHTML = `<span>${t('hud.tPer')} ${ms(P.latPer)}</span><span class="${ENV.kernel === 'GP' ? 'hl' : ''}">${t('hud.tCpu')} ${ms(latCpu())}</span><span>DDS ${ms(m.ddsLat)}</span><span>CAN ${ms(isFinite(m.brakeLat) ? m.brakeLat : 0.1, 1)}</span><span>${t('hud.tAct')} ${ms(P.latAct)}</span>`;
   $('metrics').innerHTML = [
     [t('met.speed'), `${fmt(v * 3.6, 1)} km/h`], [t('met.mass'), `${fmt(T.mass, 0)} t`],
     ['t_lat', `${fmt(m.tLat * 1000, 0)} ms`], [t('met.caution'), `${fmt(m.dCaution, 1)} m`],

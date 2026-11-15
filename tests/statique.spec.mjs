@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   verifierSyntaxe, verifierAvertissement, verifierAnalytics,
-  verifierStatuts, estContexteMain, lireSpecs, brancheCourante, verifierSansConstructeur,
+  verifierStatuts, estContexteMain, lireSpecs, brancheCourante, verifierSansConstructeur, verifierLatenceSansChiffre,
 } from './helpers/controles-statiques.mjs';
 
 const lire = chemin => readFileSync(fileURLToPath(new URL(chemin, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
@@ -193,5 +193,41 @@ test.describe('T-02 no manufacturer name (spec 002, AC-18)', () => {
     expect(e1[0].ligne).toBe(10);
     const e2 = verifierSansConstructeur('# aht\n\nBuilt like LIEBHERR trucks.\n', html);
     expect(e2.map(e => `${e.fichier}:${e.ligne}`), 'case does not matter').toEqual(['README.md:3']);
+  });
+});
+
+test.describe('T-17 no latency written in the new HTML (spec 002, AC-15)', () => {
+  test('the autonomy card, the levels pane and their static texts carry no written latency', () => {
+    const erreurs = verifierLatenceSansChiffre(html);
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('a latency written in the kernel select of the card is reported with its line', () => {
+    const copie = html.replace('<option value="GP"></option>', '<option value="GP">General-purpose kernel · 250 ms</option>');
+    expect(copie, 'the breakage was applied').not.toBe(html);
+    const erreurs = verifierLatenceSansChiffre(copie);
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('250 ms');
+    expect(erreurs[0].ligne).toBe(copie.split('\n').findIndex(l => l.includes('General-purpose kernel · 250 ms')) + 1);
+  });
+
+  test('a latency written in the pane is reported', () => {
+    const copie = html.replace('<div class="blk l2" id="blkL2"></div>', '<div class="blk l2" id="blkL2">brake latency 0,8 ms</div>');
+    expect(copie).not.toBe(html);
+    const erreurs = verifierLatenceSansChiffre(copie);
+    expect(erreurs.map(e => e.message).join('|')).toContain('0,8 ms');
+  });
+
+  test('a latency written in a static text of the card is reported', () => {
+    const copie = html.replace("'ui.l1Help': 'Illustrative latencies.'", "'ui.l1Help': 'Illustrative latencies, 50 ms.'");
+    expect(copie).not.toBe(html);
+    const erreurs = verifierLatenceSansChiffre(copie);
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('ui.l1Help');
+  });
+
+  test('a missing block is reported, not silently accepted', () => {
+    const erreurs = verifierLatenceSansChiffre(html.replace('id="cardL1"', 'id="carte"'));
+    expect(erreurs.map(e => e.message).join('|')).toContain('was not found');
   });
 });

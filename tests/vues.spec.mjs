@@ -314,3 +314,46 @@ test.describe('T-16 levels 1 ↔ 2 pane, exchanges (S8, S11)', () => {
     }
   });
 });
+
+// T-17 : décomposition de t_lat (S13, AC-12, AC-15).
+test.describe('T-17 t_lat breakdown (S13)', () => {
+  async function lire(page) {
+    return page.evaluate(() => {
+      const spans = [...document.querySelectorAll('#tlat span')];
+      const T = window.__sim.sim.trucks[0], P = window.__sim.P;
+      return {
+        termes: spans.map(s => s.textContent), surligne: spans.filter(s => s.classList.contains('hl')).map(s => s.textContent),
+        tLatMs: T.m.tLat * 1000, ddsMs: T.m.ddsLat * 1000, canMs: T.m.brakeLat * 1000, perMs: P.latPer * 1000, cpuMs: (window.__sim.ENV.kernel === 'GP' ? P.latCpuGP : P.latCpuRT) * 1000, actMs: P.latAct * 1000,
+        cellule: [...document.querySelectorAll('#metrics > div')].map(d => d.innerText.replace(/\s+/g, ' ')).find(x => x.startsWith('t_lat')),
+      };
+    });
+  }
+  const nombre = texte => Number(texte.match(/[0-9][0-9.,]*/)[0].replace(',', '.'));
+
+  for (const lang of ['fr', 'en', 'de']) {
+    test(`${lang}: five terms read from the model, the computing term highlighted only with the general-purpose kernel`, async ({ page }) => {
+      await openPage(page, lang);
+      await pauseAndSeed(page, 1);
+      await page.evaluate(() => { for (let i = 0; i < 50; i++) window.__sim.step(); });
+      await expect.poll(async () => (await lire(page)).termes.length).toBe(5);
+      const rt = await lire(page);
+      expect(nombre(rt.termes[0]), 'perception').toBe(rt.perMs);
+      expect(nombre(rt.termes[1]), 'computing, PREEMPT_RT').toBe(rt.cpuMs);
+      expect(nombre(rt.termes[2]), 'DDS').toBeCloseTo(rt.ddsMs, 0);
+      expect(nombre(rt.termes[3]), 'CAN').toBeCloseTo(rt.canMs, 1);
+      expect(nombre(rt.termes[4]), 'actuator').toBe(rt.actMs);
+      expect(rt.surligne, 'nothing is highlighted with PREEMPT_RT').toEqual([]);
+      await page.selectOption('#selKernel', 'GP');
+      await page.evaluate(() => { window.__sim.step(); });
+      await expect.poll(async () => (await lire(page)).surligne.length).toBe(1);
+      const gp = await lire(page);
+      expect(nombre(gp.termes[1]), 'computing, general-purpose').toBe(gp.cpuMs);
+      expect(gp.cpuMs - rt.cpuMs).toBeCloseTo(200, 6);
+      expect(gp.surligne[0], 'the highlighted term is the computing one').toBe(gp.termes[1]);
+      const somme = gp.termes.map(nombre).reduce((a, b) => a + b, 0);
+      expect(Math.abs(somme - gp.tLatMs), `sum of the five terms (${somme}) against t_lat (${gp.tLatMs.toFixed(1)} ms)`).toBeLessThan(1.5);
+      expect(Math.round(gp.tLatMs - rt.tLatMs), 't_lat grows by the latency difference (ms)').toBe(200);
+      expect(nombre(gp.cellule), 'the t_lat cell of the grid').toBe(Math.round(gp.tLatMs));
+    });
+  }
+});
