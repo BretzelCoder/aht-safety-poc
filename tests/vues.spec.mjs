@@ -219,3 +219,98 @@ test.describe('T-15 levels 1 ↔ 2 pane, blocks (S8, S9, S10)', () => {
     });
   }
 });
+
+// T-16 : onglet « Niveaux 1 ↔ 2 », la liste des échanges (S8, S11 ; AC-9, AC-10).
+test.describe('T-16 levels 1 ↔ 2 pane, exchanges (S8, S11)', () => {
+  async function ouvrir(page, lang = 'en') {
+    const journal = await openPage(page, lang);
+    await pauseAndSeed(page, 1);
+    await page.evaluate(() => { for (let i = 0; i < 250; i++) window.__sim.step(); });
+    await page.click('#tabL12');
+    return journal;
+  }
+  const lignes = page => page.locator('#exL12 .xr:not(.hd)');
+
+  test('five rows with sequence, timestamp, speed, goal distance, checksum mark and verdict, read from the model', async ({ page }) => {
+    await ouvrir(page);
+    await expect(lignes(page)).toHaveCount(5);
+    const modele = await page.evaluate(() => window.__sim.sim.trucks[0].l2.ex.map(e => ({ seq: e.seq, ts: e.ts.toFixed(2), v: (e.v * 3.6).toFixed(1), d: Math.round(e.d) })));
+    const rows = await lignes(page).evaluateAll(els => els.map(e => [...e.children].map(c => c.textContent)));
+    rows.forEach((r, i) => {
+      expect(r[0], `row ${i} sequence`).toBe(`#${modele[i].seq}`);
+      expect(r[1], `row ${i} timestamp`).toBe(modele[i].ts);
+      expect(r[2], `row ${i} speed demand`).toBe(modele[i].v);
+      expect(r[3], `row ${i} goal distance`).toBe(String(modele[i].d));
+      expect(r[4], `row ${i} checksum mark`).toBe('✓');
+      expect(r[5], `row ${i} verdict`).toBe('accepted');
+    });
+    expect(Number(rows[4][0].slice(1)) - Number(rows[0][0].slice(1)), 'consecutive sequence numbers').toBe(4);
+  });
+
+  test('a rejection stays listed, and readable, while accepted setpoints scroll past it', async ({ page }) => {
+    await ouvrir(page);
+    await page.evaluate(() => { const S = window.__sim, T = S.sim.trucks[0]; T.l1.defect = 'STALE'; S.step(); for (let i = 0; i < 30; i++) S.step(); });
+    await expect(lignes(page)).toHaveCount(6);                    // 5 acceptés + le rejet sorti de la fenêtre
+    const rejet = page.locator('#exL12 .xr.bad');
+    await expect(rejet).toHaveCount(1);
+    await expect(rejet).toContainText('SETPOINT_STALE');
+    await expect(rejet.locator('span').nth(4), 'a stale setpoint has a valid checksum').toHaveText('✓');
+    await expect(page.locator('#exL12 .why')).toContainText('rejected: too old');
+    await page.evaluate(() => { const S = window.__sim, T = S.sim.trucks[0]; for (const d of ['INTEGRITY', 'BEYOND_MA', 'OVERSPEED']) { T.l1.defect = d; S.step(); for (let i = 0; i < 10; i++) S.step(); } });
+    await expect(page.locator('#exL12 .xr.bad'), 'the three latest rejections are kept').toHaveCount(3);
+    await expect(page.locator('#exL12 .xr.bad').first()).toContainText('SETPOINT_INTEGRITY');
+    await expect(page.locator('#exL12 .xr.bad').first().locator('span').nth(4), 'an altered setpoint fails its checksum').toHaveText('✗');
+  });
+
+  test('a language switch retranslates the exchanges already listed', async ({ page }) => {
+    await ouvrir(page);
+    await page.evaluate(() => { const S = window.__sim, T = S.sim.trucks[0]; T.l1.defect = 'STALE'; S.step(); for (let i = 0; i < 30; i++) S.step(); });
+    await expect(page.locator('#exL12 .why')).toContainText('rejected: too old');
+    await page.click('[data-lang="fr"]');
+    await expect(page.locator('#exL12 .why')).toContainText('rejetée : trop ancienne');
+    await expect(lignes(page).last().locator('span').nth(5)).toHaveText('accepté');
+    await expect(page.locator('#blkL2')).toContainText('Battement');
+    await page.click('[data-lang="de"]');
+    await expect(page.locator('#exL12 .why')).toContainText('abgelehnt: zu alt');
+    await expect(lignes(page).last().locator('span').nth(5)).toHaveText('akzeptiert');
+    await expect(page.locator('#exL12 .xr.bad')).toContainText('SETPOINT_STALE');          // le code ne se traduit jamais
+    await expect(page.locator('#blkL2')).toContainText('Herzschlag');
+  });
+
+  test('during a recovery the pane shows the time left before the stop is released', async ({ page }) => {
+    await ouvrir(page);
+    await page.evaluate(() => { const S = window.__sim; S.l1Freeze(0); for (let i = 0; i < 100; i++) S.step(); S.l1Restart(0); for (let i = 0; i < 25; i++) S.step(); });
+    await expect(page.locator('#exL12 .rel')).toContainText('Resume possible in');
+    const reste = Number((await page.locator('#exL12 .rel').innerText()).match(/in ([\d.]+) s/)[1]);
+    expect(reste, 'seconds left (1 s of stable heartbeat, 0.5 s done)').toBeGreaterThan(0.3);
+    expect(reste).toBeLessThanOrEqual(0.6);
+    await page.evaluate(() => { for (let i = 0; i < 100; i++) window.__sim.step(); });
+    await expect(page.locator('#exL12 .rel')).toHaveCount(0);
+  });
+
+  for (const lang of ['fr', 'en', 'de']) {
+    test(`${lang}: the pane opens with no console error and no key missing`, async ({ page }) => {
+      const journal = await ouvrir(page, lang);
+      await page.evaluate(() => { const S = window.__sim, T = S.sim.trucks[0]; T.l1.defect = 'REPLAY'; S.step(); S.l1Freeze(1); for (let i = 0; i < 80; i++) S.step(); });
+      await page.waitForTimeout(250);
+      const autres = journal.erreursConsole.filter(e => !journal.bloquees.includes(e.url));
+      expect(autres, `console errors in ${lang}`).toEqual([]);
+      expect(journal.erreursPage).toEqual([]);
+      expect(await page.evaluate(() => [...window.__sim.i18nMissing])).toEqual([]);
+    });
+  }
+
+  test('worst case for the layout: three isolated rejections still listed, a recovery under way, in every language', async ({ page }) => {
+    for (const lang of ['fr', 'en', 'de']) {
+      await ouvrir(page, lang);
+      await page.evaluate(() => {
+        const S = window.__sim, T = S.sim.trucks[0];
+        for (const d of ['STALE', 'BEYOND_MA', 'INTEGRITY']) { T.l1.defect = d; S.step(); for (let i = 0; i < 12; i++) S.step(); }
+        S.l1Freeze(0); for (let i = 0; i < 40; i++) S.step(); S.l1Restart(0); for (let i = 0; i < 12; i++) S.step();
+      });
+      await page.waitForTimeout(300);
+      const anomalies = await verifierMiseEnPage(page);
+      expect(anomalies, `${lang}: ${anomalies.join(' | ')}`).toEqual([]);
+    }
+  });
+});
