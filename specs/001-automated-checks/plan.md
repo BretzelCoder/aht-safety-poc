@@ -54,7 +54,7 @@ Not applicable: no data is stored. The page keeps storing only the language choi
 
 ## 5. Interfaces
 - **Command line**: `npm test` (everything), `npm run test:browser` (Playwright only), `npm run test:links` (links only).
-- **CI**: one workflow, one job "Checks", Ubuntu, Node 24.
+- **CI**: one workflow, one job "Checks" run as a matrix on Node 22 (the announced minimum) and Node 24, Ubuntu, two jobs in parallel (amended 2026-11-15, spec S2).
 - **Test hook** (`window.__sim`, already public): adds `i18n` and `i18nMissing`. Documented in a comment next to it as test-only.
 - **UI**: none. No visible change.
 
@@ -69,7 +69,7 @@ Not applicable: no data is stored. The page keeps storing only the language choi
 
 ## 7. Dependencies
 - **New: `@playwright/test`** (Apache-2.0), development only, latest stable version at implementation time, pinned exactly with a lockfile. It brings the test runner and a Chromium download (about 150 MB, cached on GitHub). Why the existing stack is not enough: checking rendering, console errors and scenario outcomes needs a controlled real browser; the owner chose robust tooling over a no-package approach (spec section 9).
-- **Node.js ≥ 22** for contributors (built-in `fetch`, `node:vm`); CI uses Node 24.
+- **Node.js ≥ 22** for contributors (built-in `fetch`, `node:vm`); CI runs on Node 22 and Node 24 (matrix, amended 2026-11-15).
 - **GitHub Actions**: `actions/checkout`, `actions/setup-node` and `actions/cache` (MIT, maintained by GitHub; the cache keeps the Chromium download, added at T-18), no third-party action.
 - **ADR-1 amendment**, written in `docs/architecture-decisions.md` with this plan: development-only packages are allowed for the checks; the published page still loads no package, needs no build and opens from a downloaded copy.
 
