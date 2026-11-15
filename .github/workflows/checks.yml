@@ -1,0 +1,37 @@
+# Vérifications automatiques (spec 001) : les mêmes que « npm test » en local.
+# Le résultat apparaît sur chaque commit et chaque pull request ; il n'empêche pas la fusion (décision du propriétaire).
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Chromium seulement, mis en cache : la clé suit le fichier de verrouillage, donc la version de Playwright.
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - run: npx playwright install --with-deps chromium
+
+      # Tests dans le navigateur et contrôles statiques, puis vérification des liens (avertissements seulement).
+      - run: npm test
