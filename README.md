@@ -1,6 +1,6 @@
 # aht-safety-poc
 
-An interactive, single-page simulator that shows how an **Autonomous Haul Truck (AHT)** in an open-pit mine stays safe in mixed traffic: braking envelopes, fleet-management movement authority, CAN bus arbitration, DDS quality of service and an independent safety supervisor.
+An interactive, single-page simulator that shows how an **Autonomous Haul Truck (AHT)** in an open-pit mine stays safe in mixed traffic: braking envelopes, fleet-management movement authority, CAN bus arbitration, DDS quality of service and an independent safety supervisor. It also shows the two-level architecture of such a truck: an autonomy computer that proposes and a safety controller that allows or blocks.
 
 It is a teaching proof of concept. The physics is simplified but consistent: every number on screen is computed by the model.
 
@@ -32,6 +32,8 @@ The live demo counts visits with [GoatCounter](https://www.goatcounter.com/), a 
 | CAN bus (J1939) | Priority arbitration keeps a well-prioritised brake command fast under load; a mis-prioritised one misses its deadline, then trips the brake ECU watchdog. |
 | DDS QoS | Periodic state with Deadline and Liveliness versus event-driven RELIABLE or BEST_EFFORT, under packet loss. |
 | Safety supervisor | State machine `NOMINAL` → `DEGRADED_SPEED` → `CONTROLLED_STOP` → `EMERGENCY_BRAKE` (latched until acknowledged), with the state actually applied by the motion controller shown separately. |
+| Two levels | The autonomy computer (level 1) sends setpoints (speed demand, timestamp, sequence counter, checksum) to the safety controller (level 2), which rechecks each one with its own measurements before the truck follows it. A frozen or misbehaving level 1 is stopped by level 2 alone. The **Levels 1 ↔ 2** tab of the oscilloscope card shows both computers and their latest exchanges; the **Architecture** tab of the guide draws an illustrative software and hardware stack for each. |
+| Kernel profile | The autonomy computer runs a general-purpose kernel or PREEMPT_RT, modelled as two illustrative worst-case computing latencies. The general-purpose profile lengthens the reaction time, the stop zones and the distance the truck really travels. |
 
 ### Built-in scenarios
 
@@ -42,6 +44,10 @@ The live demo counts visits with [GoatCounter](https://www.goatcounter.com/), a 
 | C | B inside a dust cloud | LiDAR lost, radar fallback, degraded speed, mission continues. |
 | D | Stop command sent once in BEST_EFFORT with 50 % loss | The order is lost silently in most runs and a collision follows in a sizeable share of them, so replay several times. Switch to periodic publishing to compare. |
 | E | Saturated CAN bus, brake command mis-prioritised | Deadline missed → controlled stop; push the load towards 90 % → watchdog → emergency brake. |
+| F | Level 1 frozen | The autonomy computer of the fastest truck stops sending. Level 2 notices the silence after the heartbeat deadline and brings the truck to a controlled stop at maximum braking, on its own. Restart level 1: the stop is released after a stable heartbeat. |
+| G | Defective setpoint | Level 1 sends one setpoint with the chosen defect (overspeed, beyond the movement authority, stale timestamp, replay, invalid integrity). Level 2 rejects it, names the defect and the truck carries on. Sent continuously, consecutive rejections stop the truck as a lost heartbeat does. |
+
+Scenarios A to E set the kernel profile back to PREEMPT_RT, which is what their outcomes are calibrated on; F and G keep the profile you chose, so you can compare the two on a failing autonomy computer.
 
 ## Modelling choices
 
@@ -54,15 +60,18 @@ The live demo counts visits with [GoatCounter](https://www.goatcounter.com/), a 
 - **Loss of the FMS link** leads to a planned stop inside the authority already granted, not to an emergency stop.
 - **Unequipped vehicles are a degraded case:** in operation every vehicle entering the autonomous zone carries a terminal; on-board perception is the last barrier.
 - **Emergency state is latched** and needs an explicit acknowledgement before the truck can move again.
+- **Level 1 proposes, level 2 allows or blocks.** Every setpoint is judged on its checksum, its age, its sequence number, its speed against the limit of the road section and its goal against the end of the movement authority. The last two use level 2's own measured position and the authority it holds, never the position or speed that level 1 claims. A rejected setpoint never reaches the actuators.
+- **Losing level 1 is a controlled stop, not an emergency.** A silent level 1, or one whose setpoints keep being rejected, brings the truck to a controlled stop at maximum braking decided by level 2 alone. That stop is not latched: it is released once the heartbeat has been stable for a stated time. The emergency state stays latched, and a recovered level 1 never releases it.
+- **The kernel profile is a worst case, not a measurement.** Each profile is an illustrative bound on the computing time of level 1. It enters `t_lat`, and the difference from PREEMPT_RT delays what level 1 passes to level 2, so the truck really travels the extra distance. The heartbeat deadline stays above that delay: a profile never causes a heartbeat loss by itself.
 
 ## Code structure
 
 Everything lives in `index.html` (vanilla JavaScript, HTML5 canvas, no framework). The script is split into four modules:
 
 1. **MineWorld & PhysicsEngine:** haul road graph, grades, longitudinal dynamics with traction, braking and adhesion limits.
-2. **EmbeddedCommsBus:** CAN response-time model per priority class, DDS safety topic with loss, retransmission, Deadline and Liveliness.
-3. **AutonomyAndSafetyCore:** perception (LiDAR, radar, V2X), FMS tokens and movement authority, planner, safety supervisor, motion controller.
-4. **FaultInjector & TelemetryHUD:** scenarios, fault injection, pickup driving, telemetry panels, oscilloscope and event log.
+2. **EmbeddedCommsBus:** CAN response-time model per priority class, DDS safety topic with loss, retransmission, Deadline and Liveliness, and the ordered link from level 1 to level 2 (delayed by the kernel profile, with a home-made checksum).
+3. **AutonomyAndSafetyCore:** perception (LiDAR, radar, V2X), FMS tokens and movement authority, planner, level 1 emission, level 2 checks (integrity, freshness, sequence, overspeed, authority), safety supervisor, motion controller.
+4. **FaultInjector & TelemetryHUD:** scenarios, fault injection (including the autonomy computer), pickup driving, telemetry panels, oscilloscope, levels 1 ↔ 2 view and event log.
 
 Physics runs at a fixed 50 Hz step, decoupled from rendering.
 
@@ -75,7 +84,7 @@ The simulator needs nothing installed. The checks that keep it honest do, for de
 ```bash
 npm ci                            # installs the test runner (@playwright/test, version pinned)
 npx playwright install chromium   # once: downloads the browser used by the tests
-npm test                          # runs everything, about 30 seconds
+npm test                          # runs everything, under a minute
 ```
 
 | Check | What it proves |
@@ -84,8 +93,11 @@ npm test                          # runs everything, about 30 seconds
 | Translations | Every text exists in French, English and German: static keys, dynamic messages and, at run time, every key the scenarios display. Terms identical by design are not flagged. |
 | Rendering | The page opens in French, English and German without a console error, in the right language, and loads nothing from the network or from the analytics service when opened from disk. |
 | Scenarios A to E | Each built-in scenario produces the outcome described above: token revoked and a planned stop (A), on-board perception only (B), LiDAR blinded and radar fallback at 15 km/h or less (C), a lost stop order reported as `ORDER_NOT_APPLIED` against periodic publishing reaching the stop state (D), brake deadline missed from 67 % CAN load and watchdog from 84 % (E). |
+| Levels 1 and 2 | Each truck sends one complete setpoint per step with a sequence number rising by one; level 2 rejects each of the five defects, with its code, and never applies a rejected setpoint; a frozen level 1 is detected within the deadline and the truck is stopped at maximum braking in every seed; recovery needs a stable heartbeat and never releases a latched emergency; judging uses level 2's own position. |
+| Kernel profile | PREEMPT_RT keeps exactly the previous reaction time and stopping distances; the general-purpose profile adds exactly the latency difference to the reaction time and to the distance the truck really travels; scenarios A to E start from PREEMPT_RT. |
+| Layout | At 1600×900, in the three languages, nothing leaves the screen, including with the levels view open and its exchange list full. |
 | Physics invariants | Loaded downhill stops later than empty on the flat; mass cancels out when adhesion-limited; a watered road lengthens the empty distance only; no truck ever goes beyond its movement authority; after a network cut every truck stops inside its authority without emergency braking; the emergency state stays latched until it is acknowledged. |
-| Repository rules | The disclaimer is still in the README and the page header; analytics load only on the live site and every event is prefixed `aht-safety-poc/`; no spec is `DRAFT` or `IN REVIEW` on `main`. |
+| Repository rules | The disclaimer is still in the README and the page header; no manufacturer is named as the owner of the architecture shown; analytics load only on the live site and every event is prefixed `aht-safety-poc/`; no spec is `DRAFT` or `IN REVIEW` on `main`. |
 | External links | The links of this README and of the in-app guide. A dead or unreachable link is a warning and never fails the run. The hosts known to refuse automated requests (ISO, USPTO: answer 403) are reported on an information line as unverifiable, to be checked by hand, so that a real dead link stays visible; the list is in `scripts/check-links.mjs`. |
 
 The tests open `index.html` from disk with the network blocked and the random generator seeded, so a run gives the same result every time. The same command runs on GitHub (workflow `Checks`, on Node 22 and on Node 24) for every push and pull request; the result shows on the commit and the pull request and does not lock the merge. To run a single test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`; to run only the browser tests or only the link check: `npm run test:browser`, `npm run test:links`. Values pinned from the model (for example the CAN load boundaries) live in `tests/` and change together with the model.
@@ -105,10 +117,14 @@ Changes follow a spec-driven workflow based on the [SDD kit](https://github.com/
 - Perception without false positives; constant-velocity prediction over 6 s; a single forward radar of ±18°.
 - Generic, plausible orders of magnitude (160 → 400 t, 1.15 MN braking force, 2.6 MW traction, 2 % rolling resistance). They do not describe any specific truck.
 - CAN response time approximated by `C + U·20 ms / (1 − U)` for synchronised bursty traffic; DDS RELIABLE retransmits every 30 ms.
+- Level 2's measurements (position, speed, brakes) are exact copies of the simulated state, with no noise and no failure. Level 2 never fails and its two channels are not simulated: they only appear in the architecture diagram.
+- The checksum of the setpoints is a home-made calculation, not a real CRC nor a standardised end-to-end protocol. Sensor diagnostics reach level 2 without going through level 1.
+- The two kernel profiles are two illustrative bounds on the computing time, not measurements of a real kernel. Only the difference from PREEMPT_RT is simulated, as a delay on the outputs of level 1; the computing time itself is a term of the `t_lat` budget.
+- The architecture shown (software stack, Yocto as an option, safety microcontroller) is illustrative. It is not the description of any manufacturer's real system.
 
 ## References
 
-- IEC 61508 (functional safety), ISO 19014 (earth-moving machinery functional safety), ISO 17757 (autonomous machine system safety)
+- IEC 61508 (functional safety), ISO 13849 (safety-related parts of control systems), ISO 19014 (earth-moving machinery functional safety), ISO 17757 (autonomous machine system safety). They are cited as reference frameworks: the simulator claims no conformity with any of them.
 - [ISO 23725:2024](https://www.iso.org/standard/76769.html), autonomous system and fleet management system interoperability
 - [ISO 21815-1:2022](https://www.iso.org/standard/77302.html), earth-moving machinery collision warning and avoidance
 - [US patent 10140871](https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10140871), travel-permitted zones set by the fleet operations server
