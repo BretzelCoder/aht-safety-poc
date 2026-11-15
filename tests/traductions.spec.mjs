@@ -5,8 +5,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { openPage } from './helpers/page.mjs';
 import { verifierTraductions } from './helpers/controles-statiques.mjs';
+import { readPage } from '../scripts/read-page.mjs';
 
-const html = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
+const html = readPage(fileURLToPath(new URL('..', import.meta.url))).html;   // index.html et ses fichiers propres (spec 003)
 const decrire = erreurs => erreurs.map(e => `${e.fichier}${e.ligne ? ':' + e.ligne : ''} ${e.message}`).join('\n');
 
 /** Copie profonde des tables de traduction de la page. */
