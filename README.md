@@ -12,7 +12,7 @@ It is a teaching proof of concept. The physics is simplified but consistent: eve
 
 ## Run it
 
-No build, no dependencies. Use the [live demo](https://bretzelcoder.github.io/aht-safety-poc/), open `index.html` in a recent browser, or serve your own copy with GitHub Pages (Settings → Pages → deploy from branch `main`, folder `/`).
+No build, no dependencies. Use the [live demo](https://bretzelcoder.github.io/aht-safety-poc/), open `index.html` in a recent browser, or serve your own copy with GitHub Pages (Settings → Pages → deploy from branch `main`, folder `/`). Only the [automated checks](#automated-checks) need anything installed, and the page never loads it.
 
 The page loads Google Fonts if online and falls back to system fonts otherwise.
 
@@ -66,6 +66,28 @@ Everything lives in `index.html` (vanilla JavaScript, HTML5 canvas, no framework
 Physics runs at a fixed 50 Hz step, decoupled from rendering.
 
 An I18N block at the top of the script holds the translations. French static text stays in the HTML (`data-i18n*` attributes) with English and German in `STATIC`; dynamic messages are `[fr, en, de]` triplets in `MSG`. Log entries and supervisor reasons are stored as message keys with parameters and translated at display time, so switching language also re-translates the event history.
+
+## Automated checks
+
+The simulator needs nothing installed. The checks that keep it honest do, for development only: Node.js 22 or later. The page itself still loads no package and still opens from a downloaded copy.
+
+```bash
+npm ci                            # installs the test runner (@playwright/test, version pinned)
+npx playwright install chromium   # once: downloads the browser used by the tests
+npm test                          # runs everything, about 30 seconds
+```
+
+| Check | What it proves |
+|---|---|
+| Script syntax | The page script compiles; a syntax error is reported with its line in `index.html`. |
+| Translations | Every text exists in French, English and German: static keys, dynamic messages and, at run time, every key the scenarios display. Terms identical by design are not flagged. |
+| Rendering | The page opens in French, English and German without a console error, in the right language, and loads nothing from the network or from the analytics service when opened from disk. |
+| Scenarios A to E | Each built-in scenario produces the outcome described above: token revoked and a planned stop (A), on-board perception only (B), LiDAR blinded and radar fallback at 15 km/h or less (C), a lost stop order reported as `ORDER_NOT_APPLIED` against periodic publishing reaching the stop state (D), brake deadline missed from 67 % CAN load and watchdog from 84 % (E). |
+| Physics invariants | Loaded downhill stops later than empty on the flat; mass cancels out when adhesion-limited; a watered road lengthens the empty distance only; no truck ever goes beyond its movement authority; after a network cut every truck stops inside its authority without emergency braking; the emergency state stays latched until it is acknowledged. |
+| Repository rules | The disclaimer is still in the README and the page header; analytics load only on the live site and every event is prefixed `aht-safety-poc/`; no spec is `DRAFT` or `IN REVIEW` on `main`. |
+| External links | The links of this README and of the in-app guide. A dead or unreachable link is a warning and never fails the run (ISO and USPTO pages refuse automated requests). |
+
+The tests open `index.html` from disk with the network blocked and the random generator seeded, so a run gives the same result every time. The same command runs on GitHub (workflow `Checks`) for every push and pull request; the result shows on the commit and the pull request and does not lock the merge. To run a single test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`; to run only the browser tests or only the link check: `npm run test:browser`, `npm run test:links`. Values pinned from the model (for example the CAN load boundaries) live in `tests/` and change together with the model.
 
 ## Development process
 

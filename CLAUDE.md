@@ -4,10 +4,11 @@
 An interactive, single-page simulator that shows how an Autonomous Haul Truck (AHT) in an open-pit mine stays safe in mixed traffic: braking envelopes, FMS movement authority, CAN J1939 arbitration, DDS quality of service and an independent safety supervisor. It is a teaching proof of concept for engineers, students and decision-makers discovering autonomous haulage safety, published at https://bretzelcoder.github.io/aht-safety-poc/. It is not a safety tool and is not affiliated with any equipment manufacturer or mining company. See `docs/constitution.md` for the non-negotiable principles and `docs/architecture-decisions.md` for the ADRs.
 
 ## Stack
-- One self-contained `index.html`: HTML5, CSS and vanilla JavaScript on an HTML5 canvas. No framework, no build step, no package manager (ADR-1).
+- One self-contained `index.html`: HTML5, CSS and vanilla JavaScript on an HTML5 canvas. No framework, no build step, and the page loads no package (ADR-1).
 - Script organisation: an I18N block and an analytics block, then four modules: MineWorld & PhysicsEngine, EmbeddedCommsBus, AutonomyAndSafetyCore, FaultInjector & TelemetryHUD. Physics runs at a fixed 50 Hz step, decoupled from rendering.
 - External resources: Google Fonts (optional, system fonts as fallback) and GoatCounter `count.js` (GitHub Pages only, ADR-3).
 - Hosting: GitHub Pages, branch `main`, folder `/`.
+- Automated checks, development only (ADR-1 amendment, spec 001): Node.js 22 or later and `@playwright/test` (the only `devDependency`, version pinned) in `package.json`; tests in `tests/`, link check in `scripts/check-links.mjs`, CI in `.github/workflows/checks.yml`. The tests open `index.html` from disk and read the model through the test-only hook `window.__sim` (`i18n` and `i18nMissing` were added for them; keep them).
 
 ## Spec-Driven Development workflow — STRICT RULES
 
@@ -37,13 +38,21 @@ Rules recorded before the kit was adopted are dated; from now on, each new rule 
 - **Analytics** (2026-11-13, ADR-3): GoatCounter loads only on `bretzelcoder.github.io`. Events are namespaced `aht-safety-poc/…` because the dashboard is shared with other projects. Never send anything the visitor typed or anything personal.
 - **Languages of the repository**: code comments in French; README, commit messages and ADRs in English.
 - **Documentation follows the code**: a change to scenarios, controls or panels updates the README tables and the in-app guide (all three languages); a visible UI change updates `docs/capture.png` (English UI, 1600×900).
+- **The test is the judge, and is never bent to fit** (2026-11-15, decided spec 001): when a scenario test fails because the model no longer shows the outcome the README and the guide promise, stop and amend the spec; never loosen the test until it passes. Values pinned from the model (stopping distances 20.2 m and 42.2 m at 40 km/h, watered-road effect, CAN deadline from 67 % load and watchdog from 84 %, in `tests/helpers/physique.mjs` and `tests/scenarios.spec.mjs`) change in the same spec as the model change that moves them.
+- **Every new check proves it can fail** (2026-11-15, decided spec 001): a check is delivered with a negative test, or a recorded deliberate breakage, showing it fails on a broken copy. The browser tests must fail fast on a broken page (`openPage` gives up after 8 s, the run stops after 10 failures): an earlier version hung until the CI time limit.
 
 ## Project commands
-There are no automated checks yet: the first spec should introduce them. Until then, Claude runs these by hand and reports the result:
-- Syntax: extract the inline `<script>` of `index.html` and run `node --check` on it.
-- Smoke test: render `index.html?lang=fr`, `?lang=en` and `?lang=de` in headless Chrome; no console error, and the event log is filled in the right language.
-- Run: open `index.html` in a browser. No build.
-- `<lint>` / `<typecheck>` / `<test>` / `<build>`: to be defined by the spec that adds automated checks.
+Install once (Node.js 22 or later; nothing is installed for the page itself):
+- `npm ci`, then `npx playwright install chromium`.
+
+Run:
+- `npm test`: everything, in about 30 seconds. Static checks (script syntax, disclaimer, analytics guard, spec statuses), translations (static tables, then at runtime in FR, EN and DE), rendering in the three languages, scenarios A to E, physics invariants (mass and road, movement authority, network cut, emergency latch), then the link check. The same command runs on GitHub (`Checks` workflow) on every push and pull request.
+- `npm run test:browser`: the Playwright tests only, no network needed.
+- `npm run test:links`: the link check only. A dead or unreachable link is a warning and never fails the run (ISO and USPTO refuse automated requests).
+- One test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`.
+- Run the page: open `index.html` in a browser. No build.
+
+Lint, typecheck, build: none. There is no build step (ADR-1), and the syntax check is part of `npm test`.
 
 ## Guardrails
 - Never read or modify secret files (`.env*`).
@@ -53,7 +62,8 @@ There are no automated checks yet: the first spec should introduce them. Until t
 - Never force-push `main`: it is what GitHub Pages publishes.
 
 ## Delivery checklist (end of spec / before merge)
-- Syntax check and headless smoke test green in French, English and German.
-- No string missing a translation: every new `MSG` triplet has three entries, every new `data-i18n*` key exists in `STATIC.en` and `STATIC.de`.
+- `npm test` green locally, and the `Checks` run of the branch green on GitHub. The link check may only warn.
+- No string missing a translation: every new `MSG` triplet has three entries, every new `data-i18n*` key exists in `STATIC.en` and `STATIC.de` (`npm test` enforces it).
+- Every new rule has its check, with the proof that the check can fail (see Conventions).
 - README, in-app guide and screenshot consistent with the change.
 - After merge: check the live page on GitHub Pages (new content present, analytics snippet still there).
