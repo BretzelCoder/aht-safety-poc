@@ -149,7 +149,7 @@ test.describe('T-15 levels 1 ↔ 2 pane, blocks (S8, S9, S10)', () => {
     const texte = await page.locator('#blkL2').innerText();
     expect(texte).toContain(`${m.s} m`);
     expect(texte).toContain(`${m.kmh} km/h`);
-    expect(texte).toMatch(/Brakes\s+released|Brakes\s+service braking/);
+    expect(texte).toMatch(/Brakes\s+(released|braking)/);
     expect(await page.locator('#blkL2').getAttribute('data-brake')).toMatch(/released|service/);
   });
 
