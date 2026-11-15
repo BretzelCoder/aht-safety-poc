@@ -1,6 +1,8 @@
 // Contrôles statiques : fonctions pures sur du texte, sans navigateur (spec 001, plan section 3).
 // Chaque fonction rend la liste des erreurs trouvées ; une liste vide veut dire « conforme ».
 import vm from 'node:vm';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 /** Nombre de retours à la ligne avant la position donnée : sert à situer un script dans le fichier. */
 function lignesAvant(texte, position) {
@@ -100,4 +102,53 @@ export function verifierAnalytics(html, fichier = 'index.html') {
     }
   }
   return erreurs;
+}
+
+/**
+ * Le contexte est « main » quand on contrôle main elle-même ou une pull request qui vise main.
+ * Dans GitHub Actions : GITHUB_BASE_REF (cible d'une pull request) puis GITHUB_REF ; en local : la branche courante.
+ */
+export function estContexteMain(env = process.env, brancheLocale = null) {
+  if (env.GITHUB_BASE_REF) return env.GITHUB_BASE_REF === 'main';
+  if (env.GITHUB_REF) return env.GITHUB_REF === 'refs/heads/main';
+  return brancheLocale === 'main';
+}
+
+/** Branche git courante, ou null si git est absent ou si le dossier n'est pas un dépôt. */
+export function brancheCourante() {
+  try {
+    return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/** Lit les `specs/*\/spec.md` du dépôt : [{ chemin, texte }]. */
+export function lireSpecs(racine) {
+  const dossier = `${racine}/specs`;
+  if (!existsSync(dossier)) return [];
+  return readdirSync(dossier, { withFileTypes: true })
+    .filter(d => d.isDirectory() && existsSync(`${dossier}/${d.name}/spec.md`))
+    .map(d => ({ chemin: `specs/${d.name}/spec.md`, texte: readFileSync(`${dossier}/${d.name}/spec.md`, 'utf8').replace(/\r\n/g, '\n') }));
+}
+
+/**
+ * S8 : une spec présente sur main n'est jamais DRAFT ni IN REVIEW. Hors contexte main,
+ * le contrôle ne fait que lister les statuts. Le modèle `specs/000-template` est ignoré.
+ */
+const STATUTS = ['DRAFT', 'IN REVIEW', 'APPROVED', 'DELIVERED', 'CLOSED', 'ON HOLD', 'ABANDONED'];
+export function verifierStatuts(specs, { main }) {
+  const erreurs = [], liste = [];
+  for (const { chemin, texte } of specs) {
+    if (chemin.includes('specs/000-template/')) continue;
+    const m = new RegExp(`^>\\s*Status:\\s*(${STATUTS.join('|')})\\b`, 'm').exec(texte);
+    const statut = m ? m[1] : null;
+    liste.push(`${chemin}: ${statut ?? 'no readable status'}`);
+    if (!main) continue;
+    if (!statut) erreurs.push({ fichier: chemin, ligne: null, message: 'no readable status in the spec header (expected `> Status: …`)' });
+    else if (statut === 'DRAFT' || statut === 'IN REVIEW') {
+      erreurs.push({ fichier: chemin, ligne: numeroLigne(texte, m.index), message: `a spec on main must not be ${statut}: approve it, put it on hold or abandon it` });
+    }
+  }
+  return { erreurs, liste };
 }

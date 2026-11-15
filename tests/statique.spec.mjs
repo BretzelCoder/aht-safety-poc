@@ -3,7 +3,10 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { verifierSyntaxe, verifierAvertissement, verifierAnalytics } from './helpers/controles-statiques.mjs';
+import {
+  verifierSyntaxe, verifierAvertissement, verifierAnalytics,
+  verifierStatuts, estContexteMain, lireSpecs, brancheCourante,
+} from './helpers/controles-statiques.mjs';
 
 const lire = chemin => readFileSync(fileURLToPath(new URL(chemin, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 const html = lire('../index.html');
@@ -98,5 +101,67 @@ test.describe('T-05 analytics guard and event prefix (S10, static half)', () => 
   test('an event whose name is not a literal is reported', () => {
     const casse = html.replace("track('aht-safety-poc/guide'", "track(nom");
     expect(verifierAnalytics(casse, 'index.html')).toHaveLength(1);
+  });
+});
+
+test.describe('T-06 spec status (S8)', () => {
+  const spec = (statut, dossier = '001-exemple') => ({
+    chemin: `specs/${dossier}/spec.md`,
+    texte: `# Spec\n\n> Status: ${statut}\n> Created: 2026-11-15 · Approved: —\n`,
+  });
+
+  test('the real specs pass in the current context', () => {
+    const contexte = { main: estContexteMain(process.env, brancheCourante()) };
+    const { erreurs, liste } = verifierStatuts(lireSpecs(fileURLToPath(new URL('..', import.meta.url))), contexte);
+    console.log(`spec statuses (${contexte.main ? 'main context' : 'not a main context'}):\n  ${liste.join('\n  ')}`);
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+    expect(liste.length, 'at least spec 001 should be listed').toBeGreaterThan(0);
+  });
+
+  test('a DRAFT spec fails in a main context and names the file', () => {
+    const { erreurs } = verifierStatuts([spec('DRAFT')], { main: true });
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].fichier).toBe('specs/001-exemple/spec.md');
+    expect(erreurs[0].message).toContain('DRAFT');
+  });
+
+  test('an IN REVIEW spec fails in a main context', () => {
+    const { erreurs } = verifierStatuts([spec('IN REVIEW')], { main: true });
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('IN REVIEW');
+  });
+
+  test('the other statuses pass in a main context', () => {
+    const autres = ['APPROVED', 'DELIVERED', 'CLOSED', 'ON HOLD', 'ABANDONED'];
+    const { erreurs } = verifierStatuts(autres.map((s, i) => spec(s, `00${i + 1}-x`)), { main: true });
+    expect(erreurs).toEqual([]);
+  });
+
+  test('the template is ignored even when DRAFT', () => {
+    const { erreurs, liste } = verifierStatuts([spec('DRAFT', '000-template')], { main: true });
+    expect(erreurs).toEqual([]);
+    expect(liste).toEqual([]);
+  });
+
+  test('outside a main context a DRAFT spec only produces a listing', () => {
+    const { erreurs, liste } = verifierStatuts([spec('DRAFT'), spec('IN REVIEW', '002-y')], { main: false });
+    expect(erreurs).toEqual([]);
+    expect(liste).toEqual(['specs/001-exemple/spec.md: DRAFT', 'specs/002-y/spec.md: IN REVIEW']);
+  });
+
+  test('a spec without a readable status fails in a main context', () => {
+    const { erreurs } = verifierStatuts([{ chemin: 'specs/003-z/spec.md', texte: '# Spec sans statut\n' }], { main: true });
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('status');
+  });
+
+  test('the main context is detected from the CI variables, then from the local branch', () => {
+    expect(estContexteMain({ GITHUB_BASE_REF: 'main', GITHUB_REF: 'refs/pull/4/merge' }, null), 'pull request into main').toBe(true);
+    expect(estContexteMain({ GITHUB_BASE_REF: 'dev', GITHUB_REF: 'refs/pull/4/merge' }, null), 'pull request into another branch').toBe(false);
+    expect(estContexteMain({ GITHUB_REF: 'refs/heads/main' }, null), 'push to main').toBe(true);
+    expect(estContexteMain({ GITHUB_REF: 'refs/heads/001-checks' }, 'main'), 'push to a feature branch in CI').toBe(false);
+    expect(estContexteMain({}, 'main'), 'local, on main').toBe(true);
+    expect(estContexteMain({}, '001-automated-checks'), 'local, on a feature branch').toBe(false);
+    expect(estContexteMain({}, null), 'local, branch unknown').toBe(false);
   });
 });
