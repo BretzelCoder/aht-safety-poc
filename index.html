@@ -745,6 +745,10 @@ const MSG = {
   'l2.integrity': ['Consigne n° {seq} rejetée : somme de contrôle invalide', 'Setpoint #{seq} rejected: invalid checksum', 'Sollwert Nr. {seq} abgelehnt: ungültige Prüfsumme'],
   'l2.stale': ['Consigne n° {seq} rejetée : trop ancienne ({ms} ms)', 'Setpoint #{seq} rejected: too old ({ms} ms)', 'Sollwert Nr. {seq} abgelehnt: zu alt ({ms} ms)'],
   'l2.sequence': ['Consigne n° {seq} rejetée : séquence non croissante (dernière acceptée : {last})', 'Setpoint #{seq} rejected: sequence not increasing (last accepted: {last})', 'Sollwert Nr. {seq} abgelehnt: Sequenz nicht aufsteigend (zuletzt akzeptiert: {last})'],
+  'sup.l1Lost': ['Niveau 1 silencieux depuis {ms} ms (échéance {dl} ms) : arrêt contrôlé décidé par le niveau 2', 'Level 1 silent for {ms} ms (deadline {dl} ms): controlled stop decided by level 2', 'Ebene 1 seit {ms} ms stumm (Frist {dl} ms): kontrollierter Halt durch Ebene 2'],
+  'sup.l1Back': ['Niveau 1 de retour : battement stable depuis {s} s sur {need} s avant la reprise', 'Level 1 is back: heartbeat stable for {s} s of {need} s before resuming', 'Ebene 1 zurück: Herzschlag seit {s} s stabil von {need} s vor der Wiederaufnahme'],
+  'l1.freeze': ['Niveau 1 figé : plus aucune consigne émise', 'Level 1 frozen: no more setpoints sent', 'Ebene 1 eingefroren: keine Sollwerte mehr gesendet'],
+  'l1.restart': ['Niveau 1 redémarré : nouvelle session {n}', 'Level 1 restarted: new session {n}', 'Ebene 1 neu gestartet: neue Sitzung {n}'],
   'l2.overspeed': ['Consigne n° {seq} rejetée : {v} km/h demandés, limite ici {lim} km/h', 'Setpoint #{seq} rejected: {v} km/h demanded, limit here {lim} km/h', 'Sollwert Nr. {seq} abgelehnt: {v} km/h gefordert, Limit hier {lim} km/h'],
   'l2.beyond': ["Consigne n° {seq} rejetée : dépasserait de {d} m la fin de l'autorisation de mouvement", 'Setpoint #{seq} rejected: would go {d} m beyond the end of the movement authority', 'Sollwert Nr. {seq} abgelehnt: würde das Ende der Bewegungsfreigabe um {d} m überschreiten']
 };
@@ -1156,6 +1160,18 @@ function l1EmitSetpoint(T) {
   if (d && !A.repeat) A.defect = null;                       // un défaut ne dure qu'une consigne, sauf en mode continu
   l1Send(T, 'sp', sp);
 }
+/* Panne et redémarrage du niveau 1 (commandes du visiteur, scénario F). Figer garde en mémoire l'instant et la position,
+   pour mesurer le délai de détection et la distance jusqu'à l'arrêt. */
+function l1Freeze(T) {
+  if (T.l1.frozen) return;
+  T.l1.frozen = true; T.l1.ev = { tFreeze: sim.t, sFreeze: T.s, tDetect: null, sStill: null };
+  logEv(T.id, 0, 'INJECT', M('l1.freeze'), 'info');
+}
+function l1Restart(T) {
+  if (!T.l1.frozen) return;
+  T.l1.frozen = false; T.l1.session++; T.l1.seq = 0;          // nouvelle session : le compteur repart de zéro sans passer pour un rejeu
+  logEv(T.id, 0, 'INJECT', M('l1.restart', { n: T.l1.session }), 'info');
+}
 /* Niveau 2 : ses propres mesures (position, autorisation reçue du FMS), gardées une seconde, pour juger une consigne
    au moment où elle a été émise et non au moment où elle arrive (spec 002, S6). */
 function l2Measure(T) {
@@ -1223,6 +1239,17 @@ function supervise(T) {
   const ob = T.l2.obs;   // ce que le niveau 1 a rapporté (spec 002), pas la valeur interne du planificateur
   if (ob.dObs < m.dStop) add(2, 'SIL_BUBBLE_INTRUSION', M(ob.obsPred ? 'sup.intrusionPred' : 'sup.intrusion', { id: ob.obsId, d: N(ob.dObs), s: N(m.dStop) }), 'MAX');
   else if (ob.dObs < m.dCaution) add(1, 'CAUTION_ZONE', M(ob.obsPred ? 'sup.cautionPred' : 'sup.caution', { id: ob.obsId, d: N(ob.dObs), c: N(m.dCaution) }));
+  // Battement du niveau 1 (spec 002) : le niveau 2 décide seul. La perte dure jusqu'à ce que des consignes bien formées arrivent
+  // sans interruption pendant P.l1Stable ; la reprise passe ensuite par l'hystérésis habituelle de l'état. Jamais verrouillée.
+  const L2 = T.l2, hbAge = now - L2.lastValid;
+  if (hbAge > P.l1Deadline) { L2.hbLost = true; L2.stableSince = 0; }
+  else if (L2.hbLost) { if (!L2.stableSince) L2.stableSince = now; if (now - L2.stableSince >= P.l1Stable) L2.hbLost = false; }
+  if (L2.hbLost) {
+    const dl = N(P.l1Deadline * 1000);
+    add(2, 'L1_HEARTBEAT_LOST', hbAge > P.l1Deadline ? M('sup.l1Lost', { ms: N(hbAge * 1000), dl }) : M('sup.l1Back', { s: N(now - L2.stableSince, 1), need: N(P.l1Stable, 1) }), 'MAX');
+    if (T.l1.ev.tFreeze !== null && T.l1.ev.tDetect === null) T.l1.ev.tDetect = now;
+  }
+  if (T.l1.ev.tDetect !== null && T.l1.ev.sStill === null && T.v < 0.3) T.l1.ev.sStill = T.s;   // arrêt au sens du modèle : moins de 0,3 m/s
   if (T.faults.estop) add(3, 'REMOTE_ESTOP', M('sup.estop'));
   if (T.collided) add(3, 'COLLISION', M('sup.contact'));
   if (m.runaway) add(2, 'BRAKE_MARGIN_LOW', M('sup.runaway'), 'MAX');
@@ -1284,7 +1311,7 @@ const TRUCK_COLORS = ['#f0c24b', '#7fd0e0', '#f29a6b'];
 
 /* Niveau 1 (calculateur d'autonomie) et niveau 2 (contrôleur de sûreté), état par tombereau (spec 002). */
 function newL1() { return { frozen: false, session: 0, seq: 0, defect: null, repeat: false, captured: [], ev: { tFreeze: null, sFreeze: null, tDetect: null, sStill: null } }; }
-function newL2() { return { link: [], lastAt: 0, vAccepted: 0, obs: { dObs: Infinity, obsId: null, obsPred: false }, lastValid: 0, stableSince: 0, session: 0, seq: -1, rejRun: 0, hist: [], ex: [], rej: [] }; }
+function newL2() { return { link: [], lastAt: 0, vAccepted: 0, obs: { dObs: Infinity, obsId: null, obsPred: false }, lastValid: sim ? sim.t : 0, hbLost: false, stableSince: 0, session: 0, seq: -1, rejRun: 0, hist: [], ex: [], rej: [] }; }
 function makeTruck(id, s, color) {
   const loaded = isLoadedSection(s);
   return {
@@ -1783,6 +1810,7 @@ requestAnimationFrame(frame);
 window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelope, stopDistance, resetSim, setSel: i => { selected = i; }, setLang,
   // Réservé aux vérifications automatiques (spec 002) : envoie une consigne du niveau 1 du tombereau i, les champs de `patch`
   // remplaçant ceux d'une consigne normale ; la somme de contrôle est recalculée sauf si `patch.sum` est fourni.
+  l1Freeze: i => l1Freeze(sim.trucks[i]), l1Restart: i => l1Restart(sim.trucks[i]),
   l1Inject: (i, patch) => {
     const T = sim.trucks[i], A = T.l1;
     const sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v, ...patch };

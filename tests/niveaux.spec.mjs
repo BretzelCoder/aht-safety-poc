@@ -194,3 +194,108 @@ test.describe('T-08 nominal operation, PREEMPT_RT (AC-2)', () => {
     });
   }
 });
+
+// T-09 : perte du battement de cœur et redémarrage (S3, S4 ; AC-3 sur une graine, AC-4, AC-5).
+test.describe('T-09 heartbeat loss and restart (S3, S4)', () => {
+  test('a frozen level 1 is detected by level 2 alone, which stops the truck at maximum braking; the model measures the delay and the distance', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0];
+      for (let i = 0; i < 500; i++) S.step();                      // 10 s de conduite normale
+      const v0 = T.v;
+      S.l1Freeze(0);
+      const gel = { ...T.l1.ev };
+      let arret = null, etats = new Set(), kinds = new Set(), seq0 = T.l2.seq, detecte = false;
+      for (let i = 0; i < 2000 && arret === null; i++) {
+        S.step();
+        etats.add(T.state); kinds.add(T.stopKind + '/' + T.mc.appliedKind);
+        if (T.l1.ev.tDetect !== null) detecte = true;
+        if (detecte && T.v < 0.3) arret = { t: S.sim.t, s: T.s };
+      }
+      S.step();                                                    // le modèle note l'arrêt au début du pas suivant
+      const code = S.sim.log.find(l => l.id === T.id && l.code === 'L1_HEARTBEAT_LOST');
+      return { v0, gel, ev: { ...T.l1.ev }, arret, etats: [...etats], kinds: [...kinds], code: code ? { lvl: code.lvl } : null,
+               seq: T.l2.seq - seq0, collisions: S.sim.collisions, final: T.state, latched: T.latched, urgence: S.sim.log.some(l => l.id === T.id && l.code === 'STATE' && /EMERGENCY/.test(JSON.stringify(l.msg))) };
+    });
+    expect(r.v0, 'the truck was moving').toBeGreaterThan(3);
+    const delai = r.ev.tDetect - r.gel.tFreeze;
+    expect(delai, 'detection delay = the 0.30 s deadline plus at most one supervisor step').toBeGreaterThan(0.30);
+    expect(delai).toBeLessThanOrEqual(0.34);
+    expect(r.code, 'level 2 reports the loss at severity 2').toEqual({ lvl: 2 });
+    expect(r.etats, 'controlled stop, never the emergency brake').toContain('CONTROLLED_STOP');
+    expect(r.etats).not.toContain('EMERGENCY_BRAKE');
+    expect(r.kinds.some(k => k.endsWith('/MAX')), 'maximum braking applied by the motion controller').toBe(true);
+    expect(r.arret, 'the truck comes to a stop').not.toBeNull();
+    expect(r.ev.sStill, 'the model recorded the standstill').not.toBeNull();
+    expect(Math.abs((r.ev.sStill - r.ev.sFreeze) - (r.arret.s - r.gel.sFreeze)), 'distance freeze → standstill: model against step-by-step measure (m)').toBeLessThanOrEqual(0.3);
+    expect(r.ev.sStill - r.ev.sFreeze, 'the truck travelled before it stopped (m)').toBeGreaterThan(5);
+    expect(r.seq, 'no setpoint arrived from the frozen level 1').toBe(0);
+    expect(r.latched, 'not an emergency latch').toBe(false);
+    expect(r.collisions).toBe(0);
+  });
+
+  test('restart: the stop is released about 2 s later (1 s stable heartbeat plus the usual 1 s hold), the truck moves again; a new freeze inside that time keeps it stopped', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0], pas = n => { for (let i = 0; i < n; i++) S.step(); };
+      pas(500); S.l1Freeze(0); pas(300);                           // figé 6 s : arrêté
+      const arrete = T.v < 0.3, etatArret = T.state;
+      // 1) redémarrage puis nouveau gel 0,5 s plus tard : l'arrêt doit rester tenu
+      S.l1Restart(0); pas(25); S.l1Freeze(0);
+      let relache = false; for (let i = 0; i < 300; i++) { S.step(); if (LEVELS[T.state] < 2) relache = true; }
+      const reste = T.state;
+      // 2) vrai redémarrage
+      S.l1Restart(0); const t0 = S.sim.t; let tLibre = null, vMax = 0;
+      for (let i = 0; i < 1000; i++) { S.step(); vMax = Math.max(vMax, T.v); if (tLibre === null && (T.state === 'NOMINAL' || T.state === 'DEGRADED_SPEED')) tLibre = S.sim.t - t0; }
+      return { arrete, etatArret, relache, reste, tLibre, vMax, session: T.l1.session, seq: T.l2.seq, latched: T.latched };
+      function LEVELS(s) { return ['NOMINAL', 'DEGRADED_SPEED', 'CONTROLLED_STOP', 'EMERGENCY_BRAKE'].indexOf(s); }
+    });
+    expect(r.arrete).toBe(true);
+    expect(r.etatArret).toBe('CONTROLLED_STOP');
+    expect(r.relache, 'a freeze 0.5 s after the restart: the stop is never released').toBe(false);
+    expect(r.reste).toBe('CONTROLLED_STOP');
+    expect(r.tLibre, 'release delay after the real restart (s)').toBeGreaterThan(1.9);
+    expect(r.tLibre).toBeLessThan(2.5);
+    expect(r.vMax, 'the truck moves again').toBeGreaterThan(2);
+    expect(r.session, 'two restarts, two new sessions').toBe(2);
+    expect(r.latched).toBe(false);
+  });
+
+  test('level 1 freezing on a truck that is already stopped (loading) is still detected', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0];
+      T.task = 'LOADING'; T.taskT = 60;
+      let n = 0; while (T.v > 0.2 && n++ < 3000) S.step();
+      S.l1Freeze(0);
+      for (let i = 0; i < 40; i++) S.step();                       // 0,8 s
+      return { v: T.v, state: T.state, task: T.task, detecte: T.reasons.some(x => x.code === 'L1_HEARTBEAT_LOST'), ev: { ...T.l1.ev } };
+    });
+    expect(r.task).toBe('LOADING');
+    expect(r.detecte, 'the loss is reported although the truck was already stopped').toBe(true);
+    expect(r.state).toBe('CONTROLLED_STOP');
+    expect(r.ev.sStill - r.ev.sFreeze, 'no distance travelled').toBeLessThanOrEqual(0.3);
+  });
+
+  test('a latched emergency is neither lowered by the freeze nor released by the restart', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0], pas = n => { for (let i = 0; i < n; i++) S.step(); };
+      pas(250); T.faults.estop = true; pas(100);
+      const urgence = T.state, verrou = T.latched;
+      T.faults.estop = false;                                      // la cause d'urgence disparaît ; le verrou reste
+      S.l1Freeze(0); pas(100); const gele = T.state;
+      S.l1Restart(0); pas(300);                                    // 6 s : bien plus que la reprise du battement
+      return { urgence, verrou, gele, apres: T.state, latched: T.latched };
+    });
+    expect(r.urgence).toBe('EMERGENCY_BRAKE');
+    expect(r.verrou).toBe(true);
+    expect(r.gele, 'the heartbeat cause never lowers a more severe state').toBe('EMERGENCY_BRAKE');
+    expect(r.apres, 'recovery of level 1 does not release a latched emergency').toBe('EMERGENCY_BRAKE');
+    expect(r.latched).toBe(true);
+  });
+});
