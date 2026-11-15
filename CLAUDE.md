@@ -20,7 +20,7 @@ Commands come from the sdd-kit plugin: /specify is /sdd-kit:specify, and so on.
 4. During `/implement`: chain the unchecked tasks of tasks.md (lint + typecheck + scoped tests green after each task, full suite once at the end, box ticked, then commit) without stopping between tasks. Stop only: (a) at the end of tasks.md, (b) on a gap with the spec (rule 5), (c) if the user explicitly asks for task-by-task control.
 5. Any gap discovered during implementation = back to the spec (amend it), no improvisation in the code.
 6. **The spec header always tells its real status** (DRAFT → IN REVIEW → APPROVED → DELIVERED → CLOSED, or ON HOLD / ABANDONED).
-7. Atomic commits per task: `feat(NNN): T-XX description` (or fix/chore/test).
+7. Atomic commits per task: `feat(NNN): T-XX description` (or fix/chore/test/docs/ci).
 8. **Pull request and merge into main: always on the user's explicit request**, confirmed at the time of the action. Never on Claude's initiative, even when every task is done.
 9. **Continuous improvement**: at the end of every session that covers a spec, write a self-critique and a "rapport d'étonnement" in `docs/continuous-improvement.md`, each finding with an action (owner + trigger). At the start of a session, re-read the open actions.
 

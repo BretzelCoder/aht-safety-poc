@@ -27,10 +27,13 @@ Statuses: `OPEN`, `IN PROGRESS`, `CLOSED` (effect observed), `ABANDONED` (reason
 
 | # | Origin | Action | Owner | Trigger / deadline | Status |
 |---|---|---|---|---|---|
-| A-1 | RE-1, spec 001 | Decide whether the hosts that always answer 403 to automated requests (`iso.org`, `image-ppubs.uspto.gov`) stay as permanent warnings or go into a commented allow-list in `scripts/check-links.mjs`, so that a real dead link stands out among them. | Owner | At the next spec that touches the link check, or the first time a real dead link is missed among the 4 standing warnings. | OPEN |
+| A-1 | RE-1, spec 001 | Decide whether the hosts that answer 403 to automated requests (`iso.org` always, `image-ppubs.uspto.gov` from GitHub's servers only, 200 from the owner's machine) stay as permanent warnings or go into a commented allow-list in `scripts/check-links.mjs`, so that a real dead link stands out among them. | Owner | At the next spec that touches the link check, or the first time a real dead link is missed among the standing warnings (2 locally, 4 on GitHub). | OPEN |
 | A-2 | T-20, spec 001 | See the `Checks` result appear on the first pull request of spec 001: the `pull_request` trigger is declared but has never been exercised (no pull request exists yet). | Owner | When the owner asks for the pull request of spec 001. | OPEN |
 | A-3 | T-17, spec 001 | Repeat `npm test` with the network really off: the offline run was emulated with a dead proxy, not a physical cut. | Owner | Before the pull request of spec 001 is merged. | OPEN |
 | A-4 | SC-2, spec 001 | Proposal to add to the Conventions of CLAUDE.md: before stopping on a suspected gap between a scenario and its spec, re-measure at the model's own step (0.02 s), with its own thresholds (stopped = under 0.3 m/s), and over enough seeds and time (scenario D: 40 seeds, 60 s). | Owner decides, Claude drafts the wording | Before the next `/implement`. | OPEN |
+| A-5 | RE-2, spec 001 | Decide whether the guide and the README should state the measured odds of scenario D (stop order lost in 88 % of 40 seeds, collision in 42 %) instead of "a collision can occur". | Owner | At the next spec that touches scenario D or the guide wording. | OPEN |
+| A-6 | RE-3, spec 001 | Decide whether the supervisor should keep logging the missed brake deadline once the brake watchdog has tripped (today the deadline branch is an `else if` of the watchdog branch, so only `DM1_BRAKE_CMD_TIMEOUT` shows from 84 % CAN load). Changing it moves the pinned boundaries of scenario E, so it needs its own spec. | Owner | At the next spec that touches the supervisor or the CAN model. | OPEN |
+| A-7 | SC-4, spec 001 | Proposal to add to the Delivery checklist of CLAUDE.md: at the last task of a spec, list every check next to its proof of failure (negative test or recorded breakage) before declaring it done. | Owner decides, Claude drafts the wording | Before the next `/implement`. | OPEN |
 
 ## 5. Session journal
 Most recent first. Template:
@@ -47,6 +50,23 @@ Most recent first. Template:
 **Follow-up of previous actions**: A-x: status and evidence.
 ```
 
+### 2026-11-15 — Spec 001 (review of the delivery, T-22 and T-23)
+
+**Self-critique**
+- **SC-4 — Five checks were delivered without proof that they could fail.** `/review` found them: scenario B had no recorded breakage, scenario D outcome 2 neither, and it set the publishing mode on the model instead of using the page's selector; the authority and network-cut invariants had no negative test, and the network-cut test compared with the authority at the end of the run, so an authority that kept growing would have passed; `codeName()` fell back silently on the raw code, so deleting the only `code.*` translation broke nothing; the disclaimer check ignored "educational model". Impact: the delivery said "every check proves it can fail" (T-20) and it was not true for these five. Root cause: the evidence table was filled per task from what each task's "Done when" named, and T-20 verified that every row was filled, not that every check had a row. → fixed in session (T-22, 130 tests, breakages in the Evidence table) and → A-7.
+- **SC-5 — My first fix of the network-cut assertion was wrong.** I took the authority from trace samples at t ≤ 5.05 s; the cut falls at 5.02 s (the runner starts after a first step), so the sample was one FMS tick too old and the test failed on the real model. Found by running it, not by reading it. Root cause: I assumed the event time was the nominal one. → fixed in session (the authority is read inside the page at the instant of the cut).
+
+**Rapport d'étonnement**
+- **RE-4 — The selector's reset of `rxTime` was invisible in scenario D.** At launch the controller had just received a message (`rxTime` equal to `sim.t`), so removing the reset changed nothing there. It only matters after a long quiet spell in BEST_EFFORT, which the scenario never produces. A new test builds that situation on purpose. For information.
+- **RE-5 — The slider cannot reach the 100 % loss the tests force.** `rLoss` goes to 60 %; outcome 1 of scenario D forces 100 % on the model to make the outcome certain. Honest, but the visitor cannot reproduce that exact case. For information.
+
+**Decisions of the owner during this review**
+- Commit type `ci` accepted (rule 7 of CLAUDE.md and `tasks.md` updated).
+- The two Conventions added to CLAUDE.md at T-19 ("The test is the judge", "Every new check proves it can fail") are confirmed.
+- Gaps 6, 7 and 10 amended (plan, retrospective actions A-5 and A-6, wording of A-1).
+
+**Follow-up of previous actions**: A-1 to A-4 still OPEN, none of their triggers has been reached.
+
 ### 2026-11-15 — Spec 001 (specify, plan, tasks, implement T-00 to T-21)
 
 **Self-critique**
@@ -56,7 +76,7 @@ Most recent first. Template:
 
 **Rapport d'étonnement**
 - **RE-1 — Four of the ten checked links warn in CI, always.** `iso.org` answers 403 to every automated request, and `image-ppubs.uspto.gov` answers 200 from the owner's machine but 403 from GitHub's servers: the same URL answers differently depending on who asks, so a link check cannot confirm these sources. Proposal: keep the warnings, or keep a commented allow-list so a new real dead link is not drowned. → A-1.
-- **RE-2 — The scenario D promise holds, and it is odds, not a possibility.** Over 40 seeds (60 s after launch) the stop order is lost in 35 runs (88 %) and a collision happens in 17 (42 %); in 5 runs nothing is lost. The README's "a collision can occur" is closer to "about two runs in five". The suite forces both outcomes to stay reproducible and does not assert these odds. For information: it could feed the wording of the guide.
-- **RE-3 — Once the brake watchdog trips, the supervisor stops logging the deadline.** The deadline branch is an `else if` of the watchdog branch, so from 84 % load the log shows `DM1_BRAKE_CMD_TIMEOUT` only, although the deadline is of course missed too. Found by a wrong expectation in a test (T-13), by design, not in the guide. For information.
+- **RE-2 — The scenario D promise holds, and it is odds, not a possibility.** Over 40 seeds (60 s after launch) the stop order is lost in 35 runs (88 %) and a collision happens in 17 (42 %); in 5 runs nothing is lost. The README's "a collision can occur" is closer to "about two runs in five". The suite forces both outcomes to stay reproducible and does not assert these odds. → A-5.
+- **RE-3 — Once the brake watchdog trips, the supervisor stops logging the deadline.** The deadline branch is an `else if` of the watchdog branch, so from 84 % load the log shows `DM1_BRAKE_CMD_TIMEOUT` only, although the deadline is of course missed too. Found by a wrong expectation in a test (T-13), by design, not in the guide. → A-6.
 
 **Follow-up of previous actions**: none, the register was empty.
