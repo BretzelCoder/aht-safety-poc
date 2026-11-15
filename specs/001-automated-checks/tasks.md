@@ -28,7 +28,7 @@ Rules: each task takes under 1 hour, is testable on its own, and states its defi
 - [x] T-18 — GitHub workflow `.github/workflows/checks.yml` (S2): on `push` and `pull_request`, Ubuntu, Node 24, `npm ci`, Chromium only with its cache, `npm test`. Depends on: T-16. Done when: after a push of the branch (confirmed by the owner beforehand, see note), the "Checks" result appears on the commit, green; a deliberately broken commit turns it red then is reverted; run duration under 5 minutes, noted (AC-3, AC-17).
 - [x] T-19 — Documentation (AC-16). README "Checks" section (install, run, what is checked, links are warnings only); `CLAUDE.md` "Project commands" filled (`npm test`, `npm run test:browser`, `npm run test:links`) and "Delivery checklist" pointing to `npm test`; the "to be defined" placeholders removed. Depends on: T-18. Done when: the static checks still pass and a reading of both files against AC-16 finds nothing missing.
 - [x] T-20 — Full test suite and delivery checklist of CLAUDE.md green (AC-2): `npm test` green locally and on GitHub, the link-check report read, every evidence line below filled in. Depends on: T-19.
-- [ ] T-21 — Retrospective (CLAUDE.md rule 9): self-critique and "rapport d'étonnement" in `docs/continuous-improvement.md`, each finding with an action (owner + trigger). Depends on: T-20.
+- [x] T-21 — Retrospective (CLAUDE.md rule 9): self-critique and "rapport d'étonnement" in `docs/continuous-improvement.md`, each finding with an action (owner + trigger). Depends on: T-20.
 
 ## Notes
 - **Push for T-18.** The branch has to be pushed so the workflow can run. Claude asks before the first push; the pull request and the merge into `main` stay on the owner's explicit request (CLAUDE.md rule 8).
