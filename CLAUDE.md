@@ -40,6 +40,7 @@ Rules recorded before the kit was adopted are dated; from now on, each new rule 
 - **Documentation follows the code**: a change to scenarios, controls or panels updates the README tables and the in-app guide (all three languages); a visible UI change updates `docs/capture.png` (English UI, 1600×900).
 - **The test is the judge, and is never bent to fit** (2026-11-15, decided spec 001): when a scenario test fails because the model no longer shows the outcome the README and the guide promise, stop and amend the spec; never loosen the test until it passes. Values pinned from the model (stopping distances 20.2 m and 42.2 m at 40 km/h, watered-road effect, CAN deadline from 67 % load and watchdog from 84 %, in `tests/helpers/physique.mjs` and `tests/scenarios.spec.mjs`) change in the same spec as the model change that moves them.
 - **Every new check proves it can fail** (2026-11-15, decided spec 001): a check is delivered with a negative test, or a recorded deliberate breakage, showing it fails on a broken copy. The browser tests must fail fast on a broken page (`openPage` gives up after 8 s, the run stops after 10 failures): an earlier version hung until the CI time limit.
+- **Re-measure before declaring a gap** (2026-11-15, decided spec 001): before stopping on a suspected gap between a scenario and its spec, re-measure at the model's own step (0.02 s), with the model's own thresholds (stopped = under 0.3 m/s) and over enough seeds and time (scenario D: 40 seeds, 60 s). Only a gap that survives is taken back to the spec (rule 5).
 
 ## Project commands
 Install once (Node.js 22 or later; nothing is installed for the page itself):
@@ -65,5 +66,6 @@ Lint, typecheck, build: none. There is no build step (ADR-1), and the syntax che
 - `npm test` green locally, and the `Checks` run of the branch green on GitHub. The link check may only warn.
 - No string missing a translation: every new `MSG` triplet has three entries, every new `data-i18n*` key exists in `STATIC.en` and `STATIC.de` (`npm test` enforces it).
 - Every new rule has its check, with the proof that the check can fail (see Conventions).
+- Every check delivered is listed next to its proof of failure (negative test or recorded deliberate breakage) in the evidence table of the spec; a check with no row is not delivered.
 - README, in-app guide and screenshot consistent with the change.
 - After merge: check the live page on GitHub Pages (new content present, analytics snippet still there).
