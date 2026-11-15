@@ -57,7 +57,7 @@ Terms: **level 1** = the autonomy computer (perception, planning, execution of t
 
 ### Across the parts
 - **S19 — Honest framing.** Every new text states or keeps visible that the architecture is illustrative, is not a description of any manufacturer's real system, and that the simulator is not a safety tool. The guide's "Limitations and sources" tab and the README "Limitations" section list every simplification this spec adds (see section 9).
-- **S21 — Guide tabs of one size.** As a visitor, when I move between the tabs of the guide, then the window keeps the same width and the same height, whatever the length of the tab; a longer tab scrolls inside the window and the header with the tabs stays in place. *(Added 2026-11-15, owner request.)*
+- **S21 — Guide tabs of one size.** As a visitor, when I move between the tabs of the guide, then the window keeps the same width and the same height, whatever the length of the tab; a longer tab scrolls inside the window and the header with the tabs stays in place. The text of every tab fills the width of the window. *(Added 2026-11-15, owner request.)*
 - **S20 — Same rules as the rest of the page.** Every new text exists in French, English and German; new log entries and verdict reasons are stored as keyed messages and translated at display time; new codes are never translated.
 
 ## 4. Edge cases and errors

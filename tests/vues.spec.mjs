@@ -556,7 +556,9 @@ test.describe('Guide window size (S21, AC-23)', () => {
           mesures.push(await page.evaluate(o => {
             const r = e => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; };
             const corps = document.querySelector('.gbody');
-            return { onglet: o, fenetre: r(document.getElementById('guide')), entete: r(document.querySelector('.ghead')), corps: r(corps), defile: corps.scrollHeight > corps.clientHeight + 1, deborde: document.getElementById('guide').scrollHeight > document.getElementById('guide').clientHeight + 1 };
+            const largeurUtile = corps.clientWidth - parseFloat(getComputedStyle(corps).paddingLeft) - parseFloat(getComputedStyle(corps).paddingRight);
+            const textes = [...document.querySelectorAll('.gbody section.on > p:not(.help), .gbody section.on li')].map(e => e.getBoundingClientRect().width);
+            return { onglet: o, largeurUtile, plusLarge: Math.max(...textes), fenetre: r(document.getElementById('guide')), entete: r(document.querySelector('.ghead')), corps: r(corps), defile: corps.scrollHeight > corps.clientHeight + 1, deborde: document.getElementById('guide').scrollHeight > document.getElementById('guide').clientHeight + 1 };
           }, onglet));
         }
         const ref = mesures[0];
@@ -565,6 +567,7 @@ test.describe('Guide window size (S21, AC-23)', () => {
           expect(m.entete, `tab ${m.onglet}: header with the tabs`).toEqual(ref.entete);
           expect(m.corps, `tab ${m.onglet}: body`).toEqual(ref.corps);
           expect(m.deborde, `tab ${m.onglet}: nothing sticks out of the window`).toBe(false);
+          expect(m.plusLarge, `tab ${m.onglet}: the text uses the whole width of the window (${Math.round(m.plusLarge)} px of ${Math.round(m.largeurUtile)} px)`).toBeGreaterThanOrEqual(m.largeurUtile - 24);   // 24 px : le retrait des listes
         }
         expect(ref.fenetre[3], 'the window fits the screen').toBeLessThanOrEqual(hauteur);
         expect(ref.fenetre[2], 'the window fits the screen width').toBeLessThanOrEqual(largeur);
