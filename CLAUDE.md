@@ -63,7 +63,7 @@ Lint, typecheck, build: none. There is no build step (ADR-1), and the syntax che
 - Never force-push `main`: it is what GitHub Pages publishes.
 
 ## Delivery checklist (end of spec / before merge)
-- `npm test` green locally, and the `Checks` run of the branch green on GitHub. The link check may only warn.
+- `npm test` green locally, and the `Checks` run of the branch green on GitHub for Node 22 and Node 24. The link check may only warn.
 - No string missing a translation: every new `MSG` triplet has three entries, every new `data-i18n*` key exists in `STATIC.en` and `STATIC.de` (`npm test` enforces it).
 - Every new rule has its check, with the proof that the check can fail (see Conventions).
 - Every check delivered is listed next to its proof of failure (negative test or recorded deliberate breakage) in the evidence table of the spec; a check with no row is not delivered.

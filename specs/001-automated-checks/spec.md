@@ -2,6 +2,7 @@
 
 > Status: DELIVERED
 > Created: 2026-11-15 · Approved: 2026-11-15 · Delivered: 2026-11-15 (pull request #2, merge commit `3103175`)
+> Amended again 2026-11-15, validated by the owner: S2 and AC-3 now cover both Node versions the project announces (22 and 24).
 > Amended 2026-11-15, validated by the owner (action A-1 of the continuous-improvement register): S11 and AC-13 now name the hosts that refuse robots.
 
 ## 1. Problem / Why
@@ -16,7 +17,7 @@ The constitution makes "the test is the judge" non-negotiable, and `CLAUDE.md` s
 
 ## 3. Expected behaviour (WHAT, not HOW)
 - **S1** — As a contributor, when I run the documented check command locally, then every check below runs and I get a pass/fail result for each, with a clear message naming what failed (file, key, language or scenario).
-- **S2** — As the owner, when a commit is pushed or a pull request is opened or updated on GitHub, then the same checks run automatically and their result is visible on the commit and on the pull request. Merging stays my decision: a failed check informs, it does not lock the merge.
+- **S2** — As the owner, when a commit is pushed or a pull request is opened or updated on GitHub, then the same checks run automatically and their result is visible on the commit and on the pull request. Merging stays my decision: a failed check informs, it does not lock the merge. *Amendment of 2026-11-15*: the checks run on both Node versions the project announces, the minimum (22) and the current one (24), and a failure on either is shown separately on the commit and on the pull request.
 - **S3 — Script syntax.** When the page's script contains a syntax error, then the checks fail and point to it.
 - **S4 — Complete translations.** When a user-visible text exists in one language and not in another (a static key missing from English or German, a dynamic message without its three versions, a key used by the page but defined nowhere), then the checks fail and name the key and the missing language.
 - **S5 — Rendering in three languages.** When the page is opened in French, English and German, then it loads without any error in the browser console, the interface is in the requested language, and the event log fills with messages in that language.
@@ -57,23 +58,23 @@ The constitution makes "the test is the judge" non-negotiable, and `CLAUDE.md` s
 - Any change to the simulator's behaviour, interface or texts: this spec adds checks, it changes nothing the visitor sees.
 
 ## 6. Acceptance criteria (testable)
-- [ ] AC-1 — One documented command, run from the repository root, executes all the checks of S3 to S11 and ends with an overall pass or fail.
-- [ ] AC-2 — On the current `main` content (once this spec's own work is in), every check passes and the link check reports its result.
-- [ ] AC-3 — A push to any branch and every pull request trigger the checks on GitHub; the result appears on the commit and on the pull request.
-- [ ] AC-4 — Introducing a syntax error in the page script makes the checks fail with a message pointing to it.
-- [ ] AC-5 — Removing one key from the German static translations, removing the English version of one dynamic message, and using an undefined key each make the checks fail, naming the key and the language.
-- [ ] AC-6 — The page opens in French, English and German without any console error, and in each language at least one log message and the interface title appear in that language.
-- [ ] AC-7 — Each scenario A to E is checked against the outcome listed in S6; breaking one outcome on purpose (for example removing the token revocation) makes the corresponding check fail and name the scenario.
-- [ ] AC-8 — Each invariant of S7 is checked; breaking one on purpose makes its check fail.
-- [ ] AC-9 — Ten consecutive runs on unchanged content give identical results.
-- [ ] AC-10 — A spec with the status DRAFT or IN REVIEW (outside the template) makes the status check fail.
-- [ ] AC-11 — Removing the disclaimer from the README or from the header comment of `index.html` makes the checks fail.
-- [ ] AC-12 — Removing the host restriction of the analytics code, or adding an event without the `aht-safety-poc/` prefix, makes the checks fail.
-- [ ] AC-13 — A dead link produces a warning naming it, and the overall result stays a pass if nothing else failed. A 403 from a listed host is reported as unverifiable, not as a warning; a 403 from an unlisted host, and any 404, timeout or network error, stay warnings.
-- [ ] AC-14 — With the network cut, every check except the link check passes.
-- [ ] AC-15 — The published site is unchanged in what it loads: no file used only by the checks is fetched by the page, and the page still opens from a downloaded copy with nothing installed.
-- [ ] AC-16 — `CLAUDE.md` ("Project commands" and "Delivery checklist") and the README explain how to install what the checks need and how to run them; the "to be defined" placeholders are gone.
-- [ ] AC-17 — A full run completes in under 5 minutes on GitHub.
+- [x] AC-1 — One documented command, run from the repository root, executes all the checks of S3 to S11 and ends with an overall pass or fail. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
+- [x] AC-2 — On the current `main` content (once this spec's own work is in), every check passes and the link check reports its result. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
+- [x] AC-3 — A push to any branch and every pull request trigger the checks on GitHub; the result appears on the commit and on the pull request, for Node 22 and for Node 24 separately. *(evidence: tasks.md, "AC-3, AC-17 (CI, duration)" and "Node 22 and 24 (T-25)")*
+- [x] AC-4 — Introducing a syntax error in the page script makes the checks fail with a message pointing to it. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-5 — Removing one key from the German static translations, removing the English version of one dynamic message, and using an undefined key each make the checks fail, naming the key and the language. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-6 — The page opens in French, English and German without any console error, and in each language at least one log message and the interface title appear in that language. *(evidence: tasks.md, "AC-6, 12, 15 (render)")*
+- [x] AC-7 — Each scenario A to E is checked against the outcome listed in S6; breaking one outcome on purpose (for example removing the token revocation) makes the corresponding check fail and name the scenario. *(evidence: tasks.md, "AC-7 (scenarios)")*
+- [x] AC-8 — Each invariant of S7 is checked; breaking one on purpose makes its check fail. *(evidence: tasks.md, "AC-8 (invariants)")*
+- [x] AC-9 — Ten consecutive runs on unchanged content give identical results. *(evidence: tasks.md, "AC-9 (ten runs)")*
+- [x] AC-10 — A spec with the status DRAFT or IN REVIEW (outside the template) makes the status check fail. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-11 — Removing the disclaimer from the README or from the header comment of `index.html` makes the checks fail. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-12 — Removing the host restriction of the analytics code, or adding an event without the `aht-safety-poc/` prefix, makes the checks fail. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
+- [x] AC-13 — A dead link produces a warning naming it, and the overall result stays a pass if nothing else failed. A 403 from a listed host is reported as unverifiable, not as a warning; a 403 from an unlisted host, and any 404, timeout or network error, stay warnings. *(evidence: tasks.md, "AC-13 (dead link)" and "AC-13 amendment (T-24)")*
+- [x] AC-14 — With the network cut, every check except the link check passes. *(evidence: tasks.md, "AC-14 (offline)")*
+- [x] AC-15 — The published site is unchanged in what it loads: no file used only by the checks is fetched by the page, and the page still opens from a downloaded copy with nothing installed. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
+- [x] AC-16 — `CLAUDE.md` ("Project commands" and "Delivery checklist") and the README explain how to install what the checks need and how to run them; the "to be defined" placeholders are gone. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
+- [x] AC-17 — A full run completes in under 5 minutes on GitHub. *(evidence: tasks.md, "AC-3, AC-17 (CI, duration)" and "Node 22 and 24 (T-25)")*
 
 ## 7. Open questions
 None. Both points raised during review were settled by the owner on 2026-11-15 (see section 9):
@@ -83,7 +84,7 @@ None. Both points raised during review were settled by the owner on 2026-11-15 (
 ## 8. Digital sobriety
 - **Published site:** no change. Visitors download nothing more (AC-15).
 - **Development tooling:** development-only packages are allowed (owner decision below), which adds a download for contributors and on each GitHub run, including a headless browser. Kept because a controlled browser is the only reliable way to check rendering and scenario outcomes; a lighter alternative (Node and an already-installed browser, no package) was considered and rejected by the owner for robustness.
-- **Compute:** checks run on every push and pull request. Kept short (AC-17) and limited to one browser and one screen size (section 5).
+- **Compute:** checks run on every push and pull request. Kept short (AC-17) and limited to one browser and one screen size (section 5). Since the amendment of 2026-11-15 each run is done twice, once per Node version (two jobs in parallel): twice the compute time on GitHub, accepted by the owner to exercise the minimum version the project announces.
 - **Network:** only the link check uses the network, and its failures are warnings.
 
 ## 9. Decisions
