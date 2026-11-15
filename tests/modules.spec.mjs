@@ -124,3 +124,94 @@ test.describe('T-32 module 2, EmbeddedCommsBus (spec 003, S11, AC-13)', () => {
     expect(m.lire('sumOf({ session: 0, seq: 1, ts: 1, vDemand: 10.001, dGoal: 50 })')).not.toBe(m.lire('sumOf({ session: 0, seq: 1, ts: 1, vDemand: 10, dGoal: 50 })'));
   });
 });
+
+test.describe('T-33 module 3, AutonomyAndSafetyCore (spec 003, S11, AC-13)', () => {
+  // Module 3 appelle vers le haut `sim` (l'horloge), `logEv` (le journal) et `syncCodes` (les codes affichés) : trois doublures.
+  // Vers le bas : base, traduction, modules 1 et 2.
+  const FICHIERS = ['js/base.js', 'js/i18n-engine.js', 'js/m1-world-physics.js', 'js/m2-comms-bus.js',
+    'js/m3-perception.js', 'js/m3-fms-planner.js', 'js/m3-levels.js', 'js/m3-supervisor-control.js'];
+  const PREPARATION = `
+    globalThis.mkT = () => {
+      const T = { id: 'AHT-01', s: 100, v: 8, state: 'NOMINAL', lowerAt: 0, latched: false, ecuEmergency: false, collided: false,
+        faults: {}, mc: { codes: [] }, auth: { lastRx: sim.t, sEnd: 300 },
+        m: { lidarOk: true, radarOk: true, busLoad: 3, dStop: 20, dCaution: 40, brakeLat: 0.001, runaway: false },
+        l1: { ev: { tFreeze: null, tDetect: null, sStill: null } } };
+      T.l2 = newL2(); l2Measure(T); return T;
+    };
+    globalThis.mkSp = (T, patch = {}) => {
+      const s = { session: 0, seq: 0, ts: sim.t, vDemand: 8, dGoal: T.auth.sEnd - T.s, sClaim: T.s, vClaim: T.v, ...patch };
+      if (patch.sum === undefined) s.sum = sumOf(s);
+      return s;
+    };`;
+  const charger = () => {
+    const appels = [];
+    const m = chargerModule(FICHIERS, { doubles: { sim: { t: 10 }, logEv: (...a) => appels.push(a), syncCodes: () => {} } });
+    m.executer(PREPARATION);
+    return { m, appels };
+  };
+  /** Juge une consigne sur un camion neuf (ou le camion `T` déjà créé) et rend { code, vAccepted, rejRun }. */
+  const juger = (m, appels, patch = {}, { avant = [] } = {}) => {
+    m.executer('globalThis.T = mkT()');
+    for (const p of avant) m.executer(`l2Judge(T, mkSp(T, ${JSON.stringify(p)}))`);
+    appels.length = 0;
+    m.executer(`l2Judge(T, mkSp(T, ${JSON.stringify(patch)}))`);
+    return { codes: appels.map(a => a[2]), vAccepted: m.lire('T.l2.vAccepted'), rejRun: m.lire('T.l2.rejRun') };
+  };
+
+  test('an untouched setpoint is accepted and becomes the accepted speed', () => {
+    const { m, appels } = charger();
+    const r = juger(m, appels, { vDemand: 8 });
+    expect(r.codes).toEqual([]);
+    expect(r.vAccepted).toBe(8);
+    expect(r.rejRun).toBe(0);
+  });
+
+  test('each defect of the five classes is rejected with its own code, and a rejected setpoint never changes the accepted speed', () => {
+    const { m, appels } = charger();
+    const lim = m.lire('vLimitAt(100 + P.len / 2)');
+    const attendus = [
+      ['SETPOINT_INTEGRITY', { vDemand: 9, sum: 1 }, 'a wrong checksum'],
+      ['SETPOINT_STALE', { ts: 10 - 0.3 }, 'older than P.l1Stale (0.25 s)'],
+      ['SETPOINT_OVERSPEED', { seq: 1, vDemand: lim + 0.2 }, 'above the section limit by more than 0.1 m/s'],
+      ['SETPOINT_BEYOND_MA', { seq: 1, dGoal: 200 + 0.2 }, 'beyond the movement authority by more than 0.1 m'],
+    ];
+    for (const [code, patch, quoi] of attendus) {
+      const r = juger(m, appels, patch, { avant: [{ vDemand: 5, seq: 0 }] });
+      expect(r.codes, `${code}: ${quoi}`).toEqual([code]);
+      expect(r.vAccepted, `${code} leaves the accepted speed at its last accepted value`).toBe(5);
+      expect(r.rejRun, `${code} counts one rejection`).toBe(1);
+    }
+    // la séquence : le même numéro rejoué, puis une session plus ancienne
+    const rejouee = juger(m, appels, { seq: 0, vDemand: 6 }, { avant: [{ vDemand: 5, seq: 0 }] });
+    expect(rejouee.codes).toEqual(['SETPOINT_SEQUENCE']);
+    expect(rejouee.vAccepted).toBe(5);
+    const nouvelleSession = juger(m, appels, { session: 1, seq: 0, vDemand: 6 }, { avant: [{ vDemand: 5, seq: 3 }] });
+    expect(nouvelleSession.codes, 'a new session starts again from sequence 0').toEqual([]);
+    expect(nouvelleSession.vAccepted).toBe(6);
+  });
+
+  test('the tolerances are the pinned ones: 0.1 m/s above the limit, 0.1 m beyond the authority, 0.25 s of age', () => {
+    const { m, appels } = charger();
+    const lim = m.lire('vLimitAt(100 + P.len / 2)');
+    expect(juger(m, appels, { vDemand: lim + 0.05 }).codes, 'under the 0.1 m/s tolerance').toEqual([]);
+    expect(juger(m, appels, { dGoal: 200 + 0.05 }).codes, 'under the 0.1 m tolerance').toEqual([]);
+    expect(juger(m, appels, { ts: 10 - 0.2 }).codes, 'under the 0.25 s staleness limit').toEqual([]);
+    expect(m.lire('P.l1Stale')).toBe(0.25);
+  });
+
+  test('the supervisor raises L1_HEARTBEAT_LOST once the silence exceeds the deadline, as a controlled stop that is never latched', () => {
+    const { m, appels } = charger();
+    const deadline = m.lire('P.l1Deadline');
+    expect(deadline).toBe(0.3);
+    m.executer('sim.t = 0; globalThis.T = mkT(); T.l2.lastValid = 0');
+    m.executer(`sim.t = ${deadline}; supervise(T)`);
+    expect(m.lire('T.reasons.map(r => r.code)'), 'at the deadline itself the heartbeat is still valid').toEqual([]);
+    expect(m.lire('T.state')).toBe('NOMINAL');
+    m.executer(`sim.t = ${deadline + 0.02}; supervise(T)`);
+    expect(m.lire('T.reasons.map(r => r.code)')).toEqual(['L1_HEARTBEAT_LOST']);
+    expect(m.lire('T.state')).toBe('CONTROLLED_STOP');
+    expect(m.lire('T.stopKind'), 'at maximum braking').toBe('MAX');
+    expect(m.lire('T.latched'), 'not latched: the stop can be released').toBe(false);
+    expect(appels.some(a => a[2] === 'STATE'), 'the state change is logged').toBe(true);
+  });
+});
