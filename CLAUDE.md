@@ -8,7 +8,7 @@ An interactive, single-page simulator that shows how an Autonomous Haul Truck (A
 - Script organisation: an I18N block and an analytics block, then four modules: MineWorld & PhysicsEngine, EmbeddedCommsBus, AutonomyAndSafetyCore, FaultInjector & TelemetryHUD. Physics runs at a fixed 50 Hz step, decoupled from rendering.
 - External resources: Google Fonts (optional, system fonts as fallback) and GoatCounter `count.js` (GitHub Pages only, ADR-3).
 - Hosting: GitHub Pages, branch `main`, folder `/`.
-- Automated checks, development only (ADR-1 amendment, spec 001): Node.js 22 or later and `@playwright/test` (the only `devDependency`, version pinned) in `package.json`; tests in `tests/`, link check in `scripts/check-links.mjs`, CI in `.github/workflows/checks.yml`. The tests open `index.html` from disk and read the model through the test-only hook `window.__sim` (`i18n` and `i18nMissing` were added for them; keep them).
+- Automated checks, development only (ADR-1 amendment, spec 001): Node.js 24 or later and `@playwright/test` (the only `devDependency`, version pinned) in `package.json`; tests in `tests/`, link check in `scripts/check-links.mjs`, CI in `.github/workflows/checks.yml`. The tests open `index.html` from disk and read the model through the test-only hook `window.__sim` (`i18n` and `i18nMissing` were added for them; keep them).
 
 ## Spec-Driven Development workflow — STRICT RULES
 
@@ -43,7 +43,7 @@ Rules recorded before the kit was adopted are dated; from now on, each new rule 
 - **Re-measure before declaring a gap** (2026-11-15, decided spec 001): before stopping on a suspected gap between a scenario and its spec, re-measure at the model's own step (0.02 s), with the model's own thresholds (stopped = under 0.3 m/s) and over enough seeds and time (scenario D: 40 seeds, 60 s). Only a gap that survives is taken back to the spec (rule 5).
 
 ## Project commands
-Install once (Node.js 22 or later; nothing is installed for the page itself):
+Install once (Node.js 24 or later; nothing is installed for the page itself):
 - `npm ci`, then `npx playwright install chromium`.
 
 Run:
@@ -64,7 +64,7 @@ Lint, typecheck, build: none. There is no build step (ADR-1), and the syntax che
 - Never force-push `main`: it is what GitHub Pages publishes.
 
 ## Delivery checklist (end of spec / before merge)
-- `npm test` green locally, and the `Checks` run of the branch green on GitHub for Node 22 and Node 24. The link check may only warn.
+- `npm test` green locally, and the `Checks` run of the branch green on GitHub for Node 24. The link check may only warn.
 - No string missing a translation: every new `MSG` triplet has three entries, every new `data-i18n*` key exists in `STATIC.en` and `STATIC.de` (`npm test` enforces it).
 - Every new rule has its check, with the proof that the check can fail (see Conventions).
 - Every check delivered is listed next to its proof of failure (negative test or recorded deliberate breakage) in the evidence table of the spec; a check with no row is not delivered.

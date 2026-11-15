@@ -1,5 +1,7 @@
 // Version de Node annoncée (spec 003, S1 à S3, AC-1 à AC-3) : une seule version dans les cinq endroits.
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { verifierVersionNode } from './helpers/versions.mjs';
 
 const decrire = erreurs => erreurs.map(e => `${e.fichier}:${e.ligne} ${e.message}`).join('\n');
@@ -59,5 +61,25 @@ test.describe('T-01 Node version check (spec 003, S3)', () => {
   test('a comment that mentions a matrix is not a matrix', () => {
     const workflow = '# one job, no matrix\n' + sain().workflow;
     expect(verifierVersionNode({ ...sain(), workflow })).toEqual([]);
+  });
+});
+
+// T-02 : les cinq endroits réels du dépôt. Un écart (par exemple un README resté à 22) fait échouer `npm test`.
+test.describe('T-02 the real files (spec 003, AC-1, AC-2, AC-3)', () => {
+  const lire = chemin => readFileSync(fileURLToPath(new URL(chemin, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
+
+  test('package.json, the lock file, the README, CLAUDE.md and the workflow all say Node 24', () => {
+    const erreurs = verifierVersionNode({
+      pkg: lire('../package.json'), lock: lire('../package-lock.json'), readme: lire('../README.md'),
+      claude: lire('../CLAUDE.md'), workflow: lire('../.github/workflows/checks.yml'),
+    });
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+    expect(JSON.parse(lire('../package.json')).engines.node).toBe('>=24');
+  });
+
+  test('the workflow runs one job, with no matrix', () => {
+    const workflow = lire('../.github/workflows/checks.yml');
+    expect(workflow.match(/^\s+runs-on:/gm)).toHaveLength(1);
+    expect(workflow).not.toMatch(/^\s*strategy:/m);
   });
 });
