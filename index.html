@@ -944,6 +944,17 @@ function mcReceive(T) {
   } else { T.mismatchSince = 0; T.mismatchLogged = false; }
 }
 
+/* Lien niveau 1 → niveau 2 (spec 002) : file ordonnée (FIFO), retardée par l'écart du profil de noyau avec PREEMPT_RT.
+   Une somme de contrôle maison (pas un vrai CRC) permet au niveau 2 de détecter une consigne altérée. */
+const l1Delay = () => 0;
+function sumOf(sp) {
+  return (sp.session * 31 + sp.seq * 17 + Math.round(sp.ts * 1000) * 13 + Math.round(sp.vDemand * 1000) * 7 + Math.round(sp.dGoal * 100) * 3) % 65521;
+}
+function l1Send(T, kind, p) {
+  const L = T.l2, at = Math.max(sim.t + l1Delay(), L.lastAt);   // jamais d'arrivée avant un message plus ancien
+  L.lastAt = at; L.link.push({ at, kind, p });
+}
+
 /* =====================================================================
    MODULE 3 — AutonomyAndSafetyCore
    Perception (LiDAR / radar / V2X), FMS (jetons, autorisation de mouvement),
@@ -1115,6 +1126,34 @@ function planSpeed(T) {
   return v;
 }
 
+/* Niveau 1 : rapport d'obstacles (après la perception) et consigne (après le planificateur), à chaque pas.
+   Un niveau 1 figé n'émet plus rien. Le niveau 2 ne voit que ce qui arrive par le lien. */
+function l1EmitReport(T) {
+  if (T.l1.frozen) return;
+  l1Send(T, 'obs', { dObs: T.m.dObs, obsId: T.m.obsId, obsPred: T.m.obsPred });
+}
+function l1EmitSetpoint(T) {
+  const A = T.l1;
+  if (A.frozen) return;
+  const sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v };
+  sp.sum = sumOf(sp);
+  l1Send(T, 'sp', sp);
+}
+/* Niveau 2 : livre ce qui est arrivé, juge chaque consigne et tient son état (consigne acceptée, battement, échanges). */
+function l2Receive(T) {
+  const L = T.l2;
+  while (L.link.length && L.link[0].at <= sim.t) {
+    const it = L.link.shift();
+    if (it.kind === 'obs') L.obs = it.p; else l2Judge(T, it.p);
+  }
+}
+function l2Judge(T, sp) {
+  const L = T.l2;
+  L.vAccepted = sp.vDemand; L.lastValid = sim.t; L.session = sp.session; L.seq = sp.seq; L.rejRun = 0;
+  L.ex.push({ session: sp.session, seq: sp.seq, ts: sp.ts, v: sp.vDemand, d: sp.dGoal, sumOk: true, ok: true, code: null });
+  if (L.ex.length > 5) L.ex.shift();
+}
+
 /* Superviseur de sûreté : machine à états, indépendante du planificateur. */
 function supervise(T) {
   const now = sim.t, codes = [];
@@ -1134,8 +1173,9 @@ function supervise(T) {
   if (T.ecuEmergency) add(3, 'DM1_BRAKE_CMD_TIMEOUT', M('sup.ecu'));
   else if (m.brakeLat > P.canDeadline) add(2, 'CAN_BRAKE_DEADLINE', M('sup.canDeadline', { ms: N(m.brakeLat * 1000) }), 'COMFORT');
   if (m.busLoad > 40) add(0, 'CAN_BUSLOAD_HIGH', M('sup.busLoad', { p: N(m.busLoad) }));
-  if (m.dObs < m.dStop) add(2, 'SIL_BUBBLE_INTRUSION', M(m.obsPred ? 'sup.intrusionPred' : 'sup.intrusion', { id: m.obsId, d: N(m.dObs), s: N(m.dStop) }), 'MAX');
-  else if (m.dObs < m.dCaution) add(1, 'CAUTION_ZONE', M(m.obsPred ? 'sup.cautionPred' : 'sup.caution', { id: m.obsId, d: N(m.dObs), c: N(m.dCaution) }));
+  const ob = T.l2.obs;   // ce que le niveau 1 a rapporté (spec 002), pas la valeur interne du planificateur
+  if (ob.dObs < m.dStop) add(2, 'SIL_BUBBLE_INTRUSION', M(ob.obsPred ? 'sup.intrusionPred' : 'sup.intrusion', { id: ob.obsId, d: N(ob.dObs), s: N(m.dStop) }), 'MAX');
+  else if (ob.dObs < m.dCaution) add(1, 'CAUTION_ZONE', M(ob.obsPred ? 'sup.cautionPred' : 'sup.caution', { id: ob.obsId, d: N(ob.dObs), c: N(m.dCaution) }));
   if (T.faults.estop) add(3, 'REMOTE_ESTOP', M('sup.estop'));
   if (T.collided) add(3, 'COLLISION', M('sup.contact'));
   if (m.runaway) add(2, 'BRAKE_MARGIN_LOW', M('sup.runaway'), 'MAX');
@@ -1157,7 +1197,7 @@ function supervise(T) {
 /* Contrôleur de mouvement (ECU temps réel) + actionneurs + physique. */
 function control(T) {
   const mode = T.mc.applied;
-  let vT = T.vPlan, decLim = Math.max(0.4, 0.6 * T.m.aEff), full = false;
+  let vT = T.l2.vAccepted, decLim = Math.max(0.4, 0.6 * T.m.aEff), full = false;   // la consigne acceptée par le niveau 2, pas celle du planificateur
   if (mode === 'DEGRADED_SPEED') vT = Math.min(vT, P.vDeg);
   if (mode === 'CONTROLLED_STOP') {
     if (T.mc.appliedKind === 'MAX') { vT = 0; full = true; }
@@ -1197,7 +1237,7 @@ const TRUCK_COLORS = ['#f0c24b', '#7fd0e0', '#f29a6b'];
 
 /* Niveau 1 (calculateur d'autonomie) et niveau 2 (contrôleur de sûreté), état par tombereau (spec 002). */
 function newL1() { return { frozen: false, session: 0, seq: 0, defect: null, repeat: false, captured: [], ev: { tFreeze: null, sFreeze: null, tDetect: null, sStill: null } }; }
-function newL2() { return { link: [], vAccepted: 0, obs: { dObs: Infinity, obsId: null, obsPred: false }, lastValid: 0, stableSince: 0, session: 0, seq: -1, rejRun: 0, hist: [], ex: [], rej: [] }; }
+function newL2() { return { link: [], lastAt: 0, vAccepted: 0, obs: { dObs: Infinity, obsId: null, obsPred: false }, lastValid: 0, stableSince: 0, session: 0, seq: -1, rejRun: 0, hist: [], ex: [], rej: [] }; }
 function makeTruck(id, s, color) {
   const loaded = isLoadedSection(s);
   return {
@@ -1283,8 +1323,9 @@ function step() {
   const all = [...sim.trucks, ...sim.lvs];
   for (const T of sim.trucks) {
     opsUpdate(T); canUpdate(T); perceive(T, all); bubble(T); obstacleDistance(T);
+    l1EmitReport(T); l2Receive(T);
     supervise(T); ddsPublish(T); mcReceive(T);
-    T.vPlan = planSpeed(T); control(T); physics(T);
+    T.vPlan = planSpeed(T); l1EmitSetpoint(T); l2Receive(T); control(T); physics(T);
   }
   collisions();
   if (sim.t >= sim.nextHist) {
