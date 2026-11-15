@@ -40,7 +40,13 @@ export async function openPage(page, lang = 'fr', { seed = 1 } = {}) {
     return route.abort();
   });
   await page.goto(`${urlPage}?lang=${lang}`);
-  await page.waitForFunction(() => window.__sim && window.__sim.sim);
+  // Une page cassée (erreur de syntaxe, exception au démarrage) ne définit jamais window.__sim : on échoue vite,
+  // avec l'erreur de la page, au lieu d'attendre le délai du test (30 s) pour chacun des tests.
+  try {
+    await page.waitForFunction(() => window.__sim && window.__sim.sim, undefined, { timeout: 8000 });
+  } catch {
+    throw new Error(`the page did not start within 8 s (page errors: ${journal.erreursPage.join(' | ') || 'none'})`);
+  }
   return journal;
 }
 
