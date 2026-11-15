@@ -740,7 +740,11 @@ const MSG = {
   'btn.netCut': ['Couper le réseau mine', 'Cut the mine network', 'Minennetz trennen'],
   'btn.netRestore': ['Rétablir le réseau', 'Restore the network', 'Netz wiederherstellen'],
   'btn.pause': ['Pause', 'Pause', 'Pause'],
-  'btn.resume': ['Reprendre', 'Resume', 'Fortsetzen']
+  'btn.resume': ['Reprendre', 'Resume', 'Fortsetzen'],
+  // Niveau 2 : verdicts sur les consignes du niveau 1 (spec 002). Les codes SETPOINT_* et L1_* ne sont jamais traduits.
+  'l2.integrity': ['Consigne n° {seq} rejetée : somme de contrôle invalide', 'Setpoint #{seq} rejected: invalid checksum', 'Sollwert Nr. {seq} abgelehnt: ungültige Prüfsumme'],
+  'l2.stale': ['Consigne n° {seq} rejetée : trop ancienne ({ms} ms)', 'Setpoint #{seq} rejected: too old ({ms} ms)', 'Sollwert Nr. {seq} abgelehnt: zu alt ({ms} ms)'],
+  'l2.sequence': ['Consigne n° {seq} rejetée : séquence non croissante (dernière acceptée : {last})', 'Setpoint #{seq} rejected: sequence not increasing (last accepted: {last})', 'Sollwert Nr. {seq} abgelehnt: Sequenz nicht aufsteigend (zuletzt akzeptiert: {last})']
 };
 
 const LI = () => LANGS.indexOf(LANG);
@@ -1135,8 +1139,17 @@ function l1EmitReport(T) {
 function l1EmitSetpoint(T) {
   const A = T.l1;
   if (A.frozen) return;
-  const sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v };
-  sp.sum = sumOf(sp);
+  const d = A.defect;
+  let sp;
+  if (d === 'REPLAY' && A.captured.length) sp = { ...A.captured[0] };   // une ancienne consigne, intacte, renvoyée à la place de la nouvelle
+  else {
+    sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v };
+    if (d === 'STALE') sp.ts -= 1.0;
+    sp.sum = sumOf(sp);
+    if (d === 'INTEGRITY') sp.vDemand += 5;                  // altérée après le calcul de la somme de contrôle
+    if (!d) { A.captured.push({ ...sp }); if (A.captured.length > 5) A.captured.shift(); }
+  }
+  if (d && !A.repeat) A.defect = null;                       // un défaut ne dure qu'une consigne, sauf en mode continu
   l1Send(T, 'sp', sp);
 }
 /* Niveau 2 : livre ce qui est arrivé, juge chaque consigne et tient son état (consigne acceptée, battement, échanges). */
@@ -1147,11 +1160,25 @@ function l2Receive(T) {
     if (it.kind === 'obs') L.obs = it.p; else l2Judge(T, it.p);
   }
 }
+/* Jugement d'une consigne, dans l'ordre : intégrité, fraîcheur, séquence. Un message qui échoue à l'un de ces trois contrôles
+   n'est pas un battement valide. Il ne change jamais la consigne acceptée. */
 function l2Judge(T, sp) {
+  const L = T.l2, age = sim.t - sp.ts;
+  const e = { session: sp.session, seq: sp.seq, ts: sp.ts, v: sp.vDemand, d: sp.dGoal, sumOk: sumOf(sp) === sp.sum, ok: false, code: null };
+  if (!e.sumOk) return l2Refuse(T, e, 'SETPOINT_INTEGRITY', 'l2.integrity', { seq: sp.seq });
+  if (age > P.l1Stale) return l2Refuse(T, e, 'SETPOINT_STALE', 'l2.stale', { seq: sp.seq, ms: N(age * 1000) });
+  if (sp.session < L.session || (sp.session === L.session && sp.seq <= L.seq)) return l2Refuse(T, e, 'SETPOINT_SEQUENCE', 'l2.sequence', { seq: sp.seq, last: L.seq });
+  L.session = sp.session; L.seq = sp.seq; L.lastValid = sim.t;   // message bien formé : battement, séquence suivie
+  L.vAccepted = sp.vDemand; L.rejRun = 0; e.ok = true;
+  l2Record(L, e);
+}
+function l2Record(L, e) { L.ex.push(e); if (L.ex.length > 5) L.ex.shift(); }
+function l2Refuse(T, e, code, k, p) {
   const L = T.l2;
-  L.vAccepted = sp.vDemand; L.lastValid = sim.t; L.session = sp.session; L.seq = sp.seq; L.rejRun = 0;
-  L.ex.push({ session: sp.session, seq: sp.seq, ts: sp.ts, v: sp.vDemand, d: sp.dGoal, sumOk: true, ok: true, code: null });
-  if (L.ex.length > 5) L.ex.shift();
+  e.code = code; e.msg = M(k, p); L.rejRun++;
+  l2Record(L, e);
+  L.rej.push(e); if (L.rej.length > 3) L.rej.shift();
+  logEv(T.id, 1, code, e.msg);
 }
 
 /* Superviseur de sûreté : machine à états, indépendante du planificateur. */
@@ -1734,6 +1761,14 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelope, stopDistance, resetSim, setSel: i => { selected = i; }, setLang,
+  // Réservé aux vérifications automatiques (spec 002) : envoie une consigne du niveau 1 du tombereau i, les champs de `patch`
+  // remplaçant ceux d'une consigne normale ; la somme de contrôle est recalculée sauf si `patch.sum` est fourni.
+  l1Inject: (i, patch) => {
+    const T = sim.trucks[i], A = T.l1;
+    const sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v, ...patch };
+    if (patch.sum === undefined) sp.sum = sumOf(sp);
+    l1Send(T, 'sp', sp);
+  },
   // Réservé aux vérifications automatiques (spec 001) : tables de traduction et clés introuvables.
   i18n: { MSG, STATIC, LANGS, t }, i18nMissing };
 })();

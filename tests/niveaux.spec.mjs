@@ -42,3 +42,62 @@ test.describe('T-04 level 1 → level 2 setpoint stream (S1, S2)', () => {
     expect(r.apres.v, 'the controller keeps the last accepted speed demand').toBe(r.avant.v);
   });
 });
+
+// T-06 : contrôles de protocole du niveau 2 (S5, S11).
+test.describe('T-06 level 2 protocol checks (S5)', () => {
+  // Joue 2 s, arme un défaut sur le tombereau 0, joue un pas, et rend ce que le niveau 2 en a fait.
+  async function defaut(page, nom) {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    return page.evaluate(nomDefaut => {
+      const S = window.__sim, T = S.sim.trucks[0];
+      for (let i = 0; i < 100; i++) S.step();
+      const avant = { v: T.l2.vAccepted, seq: T.l2.seq, vPlan: T.vPlan };
+      T.l1.defect = nomDefaut;
+      S.step();
+      const e = T.l2.ex[T.l2.ex.length - 1];
+      const apres = { v: T.l2.vAccepted, seq: T.l2.seq };
+      const code = S.sim.log.find(l => l.id === T.id && l.code.startsWith('SETPOINT_'));
+      S.step();
+      return { avant, apres, e: { ok: e.ok, code: e.code }, rej: T.l2.rej.map(r => r.code), journal: code ? { code: code.code, lvl: code.lvl } : null, defautApres: T.l1.defect, rejRun: T.l2.rejRun, suivante: T.l2.ex[T.l2.ex.length - 1].ok };
+    }, nom);
+  }
+
+  for (const [nom, code] of [['INTEGRITY', 'SETPOINT_INTEGRITY'], ['STALE', 'SETPOINT_STALE'], ['REPLAY', 'SETPOINT_SEQUENCE']]) {
+    test(`${nom}: the setpoint is rejected with ${code}, the accepted setpoint is unchanged, the next one is accepted`, async ({ page }) => {
+      const r = await defaut(page, nom);
+      expect(r.e.ok, 'the defective setpoint must not be accepted').toBe(false);
+      expect(r.e.code).toBe(code);
+      expect(r.apres.v, 'the accepted speed demand is unchanged by a rejected setpoint').toBe(r.avant.v);
+      expect(r.apres.seq, 'the accepted sequence is unchanged').toBe(r.avant.seq);
+      expect(r.rej).toContain(code);
+      expect(r.journal, 'the rejection is written to the event log at severity 1').toEqual({ code, lvl: 1 });
+      expect(r.defautApres, 'a defect lasts one setpoint unless repeated').toBeNull();
+      expect(r.suivante, 'the next, normal setpoint is accepted').toBe(true);
+      expect(r.rejRun, 'the run of rejections ends with the next accepted setpoint').toBe(0);
+    });
+  }
+
+  test('a new session is accepted after a lower sequence; an old session or an old sequence is rejected', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0], A = T.l1;
+      for (let i = 0; i < 100; i++) S.step();
+      A.session = 1; A.seq = 0;                       // redémarrage du niveau 1 : nouvelle session, compteur à zéro
+      S.step();
+      const redemarre = { ok: T.l2.ex[T.l2.ex.length - 1].ok, session: T.l2.session, seq: T.l2.seq };
+      S.l1Inject(0, { session: 0, seq: 5000 });       // une consigne de l'ancienne session, séquence très haute
+      S.step();
+      const ancienne = T.l2.rej[T.l2.rej.length - 1].code;
+      S.l1Inject(0, { seq: T.l2.seq });               // même session, séquence déjà vue
+      S.step();
+      const vue = T.l2.rej[T.l2.rej.length - 1].code;
+      return { redemarre, ancienne, vue };
+    });
+    expect(r.redemarre.ok, 'the restarted level 1 is not rejected as a replay').toBe(true);
+    expect(r.redemarre.session).toBe(1);
+    expect(r.ancienne, 'a setpoint of the old session is a replay').toBe('SETPOINT_SEQUENCE');
+    expect(r.vue, 'a sequence already seen is a replay').toBe('SETPOINT_SEQUENCE');
+  });
+});
