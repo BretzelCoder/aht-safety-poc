@@ -3,6 +3,7 @@
 > Status: DELIVERED
 > Created: 2026-11-15 · Approved: 2026-11-15 · Delivered: 2026-11-15 (pull request #2, merge commit `3103175`)
 > Amended again 2026-11-15, validated by the owner: S2 and AC-3 now cover both Node versions the project announces (22 and 24).
+> Amended 2026-11-15 (spec 003, action A-13), validated by the owner: S2 and AC-3 now cover Node 24 only, the single version the project announces and tests.
 > Amended 2026-11-15, validated by the owner (action A-1 of the continuous-improvement register): S11 and AC-13 now name the hosts that refuse robots.
 
 ## 1. Problem / Why
@@ -17,7 +18,7 @@ The constitution makes "the test is the judge" non-negotiable, and `CLAUDE.md` s
 
 ## 3. Expected behaviour (WHAT, not HOW)
 - **S1** — As a contributor, when I run the documented check command locally, then every check below runs and I get a pass/fail result for each, with a clear message naming what failed (file, key, language or scenario).
-- **S2** — As the owner, when a commit is pushed or a pull request is opened or updated on GitHub, then the same checks run automatically and their result is visible on the commit and on the pull request. Merging stays my decision: a failed check informs, it does not lock the merge. *Amendment of 2026-11-15*: the checks run on both Node versions the project announces, the minimum (22) and the current one (24), and a failure on either is shown separately on the commit and on the pull request.
+- **S2** — As the owner, when a commit is pushed or a pull request is opened or updated on GitHub, then the same checks run automatically and their result is visible on the commit and on the pull request. Merging stays my decision: a failed check informs, it does not lock the merge. *Amendment of 2026-11-15, replaced the same day by spec 003*: the checks run once, on Node 24, the only version the project announces (it was run on 22 and 24 for a few hours), and a failure is shown on the commit and on the pull request.
 - **S3 — Script syntax.** When the page's script contains a syntax error, then the checks fail and point to it.
 - **S4 — Complete translations.** When a user-visible text exists in one language and not in another (a static key missing from English or German, a dynamic message without its three versions, a key used by the page but defined nowhere), then the checks fail and name the key and the missing language.
 - **S5 — Rendering in three languages.** When the page is opened in French, English and German, then it loads without any error in the browser console, the interface is in the requested language, and the event log fills with messages in that language.
@@ -60,7 +61,7 @@ The constitution makes "the test is the judge" non-negotiable, and `CLAUDE.md` s
 ## 6. Acceptance criteria (testable)
 - [x] AC-1 — One documented command, run from the repository root, executes all the checks of S3 to S11 and ends with an overall pass or fail. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
 - [x] AC-2 — On the current `main` content (once this spec's own work is in), every check passes and the link check reports its result. *(evidence: tasks.md, "AC-1, AC-2, AC-15, AC-16 and the checklist (T-20)")*
-- [x] AC-3 — A push to any branch and every pull request trigger the checks on GitHub; the result appears on the commit and on the pull request, for Node 22 and for Node 24 separately. *(evidence: tasks.md, "AC-3, AC-17 (CI, duration)" and "Node 22 and 24 (T-25)")*
+- [x] AC-3 — A push to any branch and every pull request trigger the checks on GitHub; the result appears on the commit and on the pull request, on Node 24, in one job. *(evidence: tasks.md, "AC-3, AC-17 (CI, duration)" and "Node 22 and 24 (T-25)", history of the two-version period; then spec 003, T-04)*
 - [x] AC-4 — Introducing a syntax error in the page script makes the checks fail with a message pointing to it. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
 - [x] AC-5 — Removing one key from the German static translations, removing the English version of one dynamic message, and using an undefined key each make the checks fail, naming the key and the language. *(evidence: tasks.md, "AC-4, 5, 10, 11, 12 (static)")*
 - [x] AC-6 — The page opens in French, English and German without any console error, and in each language at least one log message and the interface title appear in that language. *(evidence: tasks.md, "AC-6, 12, 15 (render)")*
@@ -84,7 +85,7 @@ None. Both points raised during review were settled by the owner on 2026-11-15 (
 ## 8. Digital sobriety
 - **Published site:** no change. Visitors download nothing more (AC-15).
 - **Development tooling:** development-only packages are allowed (owner decision below), which adds a download for contributors and on each GitHub run, including a headless browser. Kept because a controlled browser is the only reliable way to check rendering and scenario outcomes; a lighter alternative (Node and an already-installed browser, no package) was considered and rejected by the owner for robustness.
-- **Compute:** checks run on every push and pull request. Kept short (AC-17) and limited to one browser and one screen size (section 5). Since the amendment of 2026-11-15 each run is done twice, once per Node version (two jobs in parallel): twice the compute time on GitHub, accepted by the owner to exercise the minimum version the project announces.
+- **Compute:** checks run on every push and pull request. Kept short (AC-17) and limited to one browser and one screen size (section 5). Between the two amendments of 2026-11-15 each run was done twice, once per Node version; spec 003 went back to one job, on Node 24, the only version the project announces.
 - **Network:** only the link check uses the network, and its failures are warnings.
 
 ## 9. Decisions
