@@ -6,7 +6,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { verifierRequetes } from './helpers/chargements.mjs';
+import { verifierRequetes, verifierChargements } from './helpers/chargements.mjs';
 import { verifierCarte, verifierPageComplete, MARQUEURS_PAGE, verifierConcerns, lireCarteReadme, CONCERNS } from './helpers/carte.mjs';
 import { fichiersDeLaBase, extraireBase } from '../scripts/lire-base.mjs';
 import { empreinteDe, ecrireEmpreinte, lireEmpreinte, lireManifeste, ecrireManifeste, verifierEmpreintes } from '../scripts/empreintes.mjs';
@@ -374,5 +374,48 @@ test.describe('T-27 one concern per file, and the stamps of the real files (spec
     expect(verifierEmpreintes(modifie, manifeste).map(e => e.fichier + ' ' + e.message).join('|')).toContain(`${chemin} its stamp`);
     const autre = new Map(manifeste); autre.set('js/base.js', '00000000');
     expect(verifierEmpreintes(propres, autre).map(e => e.message).join('|')).toContain('the manifest says 00000000 for js/base.js');
+  });
+});
+
+// T-28 : rien de chargé en dehors du dépôt, sauf les polices et GoatCounter ; pas de construction (spec 003, S6, AC-9).
+test.describe('T-28 nothing is loaded from outside the repository, and no build script (spec 003, AC-9)', () => {
+  const html = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=X" rel="stylesheet">\n<link rel="stylesheet" href="css/style.css">\n<script src="js/a.js"></script>\n';
+  const analytics = "function demarrerMesure() { s.src = 'https://gc.zgo.at/count.js'; }\n";
+  const sain = () => ({ html, fichiers: [{ chemin: 'js/analytics.js', texte: analytics }, { chemin: 'js/a.js', texte: 'const a = 1;\n' }], pkg: JSON.stringify({ scripts: { test: 'playwright test', 'test:links': 'node scripts/check-links.mjs' } }) });
+
+  test('relative tags, Google Fonts and the GoatCounter loader of analytics.js give no error', () => {
+    expect(verifierChargements(sain())).toEqual([]);
+  });
+
+  test('a third-party script tag is reported', () => {
+    const e = verifierChargements({ ...sain(), html: html + '<script src="https://cdn.example.org/lib.js"></script>\n' });
+    expect(e.map(x => x.message).join('|')).toContain('https://cdn.example.org/lib.js from outside the repository');
+  });
+
+  test('a style sheet or font from a host other than Google Fonts is reported', () => {
+    const e = verifierChargements({ ...sain(), html: html + '<link rel="stylesheet" href="https://example.org/x.css">\n' });
+    expect(e.map(x => x.message).join('|')).toContain('neither a file of the repository nor Google Fonts');
+  });
+
+  test('a fetch to the network outside analytics.js, and a script source set to another host, are reported', () => {
+    const e1 = verifierChargements({ ...sain(), fichiers: [...sain().fichiers, { chemin: 'js/b.js', texte: "const r = fetch('https://example.org/x');\n" }] });
+    expect(e1.map(x => `${x.fichier}:${x.ligne}`)).toEqual(['js/b.js:1']);
+    const e2 = verifierChargements({ ...sain(), fichiers: [{ chemin: 'js/analytics.js', texte: "s.src = 'https://tracker.example.org/t.js';\n" }] });
+    expect(e2.map(x => x.fichier)).toEqual(['js/analytics.js']);
+  });
+
+  test('a build script in package.json is reported', () => {
+    const e = verifierChargements({ ...sain(), pkg: JSON.stringify({ scripts: { test: 'playwright test', build: 'node scripts/bundle.mjs' } }) });
+    expect(e.map(x => x.message).join('|')).toContain('the script "build"');
+  });
+
+  test('on the real repository nothing is loaded from outside and package.json has only the test commands', () => {
+    const { fichiers } = readPage(racine);
+    const erreurs = verifierChargements({
+      html: lireTexte(racine + 'index.html'),
+      fichiers: fichiers.filter(f => f.endsWith('.js')).map(chemin => ({ chemin, texte: lireTexte(racine + chemin) })),
+      pkg: readFileSync(racine + 'package.json', 'utf8'),
+    });
+    expect(erreurs, erreurs.map(e => `${e.fichier}:${e.ligne}: ${e.message}`).join('\n')).toEqual([]);
   });
 });
