@@ -66,6 +66,19 @@ test.describe('T-05 disclaimer (S9)', () => {
     expect(erreurs.map(e => e.fichier)).toEqual(['index.html', 'index.html']);
   });
 
+  // Revue de la spec 001, écart 5 : l'idée « modèle pédagogique » de la spec (S9) doit aussi être gardée.
+  test('removing "educational model" from the README is reported', () => {
+    const erreurs = verifierAvertissement(readme.replace(/educational model/gi, 'model'), html);
+    expect(erreurs.map(e => e.fichier)).toEqual(['README.md']);
+    expect(erreurs[0].message).toContain('educational model');
+  });
+
+  test('removing "educational" from the header comment of index.html is reported', () => {
+    const erreurs = verifierAvertissement(readme, html.replace('educational safety simulator', 'safety simulator'));
+    expect(erreurs.map(e => e.fichier)).toEqual(['index.html']);
+    expect(erreurs[0].message).toContain('educational');
+  });
+
   test('a disclaimer outside the header comment does not count for index.html', () => {
     const sansEntete = html.replace(/<!--[\s\S]*?-->/, '<!-- licence MIT -->') + '\n<p>not a safety tool, not affiliated</p>';
     expect(verifierAvertissement(readme, sansEntete).length).toBeGreaterThan(0);

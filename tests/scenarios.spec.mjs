@@ -2,7 +2,7 @@
 // et l'autorisation de mouvement n'est jamais dépassée (S7, quatrième point).
 import { test, expect } from '@playwright/test';
 import { openPage, pauseAndSeed } from './helpers/page.mjs';
-import { executer, trajet, SEUIL_ARRET, verifierAutorisation } from './helpers/scenario.mjs';
+import { executer, trajet, SEUIL_ARRET, verifierAutorisation, basculerEnPeriodique } from './helpers/scenario.mjs';
 
 const decrire = erreurs => erreurs.map(e => e.message).join('\n');
 const codesDe = (rec, id, code) => rec.log.filter(e => e.id === id && e.code === code);
@@ -163,13 +163,30 @@ test.describe('T-12 scenario D: stop order sent once in BEST_EFFORT with losses 
     });
   }
 
+  // Revue de la spec 001, écart 2 : le sélecteur « Motif de publication » remet à zéro l'émission et la réception de
+  // l'ordre (T.mc.lastSent, T.mc.rxTime). En BEST_EFFORT rien n'est reçu tant que l'état ne change pas : sans cette
+  // remise à zéro, passer en périodique après un long silence lèverait aussitôt une fausse alarme Liveliness.
+  test('switching to periodic publishing with the selector after a long quiet spell raises no false alarm', async ({ page }) => {
+    await openPage(page, 'fr');
+    await pauseAndSeed(page, 1);
+    const choisir = mode => `const sel = document.getElementById('selDds'); sel.value = '${mode}'; sel.dispatchEvent(new Event('change'));`;
+    const rec = await executer(page, {
+      duree: 20, pasTrace: 0.1,
+      evenements: [{ t: 1, js: choisir('EVENT_BE') }, { t: 12, js: choisir('PERIODIC') }],
+    });
+    // Le camion sélectionné au départ est AHT-01. Entre 1 s et 12 s, BEST_EFFORT ne lui livre plus rien : son dernier ordre a plus de 10 s.
+    const t0 = rec.evenementsJoues.find(e => e.js.includes('PERIODIC')).t;
+    const alarmes = rec.log.filter(e => e.id === 'AHT-01' && e.t >= t0 && (e.code === 'DDS_LIVELINESS_LOST' || e.code === 'DDS_DEADLINE_MISSED'));
+    expect(alarmes.map(e => `${e.t.toFixed(2)} ${e.code}`), 'switching to periodic with nothing lost must not report a silence').toEqual([]);
+  });
+
   // Les deux taux : celui du scénario (50 %, tirage au sort, plusieurs graines) et la perte totale.
   for (const [perte, graines] of [[0.5, [1, 2, 3]], [1, [1]]]) {
     for (const graine of graines) {
       test(`outcome 2, periodic publishing with ${perte * 100} % loss: the controller reaches the stop state with no silent loss (seed ${graine})`, async ({ page }) => {
         await openPage(page, 'fr');
         await pauseAndSeed(page, graine);
-        const rec = await executer(page, { scenario: 'D', apresLancement: 45, pasTrace: 0.1, auLancement: regler('PERIODIC', perte) });
+        const rec = await executer(page, { scenario: 'D', apresLancement: 45, pasTrace: 0.1, auLancement: basculerEnPeriodique(perte) });
         const { cible } = rec.lancement;
 
         expect(codesDe(rec, cible, 'ORDER_NOT_APPLIED'), 'scenario D: no silent loss in periodic mode').toEqual([]);

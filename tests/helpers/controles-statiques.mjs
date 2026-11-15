@@ -43,13 +43,18 @@ const numeroLigne = (texte, position) => lignesAvant(texte, position) + 1;
  * S9 : l'avertissement « modèle pédagogique, pas un outil de sûreté, non affilié » doit rester
  * dans le README et dans le commentaire d'en-tête de index.html (le premier commentaire du fichier).
  */
-const PHRASES_AVERTISSEMENT = ['not a safety tool', 'not affiliated'];
+// Les trois idées de l'avertissement (spec 001, S9) : modèle pédagogique, pas un outil de sûreté, aucune affiliation.
+// Le README dit « educational model » ; l'en-tête de index.html dit « educational safety simulator » (même idée).
+const PHRASES_AVERTISSEMENT = {
+  'README.md': ['educational model', 'not a safety tool', 'not affiliated'],
+  'index.html': ['educational', 'not a safety tool', 'not affiliated'],
+};
 export function verifierAvertissement(readme, html) {
   const erreurs = [];
   const enTete = /<!--([\s\S]*?)-->/.exec(html);
   const cibles = [['README.md', readme], ['index.html', enTete ? enTete[1] : '']];
   for (const [fichier, texte] of cibles) {
-    for (const phrase of PHRASES_AVERTISSEMENT) {
+    for (const phrase of PHRASES_AVERTISSEMENT[fichier]) {
       if (!texte.toLowerCase().includes(phrase)) {
         const ou = fichier === 'index.html' ? 'header comment of index.html' : 'README.md';
         erreurs.push({ fichier, ligne: null, message: `disclaimer missing in the ${ou}: "${phrase}"` });
@@ -155,6 +160,8 @@ export function verifierStatuts(specs, { main }) {
 
 /** Texte valable d'une traduction : une chaîne non vide. */
 const texteValable = v => typeof v === 'string' && v.trim() !== '';
+/** Entrée de MSG complète : un triplet de textes non vides. */
+const texteComplet = v => Array.isArray(v) && v.length === 3 && v.every(texteValable);
 
 /**
  * S4 (moitié « tables ») : les traductions sont complètes en français, anglais et allemand.
@@ -167,8 +174,14 @@ const texteValable = v => typeof v === 'string' && v.trim() !== '';
  * On ne compare jamais les textes entre langues : les termes identiques par conception ne sont pas signalés.
  */
 const FAMILLES_COMPOSEES = [
-  // t('hud.k' + T.mc.appliedKind), avec appliedKind parmi les arrêts de type MAX, COMFORT et AUTH.
-  { prefixe: 'hud.k', suffixes: ['MAX', 'COMFORT', 'AUTH'] },
+  // t('hud.k' + T.mc.appliedKind), avec appliedKind parmi les arrêts de type MAX, COMFORT et AUTH. Les types
+  // vus dans le script (appliedKind === 'X' ou appliedKind: 'X') s'ajoutent à cette liste : un nouveau type
+  // sans traduction est signalé sans qu'il faille penser à modifier ce contrôle.
+  { prefixe: 'hud.k', suffixes: ['MAX', 'COMFORT', 'AUTH'], lecture: /appliedKind\s*(?:===|:)\s*'([A-Z]+)'/g },
+  // codeName(c) lit MSG['code.' + c] et retombe sans bruit sur le code brut s'il est absent, et il ne passe pas
+  // par t() : sans cette famille, supprimer la traduction d'un code maison ne ferait échouer rien. Seuls les
+  // codes maison sont localisés (CLAUDE.md, « Never translated ») ; la liste est celle de ces codes.
+  { prefixe: 'code.', suffixes: ['ORDER_NOT_APPLIED'] },
 ];
 export function verifierTraductions({ MSG, STATIC, LANGS }, html) {
   const erreurs = [];
@@ -201,7 +214,6 @@ export function verifierTraductions({ MSG, STATIC, LANGS }, html) {
 
   // Clés de message écrites en toutes lettres dans les scripts : 'espace.nom', avec un espace de MSG.
   const espaces = new Set(Object.keys(MSG).map(k => k.split('.')[0]));
-  const clesMsg = Object.keys(MSG);
   const reCle = /(?<![\w$.])'([a-z0-9]+(?:\.[A-Za-z0-9_]+)+)'(?![\w])/g;
   const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
   let s;
@@ -211,13 +223,15 @@ export function verifierTraductions({ MSG, STATIC, LANGS }, html) {
     for (const m of s[2].matchAll(reCle)) {
       const cle = m[1];
       if (!espaces.has(cle.split('.')[0]) || cle in MSG) continue;
-      if (clesMsg.some(k => k.startsWith(cle))) continue; // début d'une clé composée, vérifiée par les familles
+      if (FAMILLES_COMPOSEES.some(f => f.prefixe === cle)) continue; // préfixe d'une clé composée, vérifié par les familles
       signaler(`key "${cle}" is used by the script but defined nowhere in MSG`, debut + m.index);
     }
   }
-  for (const { prefixe, suffixes } of FAMILLES_COMPOSEES) {
-    for (const suffixe of suffixes) {
-      if (!(prefixe + suffixe in MSG)) signaler(`composed key "${prefixe + suffixe}" is built by the script but missing from MSG`);
+  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].filter(x => !/\bsrc\s*=/.test(x[1])).map(x => x[2]).join('\n');
+  for (const { prefixe, suffixes, lecture } of FAMILLES_COMPOSEES) {
+    const vus = lecture ? [...scripts.matchAll(lecture)].map(m => m[1]) : [];
+    for (const suffixe of new Set([...suffixes, ...vus])) {
+      if (!texteComplet(MSG[prefixe + suffixe])) signaler(`composed key "${prefixe + suffixe}" is built by the script but missing from MSG`);
     }
   }
   return erreurs;

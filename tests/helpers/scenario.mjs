@@ -99,3 +99,18 @@ export function verifierAutorisation(rec, nom) {
     ? [{ message: `${nom}: ${rec.depassementPar} went ${rec.depassement.toFixed(1)} m beyond its movement authority` }]
     : [];
 }
+
+/**
+ * Code de crochet (voir `auLancement`) qui passe le camion visé en publication PÉRIODIQUE comme le fait un visiteur :
+ * par le sélecteur « Motif de publication » de la page (son gestionnaire remet aussi à zéro l'émission et la
+ * réception de l'ordre d'arrêt), puis par le curseur « Perte de paquets » quand le taux est à sa portée (0 à 60 %).
+ * Le curseur ne va pas jusqu'à 100 % : ce taux-là est posé sur le modèle. Revue de la spec 001, écart 2.
+ */
+export const basculerEnPeriodique = perte => `
+  const T = S.sim.trucks.find(x => x.id === L.cible);
+  S.setSel(S.sim.trucks.indexOf(T));
+  const sel = document.getElementById('selDds'); sel.value = 'PERIODIC'; sel.dispatchEvent(new Event('change'));
+  ${perte <= 0.6
+    ? `const curseur = document.getElementById('rLoss'); curseur.value = ${Math.round(perte * 100)}; curseur.dispatchEvent(new Event('input'));`
+    : `T.dds.loss = ${perte};`}
+`;

@@ -95,6 +95,40 @@ test.describe('T-07 translation tables (S4)', () => {
     expect(textes).toContain('"hud.kCOMFORT"');
   });
 
+  // Revue de la spec 001, écart 4 : famille code.* (codeName retombe sans bruit sur le code brut), clés tronquées, types d'arrêt.
+  test('composed keys: the home-made code translations of codeName() are checked', async ({ page }) => {
+    const t = await tables(page);
+    delete t.MSG['code.ORDER_NOT_APPLIED'];
+    const textes = verifierTraductions(t, html).map(e => e.message).join('\n');
+    expect(textes).toContain('"code.ORDER_NOT_APPLIED"');
+  });
+
+  test('composed keys: a code translation with a missing language is reported', async ({ page }) => {
+    const t = await tables(page);
+    t.MSG['code.ORDER_NOT_APPLIED'] = ['ORDRE_NON_APPLIQUÉ', 'ORDER_NOT_APPLIED', ''];
+    const textes = verifierTraductions(t, html).map(e => e.message).join('\n');
+    expect(textes).toContain('"code.ORDER_NOT_APPLIED"');
+  });
+
+  test('a truncated key is not accepted just because a longer key starts with it', async ({ page }) => {
+    const t = await tables(page);
+    expect(Object.keys(t.MSG), 'the premise: log.started exists').toContain('log.started');
+    const lignes = html.split('\n');
+    const cible = lignes.findIndex(l => l.startsWith('const clamp = '));
+    lignes.splice(cible + 1, 0, "const tronquee = t('log.start');");
+    const erreurs = verifierTraductions(t, lignes.join('\n'));
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('"log.start"');
+  });
+
+  test('composed keys: a new stop type found in the script without its hud.k translation is reported', async ({ page }) => {
+    const t = await tables(page);
+    const casse = html.replace("T.mc.appliedKind === 'COMFORT'", "T.mc.appliedKind === 'COMFORT' || T.mc.appliedKind === 'SLOW'");
+    expect(casse, 'the breakage is applied').not.toBe(html);
+    const textes = verifierTraductions(t, casse).map(e => e.message).join('\n');
+    expect(textes).toContain('"hud.kSLOW"');
+  });
+
   test('terms identical in every language by design are not reported', async ({ page }) => {
     const t = await tables(page);
     t.MSG['id.you'] = ['LV', 'LV', 'LV'];
