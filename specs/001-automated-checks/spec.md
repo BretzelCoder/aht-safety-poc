@@ -2,6 +2,7 @@
 
 > Status: APPROVED
 > Created: 2026-11-15 · Approved: 2026-11-15
+> Amended 2026-11-15, validated by the owner (action A-1 of the continuous-improvement register): S11 and AC-13 now name the hosts that refuse robots.
 
 ## 1. Problem / Why
 Every check on this project is manual today: Claude extracts the script to check its syntax, renders the page in a headless browser and reads the log by eye. Nothing runs on a push or a pull request, so a broken script, a missing German string or a scenario that no longer shows what the guide promises can reach GitHub Pages unnoticed: `main` is the live site.
@@ -35,7 +36,7 @@ The constitution makes "the test is the judge" non-negotiable, and `CLAUDE.md` s
 - **S8 — Spec status.** When a spec in `specs/` (other than the template) is on `main` with the status DRAFT or IN REVIEW, then the checks fail.
 - **S9 — Disclaimer.** When the "educational model, not a safety tool, not affiliated with any manufacturer" statement disappears from the README or from the header comment of `index.html`, then the checks fail.
 - **S10 — Analytics.** When the analytics code would load outside `bretzelcoder.github.io`, or an analytics event is not prefixed `aht-safety-poc/`, then the checks fail.
-- **S11 — External links.** When a link of the README or of the in-app guide no longer answers, then the checks report a visible warning naming the link, without failing the run.
+- **S11 — External links.** When a link of the README or of the in-app guide no longer answers, then the checks report a visible warning naming the link, without failing the run. *Exception (amendment of 2026-11-15)*: for the hosts known to refuse automated requests (a short commented list in the check), an answer 403 is reported as "unverifiable" on an information line, not as a warning. A 404, a timeout or a network error on those same hosts remains a warning.
 
 ## 4. Edge cases and errors
 - **Randomness.** Scenario D draws its packet losses at random and scenario vehicles get random identifiers: every check must give the same result at every run. A check that passes or fails depending on chance is a defect of the check.
@@ -68,7 +69,7 @@ The constitution makes "the test is the judge" non-negotiable, and `CLAUDE.md` s
 - [ ] AC-10 — A spec with the status DRAFT or IN REVIEW (outside the template) makes the status check fail.
 - [ ] AC-11 — Removing the disclaimer from the README or from the header comment of `index.html` makes the checks fail.
 - [ ] AC-12 — Removing the host restriction of the analytics code, or adding an event without the `aht-safety-poc/` prefix, makes the checks fail.
-- [ ] AC-13 — A dead link produces a warning naming it, and the overall result stays a pass if nothing else failed.
+- [ ] AC-13 — A dead link produces a warning naming it, and the overall result stays a pass if nothing else failed. A 403 from a listed host is reported as unverifiable, not as a warning; a 403 from an unlisted host, and any 404, timeout or network error, stay warnings.
 - [ ] AC-14 — With the network cut, every check except the link check passes.
 - [ ] AC-15 — The published site is unchanged in what it loads: no file used only by the checks is fetched by the page, and the page still opens from a downloaded copy with nothing installed.
 - [ ] AC-16 — `CLAUDE.md` ("Project commands" and "Delivery checklist") and the README explain how to install what the checks need and how to run them; the "to be defined" placeholders are gone.

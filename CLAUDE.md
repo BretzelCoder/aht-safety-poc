@@ -49,7 +49,7 @@ Install once (Node.js 22 or later; nothing is installed for the page itself):
 Run:
 - `npm test`: everything, in about 30 seconds. Static checks (script syntax, disclaimer, analytics guard, spec statuses), translations (static tables, then at runtime in FR, EN and DE), rendering in the three languages, scenarios A to E, physics invariants (mass and road, movement authority, network cut, emergency latch), then the link check. The same command runs on GitHub (`Checks` workflow) on every push and pull request.
 - `npm run test:browser`: the Playwright tests only, no network needed.
-- `npm run test:links`: the link check only. A dead or unreachable link is a warning and never fails the run (ISO and USPTO refuse automated requests).
+- `npm run test:links`: the link check only. A dead or unreachable link is a warning and never fails the run; a 403 from a host known to refuse robots (list in `scripts/check-links.mjs`) is an information line, "unverifiable".
 - One test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`.
 - Run the page: open `index.html` in a browser. No build.
 
