@@ -236,3 +236,61 @@ export function verifierTraductions({ MSG, STATIC, LANGS }, html) {
   }
   return erreurs;
 }
+
+/**
+ * Spec 002, AC-18 : aucun constructeur n'est nommé comme propriétaire de l'architecture montrée.
+ * La liste est volontairement courte (le nom que le brief mentionnait) : d'autres noms de matériel
+ * figurent déjà, légitimement, dans les sources du guide.
+ * Amendement du 2026-11-15 (décision du propriétaire) : aucune distribution Linux ni aucun outil de construction n'est nommé non plus
+ * (ni Debian ni Yocto) : le schéma dit « distribution Linux », en variante temps réel ou standard.
+ */
+export const NOMS_INTERDITS = ['Liebherr', 'Yocto', 'Debian'];
+export function verifierSansConstructeur(readme, html) {
+  const erreurs = [];
+  for (const [fichier, texte] of [['README.md', readme], ['index.html', html]]) {
+    for (const nom of NOMS_INTERDITS) {
+      const re = new RegExp(nom, 'gi');
+      let m;
+      while ((m = re.exec(texte))) {
+        erreurs.push({ fichier, ligne: lignesAvant(texte, m.index) + 1, message: `"${nom}" must not appear in the shipped page or the README (spec 002: no manufacturer, no Linux distribution, no build system is named)` });
+      }
+    }
+  }
+  return erreurs;
+}
+
+
+/** Extrait le bloc <div> qui contient `marqueur` (jusqu'à son </div> fermant), ou null. */
+function extraireBloc(html, marqueur) {
+  const i = html.indexOf(marqueur);
+  if (i < 0) return null;
+  const debut = html.lastIndexOf('<div', i);
+  const re = /<div\b|<\/div>/g;
+  re.lastIndex = debut;
+  let prof = 0, m;
+  while ((m = re.exec(html))) {
+    prof += m[0] === '</div>' ? -1 : 1;
+    if (prof === 0) return { debut, texte: html.slice(debut, re.lastIndex) };
+  }
+  return null;
+}
+
+/**
+ * Spec 002, AC-15 : aucune durée de latence n'est écrite en dur dans le HTML de la carte « Autonomie · niveau 1 » ni de la
+ * vue « niveaux 1 ↔ 2 », ni dans les textes statiques qui s'y rattachent : les durées affichées viennent du modèle.
+ */
+const CLES_NIVEAU1 = 'l1H|l1Help|kernAria|freezeT|defAria|defOver|defBeyond|defStale|defReplay|defInteg|defSend|defSendT|defRepeat|tabL12|tabsAria|scF|scFt|scG|scGt';
+export function verifierLatenceSansChiffre(html) {
+  const erreurs = [], reDuree = /\d+(?:[.,]\d+)?\s*ms\b/g;
+  const signaler = (message, position) => erreurs.push({ fichier: 'index.html', ligne: lignesAvant(html, position) + 1, message });
+  for (const marqueur of ['id="cardL1"', 'id="paneL12"']) {
+    const b = extraireBloc(html, marqueur);
+    if (!b) { signaler(`the block ${marqueur} was not found`, 0); continue; }
+    for (const m of b.texte.matchAll(reDuree)) signaler(`a latency "${m[0]}" is written in the HTML of ${marqueur}: it must come from the model`, b.debut + m.index);
+  }
+  const reStatic = new RegExp(String.raw`'ui\.(${CLES_NIVEAU1})':\s*'((?:[^'\\]|\\.)*)'`, 'g');
+  for (const m of html.matchAll(reStatic)) {
+    if (new RegExp(reDuree.source).test(m[2])) signaler(`the static text ui.${m[1]} contains a written latency: "${m[2]}"`, m.index);
+  }
+  return erreurs;
+}
