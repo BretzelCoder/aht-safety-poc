@@ -33,6 +33,8 @@ window.AHT = {
     'js/m2-comms-bus.js': 'dc14bd55',
     'js/m3-perception.js': '5e282ef0',
     'js/m3-fms-planner.js': '73f1a8a1',
+    'js/m3-levels.js': '904f22de',
+    'js/m3-supervisor-control.js': '6181f0b2',
   },
   vu: {}, n: {}, erreur: null,
   inscrire(chemin, empreinte) { this.vu[chemin] = empreinte; this.n[chemin] = (this.n[chemin] || 0) + 1; }
@@ -330,181 +332,10 @@ window.AHT = {
 <script src="js/m2-comms-bus.js"></script>
 <script src="js/m3-perception.js"></script>
 <script src="js/m3-fms-planner.js"></script>
+<script src="js/m3-levels.js"></script>
+<script src="js/m3-supervisor-control.js"></script>
 <script>
 'use strict';
-/* Niveau 1 : rapport d'obstacles (après la perception) et consigne (après le planificateur), à chaque pas.
-   Un niveau 1 figé n'émet plus rien. Le niveau 2 ne voit que ce qui arrive par le lien. */
-function l1EmitReport(T) {
-  if (T.l1.frozen) return;
-  l1Send(T, 'obs', { dObs: T.m.dObs, obsId: T.m.obsId, obsPred: T.m.obsPred });
-}
-function l1EmitSetpoint(T) {
-  const A = T.l1;
-  if (A.frozen) return;
-  const d = A.defect;
-  let sp;
-  if (d === 'REPLAY' && A.captured.length) sp = { ...A.captured[A.captured.length - 1] };   // la consigne précédente, intacte, renvoyée à la place de la nouvelle : assez fraîche, même avec le retard du noyau généraliste, pour que le verdict soit « séquence »
-  else {
-    sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v };
-    if (d === 'STALE') sp.ts -= 1.0;
-    if (d === 'OVERSPEED') sp.vDemand = vLimitAt(T.s + P.len / 2) + 15 / 3.6;   // 15 km/h au-dessus de la limite du tronçon
-    if (d === 'BEYOND_MA') { sp.vDemand = vLimitAt(T.s + P.len / 2); sp.dGoal += 30; }   // vitesse de ligne sans tenir compte de l'autorisation, objectif 30 m au-delà de sa fin
-    sp.sum = sumOf(sp);
-    if (d === 'INTEGRITY') sp.vDemand += 5;                  // altérée après le calcul de la somme de contrôle
-    if (!d) { A.captured.push({ ...sp }); if (A.captured.length > 5) A.captured.shift(); }
-  }
-  if (d && !A.repeat) A.defect = null;                       // un défaut ne dure qu'une consigne, sauf en mode continu
-  l1Send(T, 'sp', sp);
-}
-/* Panne et redémarrage du niveau 1 (commandes du visiteur, scénario F). Figer garde en mémoire l'instant et la position,
-   pour mesurer le délai de détection et la distance jusqu'à l'arrêt. */
-function l1Freeze(T) {
-  if (T.l1.frozen) return;
-  T.l1.frozen = true; T.l1.ev = { tFreeze: sim.t, sFreeze: T.s, tDetect: null, sStill: null };
-  logEv(T.id, 0, 'INJECT', M('l1.freeze'), 'info');
-}
-function l1Restart(T) {
-  if (!T.l1.frozen) return;
-  T.l1.frozen = false; T.l1.session++; T.l1.seq = 0;          // nouvelle session : le compteur repart de zéro sans passer pour un rejeu
-  logEv(T.id, 0, 'INJECT', M('l1.restart', { n: T.l1.session }), 'info');
-}
-/* Niveau 2 : ses propres mesures (position, autorisation reçue du FMS), gardées une seconde, pour juger une consigne
-   au moment où elle a été émise et non au moment où elle arrive (spec 002, S6). */
-function l2Measure(T) {
-  const L = T.l2;
-  L.hist.push({ t: sim.t, s: T.s, sEnd: T.auth.sEnd });
-  while (L.hist.length > 1 && L.hist[0].t < sim.t - P.l1Hist) L.hist.shift();
-}
-function l2At(L, ts) {
-  let best = L.hist[L.hist.length - 1];
-  for (const h of L.hist) if (Math.abs(h.t - ts) < Math.abs(best.t - ts)) best = h;
-  return best;
-}
-/* Niveau 2 : livre ce qui est arrivé, juge chaque consigne et tient son état (consigne acceptée, battement, échanges). */
-function l2Receive(T) {
-  const L = T.l2;
-  while (L.link.length && L.link[0].at <= sim.t + 1e-9) {   // 1e-9 : l'horloge s'accumule par pas de 0,02 s, sans cela un retard de 0,2 s arriverait un pas trop tard
-    const it = L.link.shift();
-    if (it.kind === 'obs') L.obs = it.p; else l2Judge(T, it.p);
-  }
-}
-/* Jugement d'une consigne, dans l'ordre : intégrité, fraîcheur, séquence. Un message qui échoue à l'un de ces trois contrôles
-   n'est pas un battement valide. Il ne change jamais la consigne acceptée. */
-function l2Judge(T, sp) {
-  const L = T.l2, age = sim.t - sp.ts;
-  const e = { session: sp.session, seq: sp.seq, ts: sp.ts, v: sp.vDemand, d: sp.dGoal, sClaim: sp.sClaim, vClaim: sp.vClaim, sumOk: sumOf(sp) === sp.sum, ok: false, code: null };
-  if (!e.sumOk) return l2Refuse(T, e, 'SETPOINT_INTEGRITY', 'l2.integrity', { seq: sp.seq });
-  if (age > P.l1Stale) return l2Refuse(T, e, 'SETPOINT_STALE', 'l2.stale', { seq: sp.seq, ms: N(age * 1000) });
-  if (sp.session < L.session || (sp.session === L.session && sp.seq <= L.seq)) return l2Refuse(T, e, 'SETPOINT_SEQUENCE', 'l2.sequence', { seq: sp.seq, last: L.seq });
-  L.session = sp.session; L.seq = sp.seq; L.lastValid = sim.t;   // message bien formé : battement, séquence suivie
-  // Contrôles de contenu, avec les mesures du niveau 2 à l'instant d'émission (jamais sClaim ni vClaim, affirmés par le niveau 1).
-  const h = l2At(L, sp.ts), lim = vLimitAt(h.s + P.len / 2), depasse = h.s + sp.dGoal - h.sEnd;
-  if (sp.vDemand > lim + 0.1) return l2Refuse(T, e, 'SETPOINT_OVERSPEED', 'l2.overspeed', { seq: sp.seq, v: N(sp.vDemand * 3.6), lim: N(lim * 3.6) });
-  if (depasse > 0.1) return l2Refuse(T, e, 'SETPOINT_BEYOND_MA', 'l2.beyond', { seq: sp.seq, d: N(depasse) });
-  L.vAccepted = sp.vDemand; L.rejRun = 0; e.ok = true;
-  l2Record(L, e);
-}
-function l2Record(L, e) { L.ex.push(e); if (L.ex.length > 5) L.ex.shift(); }
-function l2Refuse(T, e, code, k, p) {
-  const L = T.l2;
-  e.code = code; e.msg = M(k, p); e.t = sim.t; L.rejRun++;
-  l2Record(L, e);
-  L.rej.push(e); if (L.rej.length > 3) L.rej.shift();
-  logEv(T.id, 1, code, e.msg);
-}
-
-/* Superviseur de sûreté : machine à états, indépendante du planificateur. */
-function supervise(T) {
-  const now = sim.t, codes = [];
-  let sev = 0, kind = 'AUTH';
-  const KORD = { AUTH: 0, COMFORT: 1, MAX: 2 };
-  const add = (lvl, code, msg, k) => { codes.push({ lvl, code, msg }); if (lvl > sev) sev = lvl; if (lvl === 2 && k && KORD[k] > KORD[kind]) kind = k; };
-  const m = T.m;
-  if (!m.lidarOk && !m.radarOk) add(3, 'DM1_PERCEPTION_LOST', M('sup.percLost'));
-  else if (!m.lidarOk) add(1, T.faults.lidar ? 'DM1_LIDAR_FAULT' : 'DM1_LIDAR_DUST', M(T.faults.lidar ? 'sup.lidarFault' : 'sup.lidarDust'));
-  if (T.faults.radar && m.lidarOk) add(1, 'DM1_RADAR_FAULT', M('sup.radarFault'));
-  if (T.faults.gnss) {
-    const d = now - T.gnssLostAt;
-    if (d > P.gnssDR) add(2, 'DM1_GNSS_DR_LIMIT', M('sup.gnssDr', { s: N(d) }), 'COMFORT');
-    else add(1, 'DM1_GNSS_RTK_LOST', M('sup.gnssLost', { s: N(P.gnssDR - d) }));
-  }
-  if (now - T.auth.lastRx > P.fmsLease) add(2, 'FMS_LINK_LOST', M('sup.fmsLost', { m: N(Math.max(0, T.auth.sEnd - T.s)) }), 'AUTH');
-  if (T.ecuEmergency) add(3, 'DM1_BRAKE_CMD_TIMEOUT', M('sup.ecu'));
-  else if (m.brakeLat > P.canDeadline) add(2, 'CAN_BRAKE_DEADLINE', M('sup.canDeadline', { ms: N(m.brakeLat * 1000) }), 'COMFORT');
-  if (m.busLoad > 40) add(0, 'CAN_BUSLOAD_HIGH', M('sup.busLoad', { p: N(m.busLoad) }));
-  const ob = T.l2.obs;   // ce que le niveau 1 a rapporté (spec 002), pas la valeur interne du planificateur
-  if (ob.dObs < m.dStop) add(2, 'SIL_BUBBLE_INTRUSION', M(ob.obsPred ? 'sup.intrusionPred' : 'sup.intrusion', { id: ob.obsId, d: N(ob.dObs), s: N(m.dStop) }), 'MAX');
-  else if (ob.dObs < m.dCaution) add(1, 'CAUTION_ZONE', M(ob.obsPred ? 'sup.cautionPred' : 'sup.caution', { id: ob.obsId, d: N(ob.dObs), c: N(m.dCaution) }));
-  // Battement du niveau 1 (spec 002) : le niveau 2 décide seul. La perte dure jusqu'à ce que des consignes bien formées arrivent
-  // sans interruption pendant P.l1Stable ; la reprise passe ensuite par l'hystérésis habituelle de l'état. Jamais verrouillée.
-  const L2 = T.l2, hbAge = now - L2.lastValid;
-  if (hbAge > P.l1Deadline) { L2.hbLost = true; L2.stableSince = 0; }
-  else if (L2.hbLost) { if (!L2.stableSince) L2.stableSince = now; if (now - L2.stableSince >= P.l1Stable) L2.hbLost = false; }
-  if (L2.hbLost) {
-    const dl = N(P.l1Deadline * 1000);
-    add(2, 'L1_HEARTBEAT_LOST', hbAge > P.l1Deadline ? M('sup.l1Lost', { ms: N(hbAge * 1000), dl }) : M('sup.l1Back', { s: N(now - L2.stableSince, 1), need: N(P.l1Stable, 1) }), 'MAX');
-  }
-  // Délai de détection : l'instant où le silence dépasse l'échéance après un gel (et non dès que la perte est active : un nouveau gel pendant la reprise donnait alors 0,02 s).
-  if (hbAge > P.l1Deadline && T.l1.ev.tFreeze !== null && T.l1.ev.tDetect === null) T.l1.ev.tDetect = now;
-  // Rejets consécutifs : un niveau 1 vivant mais qui se trompe sans cesse est traité comme un niveau 1 perdu (même arrêt, même reprise).
-  if (L2.rejRun >= P.l1RejBound) { L2.rejLost = true; L2.rejStable = 0; }
-  else if (L2.rejLost) {
-    if (L2.rejRun > 0) L2.rejStable = 0;
-    else { if (!L2.rejStable) L2.rejStable = now; if (now - L2.rejStable >= P.l1Stable) L2.rejLost = false; }
-  }
-  if (L2.rejLost) add(2, 'L1_SETPOINTS_REJECTED', L2.rejRun >= P.l1RejBound ? M('sup.l1Rej', { n: L2.rejRun }) : M('sup.l1RejBack', { s: N(L2.rejStable ? now - L2.rejStable : 0, 1), need: N(P.l1Stable, 1) }), 'MAX');
-  if (T.l1.ev.tDetect !== null && T.l1.ev.sStill === null && T.v < 0.3) T.l1.ev.sStill = T.s;   // arrêt au sens du modèle : moins de 0,3 m/s
-  if (T.faults.estop) add(3, 'REMOTE_ESTOP', M('sup.estop'));
-  if (T.collided) add(3, 'COLLISION', M('sup.contact'));
-  if (m.runaway) add(2, 'BRAKE_MARGIN_LOW', M('sup.runaway'), 'MAX');
-  if (sev >= 3 && !T.latched) T.latched = true;
-  let target = T.latched ? 3 : sev;
-  const cur = LEVEL[T.state];
-  if (target >= cur) { if (target > 0) T.lowerAt = now + P.stateHold; }
-  else if (now < T.lowerAt) target = cur;
-  const prev = T.state;
-  T.state = NAMES[target];
-  if (target === 2 && sev === 2) T.stopKind = kind;
-  else if (target === 3) T.stopKind = 'MAX';
-  else if (target < 2) T.stopKind = 'AUTH';
-  if (prev !== T.state) logEv(T.id, target, 'STATE', RAW(`${prev} → ${T.state}${codes.filter(c => c.lvl === target).map(c => ' · ' + c.code).join('')}`), 'st');
-  T.reasons = codes;
-  syncCodes(T, codes.concat(T.mc.codes || []));
-}
-
-/* Contrôleur de mouvement (ECU temps réel) + actionneurs + physique. */
-function control(T) {
-  const mode = T.mc.applied;
-  let vT = T.l2.vAccepted, decLim = Math.max(0.4, 0.6 * T.m.aEff), full = false;   // la consigne acceptée par le niveau 2, pas celle du planificateur
-  if (mode === 'DEGRADED_SPEED') vT = Math.min(vT, P.vDeg);
-  if (mode === 'CONTROLLED_STOP') {
-    if (T.mc.appliedKind === 'MAX') { vT = 0; full = true; }
-    else if (T.mc.appliedKind === 'COMFORT') { vT = 0; decLim = Math.max(0.4, 0.5 * T.m.aEff); }
-  }
-  if (mode === 'EMERGENCY_BRAKE') { vT = 0; full = true; }
-  const aDes = full ? -50 : clamp(2.0 * (vT - T.v), -decLim, 0.8);
-  T.cmdBuf.push({ t: sim.t, a: aDes });
-  if (T.cmdBuf.length > 400) T.cmdBuf.shift();
-  T.fullBrake = full;
-}
-function physics(T) {
-  let aCmd = T.lastCmd;
-  if (T.ecuEmergency) aCmd = -50;
-  else {
-    const tq = sim.t - T.m.brakeLat + 1e-9;
-    for (let i = T.cmdBuf.length - 1; i >= 0; i--) if (T.cmdBuf[i].t <= tq) { aCmd = T.cmdBuf[i].a; break; }
-  }
-  T.lastCmd = aCmd;
-  const m = T.mass * 1000, th = Math.atan(gradeAt(T.s)), sn = Math.sin(th), cs = Math.cos(th);
-  const rr = T.v > 0.05 ? G * P.Crr : 0;
-  const Fadh = ENV.mu * m * G * cs;
-  const Fdes = clamp(m * (aCmd + G * sn + rr), -Math.min(P.Fbrake, Fadh), Math.min(P.Ftrac, P.Pmax / Math.max(T.v, 1), 0.6 * Fadh));
-  T.F += (Fdes - T.F) * Math.min(1, DT / P.tauAct);
-  const a = T.F / m - G * sn - rr;
-  T.v = Math.max(0, T.v + a * DT);
-  T.s += T.v * DT; T.a = a;
-}
-
 /* =====================================================================
    MODULE 4 — FaultInjector & TelemetryHUD (état, véhicules humains, journal)
    ===================================================================== */
@@ -513,9 +344,6 @@ const keys = { up: false, down: false, left: false, right: false };
 const layers = { bubbles: true, auth: true, sensors: true, links: true };
 const TRUCK_COLORS = ['#f0c24b', '#7fd0e0', '#f29a6b'];
 
-/* Niveau 1 (calculateur d'autonomie) et niveau 2 (contrôleur de sûreté), état par tombereau (spec 002). */
-function newL1() { return { frozen: false, session: 0, seq: 0, defect: null, repeat: false, captured: [], ev: { tFreeze: null, sFreeze: null, tDetect: null, sStill: null } }; }
-function newL2() { return { link: [], lastAt: 0, vAccepted: 0, obs: { dObs: Infinity, obsId: null, obsPred: false }, lastValid: sim ? sim.t : 0, hbLost: false, stableSince: 0, rejLost: false, rejStable: 0, session: 0, seq: -1, rejRun: 0, hist: [], ex: [], rej: [] }; }
 function makeTruck(id, s, color) {
   const loaded = isLoadedSection(s);
   return {
