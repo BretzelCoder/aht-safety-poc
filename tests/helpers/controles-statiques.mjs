@@ -152,3 +152,73 @@ export function verifierStatuts(specs, { main }) {
   }
   return { erreurs, liste };
 }
+
+/** Texte valable d'une traduction : une chaîne non vide. */
+const texteValable = v => typeof v === 'string' && v.trim() !== '';
+
+/**
+ * S4 (moitié « tables ») : les traductions sont complètes en français, anglais et allemand.
+ * `tables` = { MSG, STATIC, LANGS } lues dans la page ; `html` = contenu de index.html.
+ *  - chaque clé data-i18n* du HTML existe dans STATIC.en et STATIC.de ;
+ *  - STATIC.en et STATIC.de ont exactement les mêmes clés ;
+ *  - chaque entrée de MSG est un triplet [fr, en, de] de textes non vides ;
+ *  - chaque clé de message écrite en toutes lettres dans le script existe dans MSG, et les familles
+ *    de clés composées pendant l'exécution (préfixe + suffixe) sont complètes.
+ * On ne compare jamais les textes entre langues : les termes identiques par conception ne sont pas signalés.
+ */
+const FAMILLES_COMPOSEES = [
+  // t('hud.k' + T.mc.appliedKind), avec appliedKind parmi les arrêts de type MAX, COMFORT et AUTH.
+  { prefixe: 'hud.k', suffixes: ['MAX', 'COMFORT', 'AUTH'] },
+];
+export function verifierTraductions({ MSG, STATIC, LANGS }, html) {
+  const erreurs = [];
+  const signaler = (message, position = null) => erreurs.push({ fichier: 'index.html', ligne: position === null ? null : numeroLigne(html, position), message });
+
+  if (JSON.stringify(LANGS) !== '["fr","en","de"]') signaler(`LANGS must be ["fr","en","de"], found ${JSON.stringify(LANGS)}`);
+
+  // Le HTML hors scripts, en gardant les numéros de ligne : le contenu des scripts est remplacé par des espaces.
+  const horsScripts = html.replace(/<script\b[\s\S]*?<\/script>/gi, m => m.replace(/[^\n]/g, ' '));
+  const deja = new Set();
+  for (const m of horsScripts.matchAll(/\bdata-i18n(?:-html|-title|-aria)?\s*=\s*"([^"]+)"/g)) {
+    const cle = m[1];
+    if (deja.has(cle)) continue;
+    deja.add(cle);
+    for (const lang of ['en', 'de']) {
+      if (!texteValable(STATIC[lang]?.[cle])) signaler(`STATIC.${lang} is missing the key "${cle}" used by the page (data-i18n)`, m.index);
+    }
+  }
+
+  for (const [a, b] of [['en', 'de'], ['de', 'en']]) {
+    for (const cle of Object.keys(STATIC[a] ?? {})) {
+      if (!(cle in (STATIC[b] ?? {}))) signaler(`STATIC.${b} is missing the key "${cle}" (present in STATIC.${a})`);
+    }
+  }
+
+  for (const [cle, v] of Object.entries(MSG)) {
+    if (!Array.isArray(v) || v.length !== 3) { signaler(`MSG["${cle}"] must be a [fr, en, de] triplet`); continue; }
+    v.forEach((texte, i) => { if (!texteValable(texte)) signaler(`MSG["${cle}"] has no ${['fr', 'en', 'de'][i]} text`); });
+  }
+
+  // Clés de message écrites en toutes lettres dans les scripts : 'espace.nom', avec un espace de MSG.
+  const espaces = new Set(Object.keys(MSG).map(k => k.split('.')[0]));
+  const clesMsg = Object.keys(MSG);
+  const reCle = /(?<![\w$.])'([a-z0-9]+(?:\.[A-Za-z0-9_]+)+)'(?![\w])/g;
+  const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+  let s;
+  while ((s = re.exec(html))) {
+    if (/\bsrc\s*=/.test(s[1])) continue;
+    const debut = s.index + s[0].indexOf('>') + 1;
+    for (const m of s[2].matchAll(reCle)) {
+      const cle = m[1];
+      if (!espaces.has(cle.split('.')[0]) || cle in MSG) continue;
+      if (clesMsg.some(k => k.startsWith(cle))) continue; // début d'une clé composée, vérifiée par les familles
+      signaler(`key "${cle}" is used by the script but defined nowhere in MSG`, debut + m.index);
+    }
+  }
+  for (const { prefixe, suffixes } of FAMILLES_COMPOSEES) {
+    for (const suffixe of suffixes) {
+      if (!(prefixe + suffixe in MSG)) signaler(`composed key "${prefixe + suffixe}" is built by the script but missing from MSG`);
+    }
+  }
+  return erreurs;
+}
