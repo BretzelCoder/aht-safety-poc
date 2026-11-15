@@ -1,7 +1,7 @@
 # Spec 001 — Automated checks
 
-> Status: APPROVED
-> Created: 2026-11-15 · Approved: 2026-11-15
+> Status: DELIVERED
+> Created: 2026-11-15 · Approved: 2026-11-15 · Delivered: 2026-11-15 (pull request #2, merge commit `3103175`)
 > Amended 2026-11-15, validated by the owner (action A-1 of the continuous-improvement register): S11 and AC-13 now name the hosts that refuse robots.
 
 ## 1. Problem / Why

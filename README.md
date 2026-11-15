@@ -40,7 +40,7 @@ The live demo counts visits with [GoatCounter](https://www.goatcounter.com/), a 
 | A | Pickup **with** V2X crosses intersection I1 | The FMS revokes the truck's I1 token; the truck makes a planned stop before the intersection. |
 | B | Pickup **without** V2X crosses I1 | Only on-board perception protects; trajectory prediction slows the truck early. |
 | C | B inside a dust cloud | LiDAR lost, radar fallback, degraded speed, mission continues. |
-| D | Stop command sent once in BEST_EFFORT with 50 % loss | The order can be lost silently and a collision can occur. Switch to periodic publishing to compare. |
+| D | Stop command sent once in BEST_EFFORT with 50 % loss | The order is lost silently in most runs and a collision follows in a sizeable share of them, so replay several times. Switch to periodic publishing to compare. |
 | E | Saturated CAN bus, brake command mis-prioritised | Deadline missed → controlled stop; push the load towards 90 % → watchdog → emergency brake. |
 
 ## Modelling choices
@@ -50,6 +50,7 @@ The live demo counts visits with [GoatCounter](https://www.goatcounter.com/), a 
 - **CAN load is a design budget, not a runtime safety criterion.** The usual 40 % rule comes from response-time analysis. At runtime what matters is the brake command latency against its deadline.
 - **Safety commands over DDS** are published periodically with Deadline and Liveliness, and the receiver goes to a safe state on silence (black-channel principle, IEC 61784-3). RELIABLE guarantees delivery, not timeliness.
 - **ROS 2 / DDS do not carry the safety integrity level.** Safety lives in an independent supervisor (doer/checker pattern) and in actuator watchdogs: the planner avoids the zones, the supervisor checks them.
+- **One cause per brake fault:** once the brake ECU watchdog has tripped (from 84 % CAN load in this model), the log shows only `DM1_BRAKE_CMD_TIMEOUT`; the missed deadline (`CAN_BRAKE_DEADLINE`, from 67 %) is implied and is no longer logged.
 - **Loss of the FMS link** leads to a planned stop inside the authority already granted, not to an emergency stop.
 - **Unequipped vehicles are a degraded case:** in operation every vehicle entering the autonomous zone carries a terminal; on-board perception is the last barrier.
 - **Emergency state is latched** and needs an explicit acknowledgement before the truck can move again.
