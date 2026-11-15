@@ -521,7 +521,6 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
 <div class="toast" id="toast" role="status"></div>
 
 <script>
-(() => {
 'use strict';
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -2175,7 +2174,6 @@ window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelop
   },
   // Réservé aux vérifications automatiques (spec 001) : tables de traduction et clés introuvables.
   i18n: { MSG, STATIC, LANGS, t }, i18nMissing };
-})();
 </script>
 </body>
 </html>
