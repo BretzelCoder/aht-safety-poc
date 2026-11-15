@@ -488,12 +488,17 @@ test.describe('T-20 guide text (S19, AC-19)', () => {
   }
 });
 
-// Retouche du propriétaire (2026-11-15, deuxième version) : le noyau est la seconde ligne du bloc du niveau 1, juste sous le titre,
-// avec la version choisie sur la même ligne ; « Position » et « Vitesse » sont alignées d'un bloc à l'autre.
-test.describe('Levels 1 ↔ 2 pane: kernel as the second line of level 1, position and speed aligned', () => {
-  const NOYAU = { fr: { RT: 'PREEMPT_RT', GP: 'généraliste', mot: 'Noyau' }, en: { RT: 'PREEMPT_RT', GP: 'general-purpose', mot: 'Kernel' }, de: { RT: 'PREEMPT_RT', GP: 'Allzweck', mot: 'Kernel' } };
+// Retouche du propriétaire (2026-11-15, troisième version) : chaque bloc a trois lignes d'en-tête : le titre, la configuration (le noyau
+// choisi pour le niveau 1, l'échéance du battement pour le niveau 2, valeur sur la même ligne), puis la légende « ce qu'il annonce » /
+// « ce qu'il mesure ». « Position » et « Vitesse » restent alignées d'un bloc à l'autre.
+test.describe('Levels 1 ↔ 2 pane: configuration line and caption under each title, position and speed aligned', () => {
+  const TEXTE = {
+    fr: { noyau: 'Noyau', RT: 'PREEMPT_RT', GP: 'généraliste', delai: 'Échéance', cl1: "ce qu'il annonce", cl2: "ce qu'il mesure" },
+    en: { noyau: 'Kernel', RT: 'PREEMPT_RT', GP: 'general-purpose', delai: 'Timeout', cl1: 'what it claims', cl2: 'what it measures' },
+    de: { noyau: 'Kernel', RT: 'PREEMPT_RT', GP: 'Allzweck', delai: 'Frist', cl1: 'was er angibt', cl2: 'was er misst' },
+  };
   for (const lang of ['fr', 'en', 'de']) {
-    test(`${lang}: the kernel and the chosen version share the second line, and the two blocks line up row by row`, async ({ page }) => {
+    test(`${lang}: kernel and heartbeat timeout on line two, captions on line three, the two blocks line up row by row`, async ({ page }) => {
       await openPage(page, lang);
       await pauseAndSeed(page, 1);
       await page.evaluate(() => { for (let i = 0; i < 250; i++) window.__sim.step(); });
@@ -502,28 +507,35 @@ test.describe('Levels 1 ↔ 2 pane: kernel as the second line of level 1, positi
         await page.evaluate(k => { window.__sim.ENV.kernel = k; window.__sim.step(); }, kernel);
         await page.waitForTimeout(350);
         const m = await page.evaluate(() => {
-          const top = e => Math.round(e.getBoundingClientRect().top), b1 = document.getElementById('blkL1');
-          const kl = document.querySelector('#blkL1 small.kl'), titre = document.querySelector('#blkL1 h4');
-          const rows = id => Object.fromEntries([...document.querySelectorAll('#' + id + ' > div')].map(d => [d.children[0].textContent, top(d)]));
-          return { mot: kl.children[0].textContent, valeur: kl.children[1].textContent, motTop: top(kl.children[0]), valeurTop: top(kl.children[1]), hauteurLigne: Math.round(kl.getBoundingClientRect().height),
-                   sousTitre: top(kl) - top(titre), hauteurTitre: Math.round(titre.getBoundingClientRect().height), ordre: kl.previousElementSibling === titre,
-                   ligneNoyau: [...document.querySelectorAll('#blkL1 > div')].some(d => /Noyau|Kernel/.test(d.children[0].textContent)),
-                   l2Legende: document.querySelector('#blkL2 small') ? top(document.querySelector('#blkL2 small')) - top(document.querySelector('#blkL2 h4')) : null,
-                   chips: [top(document.querySelector('#blkL1 .chip')), top(document.querySelector('#blkL2 .chip'))], l1: rows('blkL1'), l2: rows('blkL2') };
+          const top = e => Math.round(e.getBoundingClientRect().top), haut = e => Math.round(e.getBoundingClientRect().height);
+          const bloc = id => {
+            const b = document.getElementById(id), kl = b.querySelector('small.kl'), cap = [...b.querySelectorAll('small')].find(x => !x.classList.contains('kl'));
+            return { titreH: haut(b.querySelector('h4')), ordre: kl.previousElementSibling === b.querySelector('h4') && kl.nextElementSibling === cap, mot: kl.children[0].textContent, valeur: kl.children[1].textContent,
+                     ecartLigne: Math.abs(top(kl.children[0]) - top(kl.children[1])), klH: haut(kl), klTop: top(kl), capTop: top(cap), capTexte: cap.textContent, chip: top(b.querySelector('.chip')),
+                     lignes: Object.fromEntries([...b.querySelectorAll(':scope > div')].map(d => [d.children[0].textContent, top(d)])), tableau: [...b.querySelectorAll(':scope > div')].map(d => d.children[0].textContent) };
+          };
+          return { l1: bloc('blkL1'), l2: bloc('blkL2'), echeanceMs: window.__sim.P.l1Deadline * 1000 };
         });
-        const attendu = NOYAU[lang];
-        expect(m.mot).toBe(attendu.mot);
-        expect(m.valeur, `${kernel}: the chosen version`).toBe(attendu[kernel]);
-        expect(Math.abs(m.valeurTop - m.motTop), `${kernel}: label and chosen version on the same line (px apart)`).toBeLessThanOrEqual(2);
-        expect(m.hauteurLigne, `${kernel}: one line high (px)`).toBeLessThanOrEqual(14);
-        expect(m.ordre, 'the kernel line comes right after the title').toBe(true);
-        expect(m.hauteurTitre, 'the title stays on one line (px)').toBeLessThanOrEqual(16);
-        expect(m.ligneNoyau, 'the kernel is no longer a row of the block').toBe(false);
-        expect(m.l2Legende, 'level 2 keeps its caption on the same second line').toBe(m.sousTitre);
-        expect(m.chips[0], 'the status chips are on the same line').toBe(m.chips[1]);
-        const [position, vitesse] = Object.keys(m.l1).slice(-2);
-        expect(m.l1[position], `${kernel}: position row aligned between level 1 and level 2`).toBe(m.l2[position]);
-        expect(m.l1[vitesse], `${kernel}: speed row aligned between level 1 and level 2`).toBe(m.l2[vitesse]);
+        const x = TEXTE[lang];
+        expect(m.l1.mot).toBe(x.noyau);
+        expect(m.l1.valeur, `${kernel}: the chosen kernel`).toBe(x[kernel]);
+        expect(m.l2.mot).toBe(x.delai);
+        expect(m.l2.valeur, 'the heartbeat timeout comes from the model parameter').toBe(`${m.echeanceMs} ms`);
+        expect(m.l1.capTexte).toBe(x.cl1);
+        expect(m.l2.capTexte).toBe(x.cl2);
+        for (const b of [m.l1, m.l2]) {
+          expect(b.ordre, 'order: title, configuration line, caption').toBe(true);
+          expect(b.titreH, 'the title stays on one line (px)').toBeLessThanOrEqual(16);
+          expect(b.klH, 'the configuration line is one line high (px)').toBeLessThanOrEqual(14);
+          expect(b.ecartLigne, 'label and value on the same line (px apart)').toBeLessThanOrEqual(2);
+        }
+        expect(m.l1.tableau.some(k => /Noyau|Kernel/.test(k)), 'the kernel is not a row of the block').toBe(false);
+        expect(m.l1.klTop, 'the configuration lines are level').toBe(m.l2.klTop);
+        expect(m.l1.capTop, 'the captions are level').toBe(m.l2.capTop);
+        expect(m.l1.chip, 'the status chips are level').toBe(m.l2.chip);
+        const [position, vitesse] = m.l1.tableau.slice(-2);
+        expect(m.l1.lignes[position], `${kernel}: position row aligned between level 1 and level 2`).toBe(m.l2.lignes[position]);
+        expect(m.l1.lignes[vitesse], `${kernel}: speed row aligned between level 1 and level 2`).toBe(m.l2.lignes[vitesse]);
       }
     });
   }
