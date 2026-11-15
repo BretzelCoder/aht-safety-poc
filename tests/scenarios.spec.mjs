@@ -187,3 +187,62 @@ test.describe('T-12 scenario D: stop order sent once in BEST_EFFORT with losses 
     }
   }
 });
+
+test.describe('T-13 scenario E: saturated CAN bus, brake command mis-prioritised (S6)', () => {
+  const CAMION = 'AHT-01'; // le scénario E s'applique au tombereau sélectionné : le premier après pauseAndSeed
+  const regler = charge => ({ t: 0, js: `S.sim.trucks[0].can.load = ${charge};` });
+
+  test('at 75 % load the brake deadline is missed and the truck makes a controlled stop, without watchdog', async ({ page }) => {
+    await openPage(page, 'fr');
+    await pauseAndSeed(page, 1);
+    const rec = await executer(page, { scenario: 'E', duree: 20, pasTrace: 0.1 });
+
+    const retards = codesDe(rec, CAMION, 'CAN_BRAKE_DEADLINE');
+    expect(retards.length, 'scenario E: the brake deadline is missed at 75 % load').toBeGreaterThan(0);
+    expect(retards[0].msg.k, 'scenario E: the deadline message').toBe('sup.canDeadline');
+    expect(retards[0].msg.p.ms.n, 'scenario E: the brake command latency exceeds the 40 ms deadline').toBeGreaterThan(40);
+    const etats = codesDe(rec, CAMION, 'STATE').map(e => e.msg.raw);
+    expect(etats.some(s => s.includes('CONTROLLED_STOP') && s.includes('CAN_BRAKE_DEADLINE')), 'scenario E: the supervisor goes to CONTROLLED_STOP because of the deadline').toBe(true);
+    expect(rec.etats[CAMION], 'scenario E: controlled stop').toContain('CONTROLLED_STOP');
+
+    expect(codesDe(rec, CAMION, 'DM1_BRAKE_CMD_TIMEOUT'), 'scenario E: no watchdog trip at 75 %').toEqual([]);
+    expect(rec.etats[CAMION], 'scenario E: no emergency brake at 75 %').not.toContain('EMERGENCY_BRAKE');
+    expect(Math.min(...trajet(rec, CAMION).map(p => p.v)), 'scenario E: the truck comes to a stop').toBeLessThan(SEUIL_ARRET);
+    expect(rec.collisions, 'scenario E: no collision').toBe(0);
+    const erreurs = verifierAutorisation(rec, 'scenario E');
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('pushing the load to 90 % trips the brake ECU watchdog and the truck goes to emergency braking', async ({ page }) => {
+    await openPage(page, 'fr');
+    await pauseAndSeed(page, 1);
+    const rec = await executer(page, { scenario: 'E', duree: 20, pasTrace: 0.1, evenements: [{ t: 10, js: 'S.sim.trucks[0].can.load = 90;' }] });
+
+    const retard = codesDe(rec, CAMION, 'CAN_BRAKE_DEADLINE');
+    const watchdog = codesDe(rec, CAMION, 'DM1_BRAKE_CMD_TIMEOUT');
+    expect(watchdog.length, 'scenario E: the brake ECU watchdog trips at 90 %').toBeGreaterThan(0);
+    expect(watchdog[0].msg.k, 'scenario E: the watchdog message').toBe('log.watchdog');
+    expect(retard[0].t, 'scenario E: the deadline is missed before the watchdog trips').toBeLessThan(watchdog[0].t);
+    expect(watchdog[0].t, 'scenario E: the watchdog trips only once the load is raised').toBeGreaterThanOrEqual(10);
+    expect(rec.etats[CAMION], 'scenario E: emergency braking').toContain('EMERGENCY_BRAKE');
+    const apres = trajet(rec, CAMION).filter(p => p.t > watchdog[0].t + 1);
+    expect(apres.every(p => p.etat === 'EMERGENCY_BRAKE' && p.applique === 'EMERGENCY_BRAKE'), 'scenario E: emergency braking is latched and applied').toBe(true);
+    expect(rec.collisions, 'scenario E: no collision').toBe(0);
+  });
+
+  // Bornes mesurées le 2026-11-15 (plan 001) : le délai de la consigne frein mal priorisée dépasse
+  // 40 ms à partir de 67 % de charge, et 100 ms (watchdog) à partir de 84 %. Dès que le watchdog se déclenche,
+  // le superviseur ne journalise plus que son code (DM1_BRAKE_CMD_TIMEOUT) et plus celui de l'échéance :
+  // à 84 %, "deadline code" vaut donc faux alors que l'échéance est évidemment dépassée.
+  for (const [charge, codeEcheance, watchdog] of [[66, false, false], [67, true, false], [83, true, false], [84, false, true]]) {
+    test(`pinned boundary: at ${charge} % load the deadline code is ${codeEcheance ? 'logged' : 'absent'} and the watchdog ${watchdog ? 'trips' : 'holds'}`, async ({ page }) => {
+      await openPage(page, 'fr');
+      await pauseAndSeed(page, 1);
+      const rec = await executer(page, { scenario: 'E', duree: 3, evenements: [regler(charge)] });
+
+      expect(codesDe(rec, CAMION, 'CAN_BRAKE_DEADLINE').length > 0, `scenario E: deadline code logged at ${charge} % load`).toBe(codeEcheance);
+      expect(codesDe(rec, CAMION, 'DM1_BRAKE_CMD_TIMEOUT').length > 0, `scenario E: watchdog tripped at ${charge} % load`).toBe(watchdog);
+      expect(rec.etats[CAMION].includes('EMERGENCY_BRAKE'), `scenario E: emergency brake at ${charge} % load`).toBe(watchdog);
+    });
+  }
+});
