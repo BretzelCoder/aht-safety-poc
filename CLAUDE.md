@@ -47,8 +47,9 @@ Install once (Node.js 24 or later; nothing is installed for the page itself):
 - `npm ci`, then `npx playwright install chromium`.
 
 Run:
-- `npm test`: everything, in under a minute. Static checks (script syntax, disclaimer, analytics guard, spec statuses, no manufacturer name, no latency written in the new HTML), translations (static tables, then at runtime in FR, EN and DE), rendering in the three languages, scenarios A to E, physics invariants (mass and road, movement authority, network cut, emergency latch), levels 1 and 2 (setpoints, rejections, heartbeat loss, scenarios F and G over 40 seeds), the kernel profile, the views and the layout at 1600×900, then the link check. The same command runs on GitHub (`Checks` workflow) on every push and pull request.
-- `node scripts/compare-traces.mjs`: development only, not part of `npm test`. Replays 60 s of simulation on `main` and on the working copy with the same seeds and reports the first difference. Run it after any change to the model that must not move the default behaviour (spec 002, S2).
+- `npm test`: everything, in about three minutes. Static checks (script syntax of every page file, disclaimer, analytics guard, spec statuses, no manufacturer name, no latency written in the new HTML), translations (static tables, then at runtime in FR, EN and DE), rendering in the three languages, scenarios A to E, physics invariants (mass and road, movement authority, network cut, emergency latch), levels 1 and 2 (setpoints, rejections, heartbeat loss, scenarios F and G over 40 seeds), the kernel profile, the page files (map, concerns, release stamps, nothing loaded from outside, one Node version), the start-up guard on broken copies, the downloaded copy and the GitHub Pages rehearsal (a local server under `/aht-safety-poc/`), one check per module loaded alone, the views and the layout at 1600×900, then the link check. The same command runs on GitHub (`Checks` workflow) on every push and pull request.
+- `node scripts/stamps.mjs` (`--check` to only verify): rewrites the release stamp of each page file and the manifest in `index.html`. Run it after any change to a file of `js/` or `css/`; `npm test` fails when a stamp is stale.
+- `node scripts/compare-traces.mjs`: development only, not part of `npm test`. Replays 60 s of simulation on `main` and on the working copy with the same seeds (28 cases, scenarios F and G under both kernel profiles included) and reports the first difference; the reference page may be one file or several. Run it after any change to the model that must not move the default behaviour (spec 002, S2).
 - `npm run test:browser`: the Playwright tests only, no network needed.
 - `npm run test:links`: the link check only. A dead or unreachable link is a warning and never fails the run; a 403 from a host known to refuse robots (list in `scripts/check-links.mjs`) is an information line, "unverifiable".
 - One test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`.
@@ -65,6 +66,7 @@ Lint, typecheck, build: none. There is no build step (ADR-1), and the syntax che
 
 ## Delivery checklist (end of spec / before merge)
 - `npm test` green locally, and the `Checks` run of the branch green on GitHub for Node 24. The link check may only warn.
+- Every file of the page is in the README map ("Where things are") and in the Stack part above, and its release stamp is current (`node scripts/stamps.mjs`); `npm test` enforces both.
 - No string missing a translation: every new `MSG` triplet has three entries, every new `data-i18n*` key exists in `STATIC.en` and `STATIC.de` (`npm test` enforces it).
 - Every new rule has its check, with the proof that the check can fail (see Conventions).
 - Every check delivered is listed next to its proof of failure (negative test or recorded deliberate breakage) in the evidence table of the spec; a check with no row is not delivered.

@@ -12,7 +12,7 @@ It is a teaching proof of concept. The physics is simplified but consistent: eve
 
 ## Run it
 
-No build, no dependencies. Use the [live demo](https://bretzelcoder.github.io/aht-safety-poc/), open `index.html` in a recent browser, or serve your own copy with GitHub Pages (Settings → Pages → deploy from branch `main`, folder `/`). Only the [automated checks](#automated-checks) need anything installed, and the page never loads it.
+No build, no dependencies. Use the [live demo](https://bretzelcoder.github.io/aht-safety-poc/), open `index.html` in a recent browser (from the downloaded folder: `index.html` needs the `css/` and `js/` folders next to it, and says so in French, English and German if one is missing), or serve your own copy with GitHub Pages (Settings → Pages → deploy from branch `main`, folder `/`). Only the [automated checks](#automated-checks) need anything installed, and the page never loads it.
 
 The page loads Google Fonts if online and falls back to system fonts otherwise.
 
@@ -115,23 +115,28 @@ The simulator needs nothing installed. The checks that keep it honest do, for de
 ```bash
 npm ci                            # installs the test runner (@playwright/test, version pinned)
 npx playwright install chromium   # once: downloads the browser used by the tests
-npm test                          # runs everything, under a minute
+npm test                          # runs everything, in about three minutes
 ```
 
 | Check | What it proves |
 |---|---|
-| Script syntax | The page script compiles; a syntax error is reported with its line in `index.html`. |
+| Script syntax | Every script of the page compiles, whichever of its files it sits in; a syntax error is reported with its file and line. |
 | Translations | Every text exists in French, English and German: static keys, dynamic messages and, at run time, every key the scenarios display. Terms identical by design are not flagged. |
-| Rendering | The page opens in French, English and German without a console error, in the right language, and loads nothing from the network or from the analytics service when opened from disk. |
+| Rendering | The page opens in French, English and German without a console error, in the right language, and requests nothing but `index.html`, its own files (each once) and the blocked Google Fonts, and nothing from the analytics service, when opened from disk. |
 | Scenarios A to E | Each built-in scenario produces the outcome described above: token revoked and a planned stop (A), on-board perception only (B), LiDAR blinded and radar fallback at 15 km/h or less (C), a lost stop order reported as `ORDER_NOT_APPLIED` against periodic publishing reaching the stop state (D), brake deadline missed from 67 % CAN load and watchdog from 84 % (E). |
 | Levels 1 and 2 | Each truck sends one complete setpoint per step with a sequence number rising by one; level 2 rejects each of the five defects, with its code, and never applies a rejected setpoint; a frozen level 1 is detected within the deadline and the truck is stopped at maximum braking in every seed; recovery needs a stable heartbeat and never releases a latched emergency; judging uses level 2's own position. |
 | Kernel profile | PREEMPT_RT keeps exactly the previous reaction time and stopping distances; the general-purpose profile adds exactly the latency difference to the reaction time and to the distance the truck really travels; scenarios A to E start from PREEMPT_RT. |
 | Layout | At 1600×900, in the three languages, nothing leaves the screen, including with the levels view open and its exchange list full. |
 | Physics invariants | Loaded downhill stops later than empty on the flat; mass cancels out when adhesion-limited; a watered road lengthens the empty distance only; no truck ever goes beyond its movement authority; after a network cut every truck stops inside its authority without emergency braking; the emergency state stays latched until it is acknowledged. |
 | Repository rules | The disclaimer is still in the README and the page header; no manufacturer is named as the owner of the architecture shown; analytics load only on the live site and every event is prefixed `aht-safety-poc/`; no spec is `DRAFT` or `IN REVIEW` on `main`. |
+| Page files | The tags of `index.html`, the files in `js/` and `css/`, the map "Where things are" above, the paths in `CLAUDE.md` and the files git tracks all agree (exact case, no mixed line endings); every file declares one concern in its header, the same as the map; every file carries the current release stamp (`node scripts/stamps.mjs` rewrites them); nothing is loaded from outside the repository except Google Fonts and, on the published site only, GoatCounter; `package.json` has no build script. |
+| Start-up guard | On copies of the page: a missing file, a file with a syntax error, a file of another release, a file run twice or a stale style sheet each make the page refuse to start, with a message in French, English and German that names the file; a script tag listed twice runs nothing twice. |
+| Downloaded copy and GitHub Pages rehearsal | The files git tracks, copied to another folder, run the simulator with the network blocked. A small local server then serves the page under `/aht-safety-poc/` with exact-case names, only tracked files and the MIME types of Pages: every file answers 200 once and scenario A plays; a wrong-case tag, an absolute `/js/…` path or an untracked file answers 404 and the page refuses to start. The real CDN cache and HTTPS are only checked on the live site. |
+| Modules | Each of the four modules is loaded alone in a bare Node context (no document, no window), with test doubles for what it calls upward, and checked on a pinned behaviour: stopping distances 20.2 m and 42.2 m (module 1); the CAN deadline missed from 67 % load and the brake watchdog from 84 %, the ordered level 1 → level 2 link (module 2); the five setpoint rejections with their tolerances and the heartbeat loss (module 3); scenarios F and G choosing the fastest truck and the event log (module 4, its non-drawing half). |
+| Node version | `package.json`, its lock file, this README, `CLAUDE.md` and the workflow all announce the same Node version, and the workflow has one job. |
 | External links | The links of this README and of the in-app guide. A dead or unreachable link is a warning and never fails the run. The hosts known to refuse automated requests (ISO, USPTO: answer 403) are reported on an information line as unverifiable, to be checked by hand, so that a real dead link stays visible; the list is in `scripts/check-links.mjs`. |
 
-The tests open `index.html` from disk with the network blocked and the random generator seeded, so a run gives the same result every time. The same command runs on GitHub (workflow `Checks`, on Node 24) for every push and pull request; the result shows on the commit and the pull request and does not lock the merge. To run a single test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`; to run only the browser tests or only the link check: `npm run test:browser`, `npm run test:links`. Values pinned from the model (for example the CAN load boundaries) live in `tests/` and change together with the model.
+The tests open `index.html` from disk with the network blocked and the random generator seeded, so a run gives the same result every time. `node scripts/compare-traces.mjs` (development only, not part of `npm test`) replays 28 cases of 60 s on `main` and on the working copy, including scenarios F and G under both kernel profiles, and reports the first difference; it reads the reference page whether it is one file or several. `node scripts/stamps.mjs` rewrites the release stamps after a change to a page file (`--check` only verifies). The same command runs on GitHub (workflow `Checks`, on Node 24) for every push and pull request; the result shows on the commit and the pull request and does not lock the merge. To run a single test: `npx playwright test tests/scenarios.spec.mjs -g "scenario D"`; to run only the browser tests or only the link check: `npm run test:browser`, `npm run test:links`. Values pinned from the model (for example the CAN load boundaries) live in `tests/` and change together with the model.
 
 ## Development process
 
