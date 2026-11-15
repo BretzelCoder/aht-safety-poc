@@ -215,6 +215,8 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
       <button data-scen="C" data-i18n="ui.scC" data-i18n-title="ui.scCt" title="LiDAR aveuglé : repli radar, vitesse réduite (Fail-Operational).">C · + Poussière</button>
       <button data-scen="D" data-i18n="ui.scD" data-i18n-title="ui.scDt" title="L'ordre d'arrêt peut se perdre. Rejouez, puis passez en « état périodique ».">D · Pertes DDS</button>
       <button data-scen="E" data-i18n="ui.scE" data-i18n-title="ui.scEt" title="Charge 75 % : échéance frein dépassée → arrêt contrôlé. Montez à 90 % : watchdog → urgence.">E · CAN saturé</button>
+      <button data-scen="F" data-i18n="ui.scF" data-i18n-title="ui.scFt" title="Le calculateur d'autonomie du tombereau le plus rapide cesse d'émettre : le niveau 2 doit l'arrêter seul.">F · Niveau 1 figé</button>
+      <button data-scen="G" data-i18n="ui.scG" data-i18n-title="ui.scGt" title="Le niveau 1 envoie une consigne défectueuse (choisie dans la carte « Calculateur d'autonomie ») : le niveau 2 la rejette.">G · Consigne fausse</button>
     </div>
   </div>
   <div class="card statecard">
@@ -235,6 +237,25 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
       <button data-fault="estop" class="danger" data-i18n="ui.estop" data-i18n-title="ui.estopT" title="Arrêt d'urgence distant déclenché par l'opérateur">Arrêt d'urgence</button>
       <button id="bAck" data-i18n="ui.ack" data-i18n-title="ui.ackT" title="Lève le verrou EMERGENCY_BRAKE du tombereau sélectionné.">Réarmer</button>
     </div>
+  </div>
+  <div class="card" id="cardL1">
+    <h3 data-i18n="ui.l1H">Autonomie · niveau 1</h3>
+    <select id="selKernel" aria-label="Noyau du calculateur d'autonomie" data-i18n-aria="ui.kernAria"><option value="RT"></option><option value="GP"></option></select>
+    <div class="row">
+      <button id="bFreeze" class="danger" data-i18n-title="ui.freezeT" title="Le calculateur d'autonomie du tombereau sélectionné cesse d'émettre (ou redémarre).">Figer le niveau 1</button>
+    </div>
+    <select id="selDefect" aria-label="Défaut de la consigne envoyée" data-i18n-aria="ui.defAria">
+      <option value="OVERSPEED" data-i18n="ui.defOver">Survitesse</option>
+      <option value="BEYOND_MA" data-i18n="ui.defBeyond">Au-delà de l'autorisation</option>
+      <option value="STALE" data-i18n="ui.defStale">Horodatage périmé</option>
+      <option value="REPLAY" data-i18n="ui.defReplay">Rejeu</option>
+      <option value="INTEGRITY" data-i18n="ui.defInteg">Intégrité invalide</option>
+    </select>
+    <div class="row">
+      <button id="bSendDef" data-i18n="ui.defSend" data-i18n-title="ui.defSendT" title="Le niveau 1 du tombereau sélectionné envoie une consigne avec ce défaut.">Envoyer</button>
+      <label class="chk"><input type="checkbox" id="cDefRepeat"> <span data-i18n="ui.defRepeat">En continu</span></label>
+    </div>
+    <div class="help" data-i18n="ui.l1Help">Latences illustratives.</div>
   </div>
 </aside>
 
@@ -448,6 +469,12 @@ const STATIC = {
     'ui.scC': 'C · + Dust', 'ui.scCt': 'LiDAR blinded: radar fallback, reduced speed (Fail-Operational).',
     'ui.scD': 'D · DDS losses', 'ui.scDt': 'The stop command can be lost. Replay, then switch to “periodic state”.',
     'ui.scE': 'E · Saturated CAN', 'ui.scEt': 'Load 75 %: brake deadline missed → controlled stop. Raise to 90 %: watchdog → emergency.',
+    'ui.scF': 'F · Level 1 frozen', 'ui.scFt': 'The autonomy computer of the fastest truck stops sending: level 2 must stop it on its own.',
+    'ui.scG': 'G · Bad setpoint', 'ui.scGt': 'Level 1 sends a defective setpoint (chosen in the “Autonomy computer” card): level 2 rejects it.',
+    'ui.l1H': 'Autonomy · level 1', 'ui.kernAria': 'Kernel of the autonomy computer', 'ui.freezeT': 'The autonomy computer of the selected truck stops sending (or restarts).',
+    'ui.defAria': 'Defect of the setpoint sent', 'ui.defOver': 'Overspeed', 'ui.defBeyond': 'Beyond the authority', 'ui.defStale': 'Stale timestamp', 'ui.defReplay': 'Replay', 'ui.defInteg': 'Invalid integrity',
+    'ui.defSend': 'Send', 'ui.defSendT': 'Level 1 of the selected truck sends a setpoint with this defect.', 'ui.defRepeat': 'Continuous',
+    'ui.l1Help': 'Illustrative latencies.',
     'ui.faultsH': 'Truck faults', 'ui.fLidarT': 'LiDAR failure', 'ui.fRadarT': 'Radar failure', 'ui.fGnssT': 'Loss of GNSS RTK positioning',
     'ui.massAria': 'Truck mass', 'ui.massAuto': 'Normal cycle (empty ↔ loaded)', 'ui.massEmpty': 'Force empty, 160 t', 'ui.massLoaded': 'Force loaded, 400 t',
     'ui.estop': 'Emergency stop', 'ui.estopT': 'Remote emergency stop triggered by the operator',
@@ -535,6 +562,12 @@ const STATIC = {
     'ui.scC': 'C · + Staub', 'ui.scCt': 'LiDAR geblendet: Rückfall auf Radar, reduzierte Geschwindigkeit (Fail-Operational).',
     'ui.scD': 'D · DDS-Verluste', 'ui.scDt': 'Der Haltebefehl kann verloren gehen. Wiederholen, dann auf „periodischer Zustand“ umschalten.',
     'ui.scE': 'E · CAN überlastet', 'ui.scEt': 'Last 75 %: Brems-Deadline überschritten → kontrollierter Halt. Auf 90 % erhöhen: Watchdog → Notbremsung.',
+    'ui.scF': 'F · Ebene 1 eingefroren', 'ui.scFt': 'Der Autonomierechner des schnellsten Lkw sendet nicht mehr: Ebene 2 muss ihn allein anhalten.',
+    'ui.scG': 'G · Sollwert falsch', 'ui.scGt': 'Ebene 1 sendet einen fehlerhaften Sollwert (in der Karte „Autonomierechner“ gewählt): Ebene 2 lehnt ihn ab.',
+    'ui.l1H': 'Autonomie · Ebene 1', 'ui.kernAria': 'Kernel des Autonomierechners', 'ui.freezeT': 'Der Autonomierechner des ausgewählten Lkw sendet nicht mehr (oder startet neu).',
+    'ui.defAria': 'Fehler des gesendeten Sollwerts', 'ui.defOver': 'Geschwindigkeitsüberschreitung', 'ui.defBeyond': 'Über die Bewegungsfreigabe hinaus', 'ui.defStale': 'Veralteter Zeitstempel', 'ui.defReplay': 'Wiedereinspielung', 'ui.defInteg': 'Ungültige Integrität',
+    'ui.defSend': 'Senden', 'ui.defSendT': 'Ebene 1 des ausgewählten Lkw sendet einen Sollwert mit diesem Fehler.', 'ui.defRepeat': 'Dauerhaft',
+    'ui.l1Help': 'Illustrative Latenzen.',
     'ui.faultsH': 'Störungen des Muldenkippers', 'ui.fLidarT': 'LiDAR-Ausfall', 'ui.fRadarT': 'Radar-Ausfall', 'ui.fGnssT': 'Verlust der GNSS-RTK-Ortung',
     'ui.massAria': 'Masse des Muldenkippers', 'ui.massAuto': 'Normaler Zyklus (leer ↔ beladen)', 'ui.massEmpty': 'Leer erzwingen, 160 t', 'ui.massLoaded': 'Beladen erzwingen, 400 t',
     'ui.estop': 'Not-Halt', 'ui.estopT': 'Vom Bediener ausgelöster Fern-Not-Halt',
@@ -755,6 +788,12 @@ const MSG = {
   'sup.l1Back': ['Niveau 1 de retour : battement stable depuis {s} s sur {need} s avant la reprise', 'Level 1 is back: heartbeat stable for {s} s of {need} s before resuming', 'Ebene 1 zurück: Herzschlag seit {s} s stabil von {need} s vor der Wiederaufnahme'],
   'sup.l1Rej': ['{n} consignes de suite rejetées : niveau 1 jugé non fiable, arrêt contrôlé décidé par le niveau 2', '{n} setpoints rejected in a row: level 1 judged untrustworthy, controlled stop decided by level 2', '{n} Sollwerte in Folge abgelehnt: Ebene 1 als unzuverlässig eingestuft, kontrollierter Halt durch Ebene 2'],
   'sup.l1RejBack': ['Consignes de nouveau valides depuis {s} s sur {need} s avant la reprise', 'Setpoints valid again for {s} s of {need} s before resuming', 'Sollwerte seit {s} s wieder gültig von {need} s vor der Wiederaufnahme'],
+  'kern.rt': ['Noyau PREEMPT_RT · calcul {ms} ms', 'PREEMPT_RT kernel · compute {ms} ms', 'PREEMPT_RT-Kernel · Rechenzeit {ms} ms'],
+  'kern.gp': ['Noyau généraliste · calcul {ms} ms', 'General-purpose kernel · compute {ms} ms', 'Allzweck-Kernel · Rechenzeit {ms} ms'],
+  'btn.l1Freeze': ['Figer le niveau 1', 'Freeze level 1', 'Ebene 1 einfrieren'],
+  'btn.l1Restart': ['Redémarrer le niveau 1', 'Restart level 1', 'Ebene 1 neu starten'],
+  'log.kernelRT': ["Noyau du calculateur d'autonomie : PREEMPT_RT", 'Autonomy computer kernel: PREEMPT_RT', 'Kernel des Autonomierechners: PREEMPT_RT'],
+  'log.kernelGP': ["Noyau du calculateur d'autonomie : généraliste", 'Autonomy computer kernel: general-purpose', 'Kernel des Autonomierechners: Allzweck'],
   'l1.freeze': ['Niveau 1 figé : plus aucune consigne émise', 'Level 1 frozen: no more setpoints sent', 'Ebene 1 eingefroren: keine Sollwerte mehr gesendet'],
   'l1.restart': ['Niveau 1 redémarré : nouvelle session {n}', 'Level 1 restarted: new session {n}', 'Ebene 1 neu gestartet: neue Sitzung {n}'],
   'l2.overspeed': ['Consigne n° {seq} rejetée : {v} km/h demandés, limite ici {lim} km/h', 'Setpoint #{seq} rejected: {v} km/h demanded, limit here {lim} km/h', 'Sollwert Nr. {seq} abgelehnt: {v} km/h gefordert, Limit hier {lim} km/h'],
@@ -801,6 +840,9 @@ function applyStatic() {
     if (d.i18nAria) n.setAttribute('aria-label', pick(d.i18nAria, o.aria));
   });
   document.querySelectorAll('#langGrp [data-lang]').forEach(b => { const on = b.dataset.lang === LANG; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+  // Profils de noyau : les durées viennent du modèle (P), jamais du HTML.
+  const sk = document.getElementById('selKernel');
+  if (sk) { sk.options[0].textContent = t('kern.rt', { ms: N(P.latCpuRT * 1000) }); sk.options[1].textContent = t('kern.gp', { ms: N(P.latCpuGP * 1000) }); }
 }
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
@@ -1748,6 +1790,8 @@ function hud() {
 function syncControls(light) {
   const T = sim.trucks[selected];
   document.querySelectorAll('[data-fault]').forEach(b => b.classList.toggle('on', !!T.faults[b.dataset.fault]));
+  $('selKernel').value = ENV.kernel;
+  $('bFreeze').textContent = t(T.l1.frozen ? 'btn.l1Restart' : 'btn.l1Freeze'); $('bFreeze').classList.toggle('on', T.l1.frozen);
   $('bDust').classList.toggle('on', ENV.dust); $('bFms').classList.toggle('on', !ENV.fms);
   $('bFms').textContent = t(ENV.fms ? 'btn.netCut' : 'btn.netRestore');
   $('bPause').textContent = t(ENV.paused ? 'btn.resume' : 'btn.pause');
@@ -1757,6 +1801,7 @@ function syncControls(light) {
   $('cMisprio').checked = T.can.misprio; $('cBabble').checked = T.can.babbling;
   $('selDds').value = T.dds.mode; $('rLoss').value = Math.round(T.dds.loss * 100); $('vLoss').textContent = Math.round(T.dds.loss * 100) + ' %';
   $('selMass').value = T.massMode;
+  $('selDefect').value = ENV.l1Defect; $('cDefRepeat').checked = ENV.l1Repeat;
 }
 let toastT = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 4500); }
@@ -1770,6 +1815,8 @@ document.addEventListener('click', e => {
   else if (b.dataset.scale) ENV.scale = +b.dataset.scale;
   else if (b.dataset.scen) scenario(b.dataset.scen);
   else if (b.dataset.fault) { const f = b.dataset.fault; T.faults[f] = !T.faults[f]; logEv(T.id, 0, 'INJECT', M(T.faults[f] ? 'inj.on' : 'inj.off', { f }), 'info'); }
+  else if (b.id === 'bFreeze') { if (T.l1.frozen) l1Restart(T); else l1Freeze(T); }
+  else if (b.id === 'bSendDef') { T.l1.defect = ENV.l1Defect; T.l1.repeat = ENV.l1Repeat; }
   else if (b.id === 'bPause') ENV.paused = !ENV.paused;
   else if (b.id === 'bReset') { const noyau = ENV.kernel !== 'RT'; resetSim(); selected = 0; if (noyau) toast(t('toast.kernelReset')); }
   else if (b.id === 'bDust') { ENV.dust = !ENV.dust; logEv('SIM', 0, 'INJECT', M(ENV.dust ? 'dust.on' : 'dust.off'), 'info'); }
@@ -1798,6 +1845,9 @@ $('cBabble').addEventListener('change', e => { sim.trucks[selected].can.babbling
 $('selDds').addEventListener('change', e => { const T = sim.trucks[selected]; T.dds.mode = e.target.value; T.mc.lastSent = null; T.mc.rxTime = sim.t; });
 $('rLoss').addEventListener('input', e => { sim.trucks[selected].dds.loss = +e.target.value / 100; $('vLoss').textContent = e.target.value + ' %'; });
 $('selMass').addEventListener('change', e => { sim.trucks[selected].massMode = e.target.value; });
+$('selKernel').addEventListener('change', e => { ENV.kernel = e.target.value; logEv('SIM', 0, 'ENV', M(ENV.kernel === 'GP' ? 'log.kernelGP' : 'log.kernelRT'), 'info'); });
+$('selDefect').addEventListener('change', e => { ENV.l1Defect = e.target.value; });
+$('cDefRepeat').addEventListener('change', e => { ENV.l1Repeat = e.target.checked; if (!ENV.l1Repeat) for (const T of sim.trucks) { T.l1.repeat = false; T.l1.defect = null; } });
 document.querySelectorAll('[data-layer]').forEach(c => c.addEventListener('change', () => { layers[c.dataset.layer] = c.checked; }));
 cv.addEventListener('mousedown', e => {
   const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
