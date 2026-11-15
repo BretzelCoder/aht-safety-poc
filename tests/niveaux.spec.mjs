@@ -101,3 +101,84 @@ test.describe('T-06 level 2 protocol checks (S5)', () => {
     expect(r.vue, 'a sequence already seen is a replay').toBe('SETPOINT_SEQUENCE');
   });
 });
+
+// T-07 : contrôles de contenu du niveau 2, avec ses propres mesures (S5, S6 ; AC-7).
+test.describe('T-07 level 2 content checks and own measurements (S5, S6)', () => {
+  for (const [nom, code] of [['OVERSPEED', 'SETPOINT_OVERSPEED'], ['BEYOND_MA', 'SETPOINT_BEYOND_MA']]) {
+    test(`${nom}: rejected with ${code}, the accepted demand is unchanged, the heartbeat stays alive`, async ({ page }) => {
+      await openPage(page);
+      await pauseAndSeed(page, 1);
+      const r = await page.evaluate(nomDefaut => {
+        const S = window.__sim, T = S.sim.trucks[0];
+        for (let i = 0; i < 100; i++) S.step();
+        const avant = { v: T.l2.vAccepted, valid: T.l2.lastValid };
+        T.l1.defect = nomDefaut;
+        S.step();
+        const e = T.l2.ex[T.l2.ex.length - 1];
+        return { avant, v: T.l2.vAccepted, e: { ok: e.ok, code: e.code }, lastValid: T.l2.lastValid, t: S.sim.t,
+                 journal: S.sim.log.some(l => l.id === T.id && l.code === code0(nomDefaut) && l.lvl === 1) };
+        function code0(n) { return n === 'OVERSPEED' ? 'SETPOINT_OVERSPEED' : 'SETPOINT_BEYOND_MA'; }
+      }, nom);
+      expect(r.e.ok).toBe(false);
+      expect(r.e.code).toBe(code);
+      expect(r.v, 'a rejected setpoint never reaches the actuators').toBe(r.avant.v);
+      expect(r.lastValid, 'level 1 is alive and wrong: the heartbeat is refreshed').toBe(r.t);
+      expect(r.journal).toBe(true);
+    });
+  }
+
+  test('the same setpoint is accepted far from the end of the authority and rejected near it (own position)', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0];
+      for (let i = 0; i < 250; i++) S.step();
+      S.ENV.fms = false;                                   // le réseau est coupé : l'autorisation n'est plus renouvelée
+      const reste = () => T.auth.sEnd - T.s;
+      const envoyer = () => { S.l1Inject(0, { vDemand: 2, dGoal: 100 }); S.step(); return T.l2.ex.filter(x => x.v === 2 && x.d === 100).pop(); };   // la consigne injectée, pas la régulière qui la suit
+      const loin = reste(), e1 = envoyer();
+      let n = 0;
+      while (reste() > 60 && n++ < 3000) S.step();
+      const pres = reste(), e2 = envoyer();
+      return { loin, pres, e1: { ok: e1.ok, code: e1.code }, e2: { ok: e2.ok, code: e2.code } };
+    });
+    expect(r.loin, 'authority left at the first attempt (m)').toBeGreaterThan(100);
+    expect(r.pres, 'authority left at the second attempt (m)').toBeLessThan(100);
+    expect(r.e1, 'accepted while 100 m fit inside the authority').toEqual({ ok: true, code: null });
+    expect(r.e2, 'the identical setpoint is rejected once the truck is nearer the end').toEqual({ ok: false, code: 'SETPOINT_BEYOND_MA' });
+  });
+
+  test('the position and speed claimed by level 1 never change a verdict', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0], dernier = () => T.l2.ex[T.l2.ex.length - 1];
+      for (let i = 0; i < 100; i++) S.step();
+      const ver = patch => { S.l1Inject(0, { vDemand: 2, ...patch }); S.step(); const e = T.l2.ex.filter(x => x.v === (patch.vDemand ?? 2) && x.d === (patch.dGoal ?? x.d)).pop(); return { ok: e.ok, code: e.code }; };
+      return {
+        saine: ver({}), saineMensonge: ver({ sClaim: 99999, vClaim: 99 }),
+        survitesse: ver({ vDemand: 30 }), survitesseMensonge: ver({ vDemand: 30, sClaim: 0, vClaim: 0 }),
+      };
+    });
+    expect(r.saineMensonge, 'wrong claims, valid fields: still accepted').toEqual(r.saine);
+    expect(r.saine.ok).toBe(true);
+    expect(r.survitesseMensonge, 'honest-looking claims, overspeed: still rejected').toEqual(r.survitesse);
+    expect(r.survitesse).toEqual({ ok: false, code: 'SETPOINT_OVERSPEED' });
+  });
+
+  test('in the general-purpose profile, 20 s of nominal driving give no rejection (judged at the time of emission)', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim;
+      S.ENV.kernel = 'GP';
+      let rejets = 0, premier = null;
+      for (let i = 0; i < 1000; i++) {
+        S.step();
+        for (const T of S.sim.trucks) if (T.l2.rejRun > 0) { rejets++; premier ??= `${T.id} at ${S.sim.t.toFixed(2)} s: ${T.l2.rej[T.l2.rej.length - 1].code}`; }
+      }
+      return { rejets, premier };
+    });
+    expect(r.rejets, r.premier ?? '').toBe(0);
+  });
+});

@@ -744,7 +744,9 @@ const MSG = {
   // Niveau 2 : verdicts sur les consignes du niveau 1 (spec 002). Les codes SETPOINT_* et L1_* ne sont jamais traduits.
   'l2.integrity': ['Consigne n° {seq} rejetée : somme de contrôle invalide', 'Setpoint #{seq} rejected: invalid checksum', 'Sollwert Nr. {seq} abgelehnt: ungültige Prüfsumme'],
   'l2.stale': ['Consigne n° {seq} rejetée : trop ancienne ({ms} ms)', 'Setpoint #{seq} rejected: too old ({ms} ms)', 'Sollwert Nr. {seq} abgelehnt: zu alt ({ms} ms)'],
-  'l2.sequence': ['Consigne n° {seq} rejetée : séquence non croissante (dernière acceptée : {last})', 'Setpoint #{seq} rejected: sequence not increasing (last accepted: {last})', 'Sollwert Nr. {seq} abgelehnt: Sequenz nicht aufsteigend (zuletzt akzeptiert: {last})']
+  'l2.sequence': ['Consigne n° {seq} rejetée : séquence non croissante (dernière acceptée : {last})', 'Setpoint #{seq} rejected: sequence not increasing (last accepted: {last})', 'Sollwert Nr. {seq} abgelehnt: Sequenz nicht aufsteigend (zuletzt akzeptiert: {last})'],
+  'l2.overspeed': ['Consigne n° {seq} rejetée : {v} km/h demandés, limite ici {lim} km/h', 'Setpoint #{seq} rejected: {v} km/h demanded, limit here {lim} km/h', 'Sollwert Nr. {seq} abgelehnt: {v} km/h gefordert, Limit hier {lim} km/h'],
+  'l2.beyond': ["Consigne n° {seq} rejetée : dépasserait de {d} m la fin de l'autorisation de mouvement", 'Setpoint #{seq} rejected: would go {d} m beyond the end of the movement authority', 'Sollwert Nr. {seq} abgelehnt: würde das Ende der Bewegungsfreigabe um {d} m überschreiten']
 };
 
 const LI = () => LANGS.indexOf(LANG);
@@ -1145,12 +1147,26 @@ function l1EmitSetpoint(T) {
   else {
     sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v };
     if (d === 'STALE') sp.ts -= 1.0;
+    if (d === 'OVERSPEED') sp.vDemand = vLimitAt(T.s + P.len / 2) + 15 / 3.6;   // 15 km/h au-dessus de la limite du tronçon
+    if (d === 'BEYOND_MA') sp.dGoal += 30;                                         // 30 m au-delà de la fin d'autorisation
     sp.sum = sumOf(sp);
     if (d === 'INTEGRITY') sp.vDemand += 5;                  // altérée après le calcul de la somme de contrôle
     if (!d) { A.captured.push({ ...sp }); if (A.captured.length > 5) A.captured.shift(); }
   }
   if (d && !A.repeat) A.defect = null;                       // un défaut ne dure qu'une consigne, sauf en mode continu
   l1Send(T, 'sp', sp);
+}
+/* Niveau 2 : ses propres mesures (position, autorisation reçue du FMS), gardées une seconde, pour juger une consigne
+   au moment où elle a été émise et non au moment où elle arrive (spec 002, S6). */
+function l2Measure(T) {
+  const L = T.l2;
+  L.hist.push({ t: sim.t, s: T.s, sEnd: T.auth.sEnd });
+  while (L.hist.length > 1 && L.hist[0].t < sim.t - P.l1Hist) L.hist.shift();
+}
+function l2At(L, ts) {
+  let best = L.hist[L.hist.length - 1];
+  for (const h of L.hist) if (Math.abs(h.t - ts) < Math.abs(best.t - ts)) best = h;
+  return best;
 }
 /* Niveau 2 : livre ce qui est arrivé, juge chaque consigne et tient son état (consigne acceptée, battement, échanges). */
 function l2Receive(T) {
@@ -1169,6 +1185,10 @@ function l2Judge(T, sp) {
   if (age > P.l1Stale) return l2Refuse(T, e, 'SETPOINT_STALE', 'l2.stale', { seq: sp.seq, ms: N(age * 1000) });
   if (sp.session < L.session || (sp.session === L.session && sp.seq <= L.seq)) return l2Refuse(T, e, 'SETPOINT_SEQUENCE', 'l2.sequence', { seq: sp.seq, last: L.seq });
   L.session = sp.session; L.seq = sp.seq; L.lastValid = sim.t;   // message bien formé : battement, séquence suivie
+  // Contrôles de contenu, avec les mesures du niveau 2 à l'instant d'émission (jamais sClaim ni vClaim, affirmés par le niveau 1).
+  const h = l2At(L, sp.ts), lim = vLimitAt(h.s + P.len / 2), depasse = h.s + sp.dGoal - h.sEnd;
+  if (sp.vDemand > lim + 0.1) return l2Refuse(T, e, 'SETPOINT_OVERSPEED', 'l2.overspeed', { seq: sp.seq, v: N(sp.vDemand * 3.6), lim: N(lim * 3.6) });
+  if (depasse > 0.1) return l2Refuse(T, e, 'SETPOINT_BEYOND_MA', 'l2.beyond', { seq: sp.seq, d: N(depasse) });
   L.vAccepted = sp.vDemand; L.rejRun = 0; e.ok = true;
   l2Record(L, e);
 }
@@ -1350,7 +1370,7 @@ function step() {
   const all = [...sim.trucks, ...sim.lvs];
   for (const T of sim.trucks) {
     opsUpdate(T); canUpdate(T); perceive(T, all); bubble(T); obstacleDistance(T);
-    l1EmitReport(T); l2Receive(T);
+    l2Measure(T); l1EmitReport(T); l2Receive(T);
     supervise(T); ddsPublish(T); mcReceive(T);
     T.vPlan = planSpeed(T); l1EmitSetpoint(T); l2Receive(T); control(T); physics(T);
   }
