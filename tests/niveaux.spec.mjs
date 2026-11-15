@@ -207,22 +207,24 @@ test.describe('T-09 heartbeat loss and restart (S3, S4)', () => {
       const v0 = T.v;
       S.l1Freeze(0);
       const gel = { ...T.l1.ev };
-      let arret = null, etats = new Set(), kinds = new Set(), seq0 = T.l2.seq, detecte = false;
+      let arret = null, etats = new Set(), kinds = new Set(), seq0 = T.l2.seq, detecte = false, tVu = null;
       for (let i = 0; i < 2000 && arret === null; i++) {
         S.step();
+        if (tVu === null && T.reasons.some(x => x.code === 'L1_HEARTBEAT_LOST')) tVu = S.sim.t - gel.tFreeze;   // mesure indépendante : la cause apparaît dans les raisons du superviseur
         etats.add(T.state); kinds.add(T.stopKind + '/' + T.mc.appliedKind);
         if (T.l1.ev.tDetect !== null) detecte = true;
         if (detecte && T.v < 0.3) arret = { t: S.sim.t, s: T.s };
       }
       S.step();                                                    // le modèle note l'arrêt au début du pas suivant
       const code = S.sim.log.find(l => l.id === T.id && l.code === 'L1_HEARTBEAT_LOST');
-      return { v0, gel, ev: { ...T.l1.ev }, arret, etats: [...etats], kinds: [...kinds], code: code ? { lvl: code.lvl } : null,
+      return { v0, gel, echeance: S.P.l1Deadline, delaiMesure: tVu, ev: { ...T.l1.ev }, arret, etats: [...etats], kinds: [...kinds], code: code ? { lvl: code.lvl } : null,
                seq: T.l2.seq - seq0, collisions: S.sim.collisions, final: T.state, latched: T.latched, urgence: S.sim.log.some(l => l.id === T.id && l.code === 'STATE' && /EMERGENCY/.test(JSON.stringify(l.msg))) };
     });
     expect(r.v0, 'the truck was moving').toBeGreaterThan(3);
     const delai = r.ev.tDetect - r.gel.tFreeze;
-    expect(delai, 'detection delay = the 0.30 s deadline plus at most one supervisor step').toBeGreaterThan(0.30);
-    expect(delai).toBeLessThanOrEqual(0.34);
+    expect(delai, 'detection delay = the deadline plus exactly one supervisor step (s)').toBeGreaterThan(r.echeance);
+    expect(delai).toBeLessThanOrEqual(r.echeance + 0.02 + 1e-6);
+    expect(Math.abs(delai - r.delaiMesure), 'the model\'s delay equals the delay measured step by step (s)').toBeLessThanOrEqual(0.02 + 1e-6);
     expect(r.code, 'level 2 reports the loss at severity 2').toEqual({ lvl: 2 });
     expect(r.etats, 'controlled stop, never the emergency brake').toContain('CONTROLLED_STOP');
     expect(r.etats).not.toContain('EMERGENCY_BRAKE');
@@ -334,15 +336,16 @@ test.describe('T-10 persistent rejection (S7)', () => {
       T.l1.defect = 'OVERSPEED'; T.l1.repeat = true;
       let tCause = null;
       for (let i = 0; i < 400; i++) { S.step(); if (tCause === null && T.reasons.some(x => x.code === 'L1_SETPOINTS_REJECTED')) tCause = S.sim.t - t0; }
-      const arrete = T.v < 0.3, etat = T.state;
+      const arrete = T.v < 0.3, etat = T.state, maxApplique = T.mc.applied === 'CONTROLLED_STOP' && T.mc.appliedKind === 'MAX';
       const aMonte = S.sim.log.some(l => l.id === T.id && l.code === 'L1_HEARTBEAT_LOST');
       T.l1.repeat = false; T.l1.defect = null; const t1 = S.sim.t; let tLibre = null, vMax = 0;
       for (let i = 0; i < 1000; i++) { S.step(); vMax = Math.max(vMax, T.v); if (tLibre === null && T.state === 'NOMINAL') tLibre = S.sim.t - t1; }
-      return { tCause, arrete, etat, heartbeat: aMonte, tLibre, vMax, latched: T.latched };
+      return { tCause, arrete, etat, maxApplique, heartbeat: aMonte, tLibre, vMax, latched: T.latched };
     });
     expect(r.tCause, 'cause raised after the 10th consecutive rejection (0.2 s)').toBeGreaterThanOrEqual(0.18);
     expect(r.tCause).toBeLessThanOrEqual(0.26);
     expect(r.etat).toBe('CONTROLLED_STOP');
+    expect(r.maxApplique, 'the same safe stop as a lost heartbeat: maximum braking applied (AC-3)').toBe(true);
     expect(r.arrete, 'the truck is stopped').toBe(true);
     expect(r.heartbeat, 'level 1 is alive and wrong: no heartbeat loss').toBe(false);
     expect(r.tLibre, 'released about 2 s after setpoints are valid again').toBeGreaterThan(1.9);
@@ -421,7 +424,7 @@ test.describe('T-11 scenarios F and G', () => {
 // T-12 : scénarios F et G sur 40 graines (AC-3, AC-6).
 test.describe('T-12 scenarios F and G over 40 seeds (AC-3, AC-6)', () => {
   for (const graines of paquets(40, 4)) {
-    test(`F, seeds ${graines[0]} to ${graines[graines.length - 1]}: detected in 0.30 to 0.34 s, controlled stop at maximum braking, truck stopped, no collision`, async ({ page }) => {
+    test(`F, seeds ${graines[0]} to ${graines[graines.length - 1]}: detected after the deadline plus one step, controlled stop at maximum braking, truck stopped, no collision`, async ({ page }) => {
       await openPage(page);
       const anomalies = await scenarioFSurGraines(page, graines);
       expect(anomalies, anomalies.join('\n')).toEqual([]);
@@ -432,9 +435,42 @@ test.describe('T-12 scenarios F and G over 40 seeds (AC-3, AC-6)', () => {
       expect(anomalies, anomalies.join('\n')).toEqual([]);
     });
   }
+  for (const graines of paquets(40, 4)) {
+    test(`F with the general-purpose kernel, seeds ${graines[0]} to ${graines[graines.length - 1]}: detected after the deadline plus the profile delay, controlled stop at maximum braking, no collision`, async ({ page }) => {
+      await openPage(page);
+      const anomalies = await scenarioFSurGraines(page, graines, { profil: 'GP' });
+      expect(anomalies, anomalies.join('\n')).toEqual([]);
+    });
+  }
+  for (const graines of paquets(40, 4)) {
+    test(`G with the general-purpose kernel, seeds ${graines[0]} to ${graines[graines.length - 1]}: the five defects get the same verdicts, replay included`, async ({ page }) => {
+      await openPage(page);
+      const anomalies = await scenarioGSurGraines(page, graines, { profil: 'GP', moments: ['cruise', 'authorityEnd'] });
+      expect(anomalies, anomalies.join('\n')).toEqual([]);
+    });
+  }
   test('G in a dust cloud, seeds 1 to 10', async ({ page }) => {
     await openPage(page);
     const anomalies = await scenarioGSurGraines(page, paquets(10, 1)[0], { poussiere: true, moments: ['cruise'] });
     expect(anomalies, anomalies.join('\n')).toEqual([]);
+  });
+});
+
+// Revue de la spec 002 (T-27) : un nouveau gel pendant la reprise est détecté avec un vrai délai (il valait 0,02 s : la perte était déjà active).
+test.describe('Review fixes: re-freeze during a recovery', () => {
+  test('the detection delay of a second freeze, made while the first loss is still being recovered, is the deadline plus one step', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0], pas = n => { for (let i = 0; i < n; i++) S.step(); };
+      pas(500); S.l1Freeze(0); pas(300); S.l1Restart(0); pas(25);          // reprise en cours : la perte est encore active
+      const actif = T.l2.hbLost;
+      S.l1Freeze(0); pas(60);
+      return { actif, delai: T.l1.ev.tDetect === null ? null : T.l1.ev.tDetect - T.l1.ev.tFreeze, echeance: S.P.l1Deadline };
+    });
+    expect(r.actif, 'the first loss is still active when level 1 is frozen again').toBe(true);
+    expect(r.delai, 'the second freeze is detected').not.toBeNull();
+    expect(r.delai, 'a real delay, not one step').toBeGreaterThan(r.echeance);
+    expect(r.delai).toBeLessThanOrEqual(r.echeance + 0.02 + 1e-6);
   });
 });

@@ -202,8 +202,9 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 .l12ex .xr.bad{color:#ff8a7f}
 .l12ex .xr span:nth-child(n+2):nth-child(-n+4){text-align:right}
 .l12ex .why{margin-top:2px;color:#ff8a7f;font:10.5px/1.25 var(--body)}
+.l12ex .frz{margin-top:2px;color:var(--cyan);font:10.5px/1.25 var(--body)}
 .l12ex .none{color:var(--muted);font:10.5px var(--body)}
-@media (min-width:1280px) and (min-height:700px){body.l12open .logcard{flex-basis:90px;min-height:90px}body.l12open .logcard .log{min-height:50px}}
+@media (min-width:1280px) and (min-height:700px){body.l12open .logcard{flex-basis:80px;min-height:80px}body.l12open .logcard .log{min-height:40px}}
 @media (min-width:1280px) and (min-height:700px){.tabs2 button{font-size:12.5px;letter-spacing:.05em}.tabs2{gap:2px 12px}}
 /* ---- Vue de déploiement du guide (spec 002) ---- */
 .archi{display:grid;grid-template-columns:minmax(0,1fr) 150px minmax(0,1fr);gap:8px;margin:10px 0}
@@ -273,7 +274,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
       <button data-scen="D" data-i18n="ui.scD" data-i18n-title="ui.scDt" title="L'ordre d'arrêt peut se perdre. Rejouez, puis passez en « état périodique ».">D · Pertes DDS</button>
       <button data-scen="E" data-i18n="ui.scE" data-i18n-title="ui.scEt" title="Charge 75 % : échéance frein dépassée → arrêt contrôlé. Montez à 90 % : watchdog → urgence.">E · CAN saturé</button>
       <button data-scen="F" data-i18n="ui.scF" data-i18n-title="ui.scFt" title="Le calculateur d'autonomie du tombereau le plus rapide cesse d'émettre : le niveau 2 doit l'arrêter seul.">F · Niveau 1 figé</button>
-      <button data-scen="G" data-i18n="ui.scG" data-i18n-title="ui.scGt" title="Le niveau 1 envoie une consigne défectueuse (choisie dans la carte « Calculateur d'autonomie ») : le niveau 2 la rejette.">G · Consigne fausse</button>
+      <button data-scen="G" data-i18n="ui.scG" data-i18n-title="ui.scGt" title="Le niveau 1 envoie une consigne défectueuse (choisie dans la carte « Autonomie · niveau 1 ») : le niveau 2 la rejette.">G · Consigne fausse</button>
     </div>
   </div>
   <div class="card statecard">
@@ -429,7 +430,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
       <p>C'est le conducteur humain imprévisible : il n'obéit ni au FMS ni aux camions. Cliquez sur la carte, puis <b>Z/↑</b> avancer, <b>S/↓</b> freiner ou reculer, <b>Q/←</b> et <b>D/→</b> tourner. Avec la <b>balise V2X</b>, le FMS le voit et lui réserve les intersections ; sans balise, seuls les capteurs des camions le détectent.</p>
       <h3>Les commandes</h3>
       <dl>
-        <dt>Scénarios</dt><dd>A : pick-up équipé, le FMS retire le jeton I1 au camion. B : pick-up non équipé, seule la perception protège. C : B dans la poussière, repli radar. D : arrêt envoyé une seule fois en BEST_EFFORT avec 50 % de pertes. E : bus CAN saturé avec consigne frein mal priorisée. Un scénario s'arme et part dès qu'un camion chargé quitte la pelle. F et G partent aussitôt : F fige le niveau 1 du tombereau le plus rapide (le niveau 2 doit l'arrêter seul), G envoie une consigne défectueuse (le niveau 2 doit la rejeter). A à E remettent le noyau du calculateur sur PREEMPT_RT.</dd>
+        <dt>Scénarios</dt><dd>A : pick-up équipé, le FMS retire le jeton I1 au camion. B : pick-up non équipé, seule la perception protège. C : B dans la poussière, repli radar. D : arrêt envoyé une seule fois en BEST_EFFORT avec 50 % de pertes. E : bus CAN saturé avec consigne frein mal priorisée. Un scénario s'arme et part dès qu'un camion chargé quitte la pelle. F et G partent aussitôt : F fige le niveau 1 du tombereau le plus rapide (le niveau 2 doit l'arrêter seul), G envoie une consigne défectueuse (le niveau 2 doit la rejeter). A à E et la réinitialisation remettent le noyau du calculateur sur PREEMPT_RT.</dd>
         <dt>Tombereau sélectionné</dt><dd>Les pannes, la masse, le bus CAN et le DDS s'appliquent au camion choisi (onglets AHT-01 à 03 à gauche, ou clic sur la carte). EMERGENCY_BRAKE est verrouillé : il faut cliquer sur « Réarmer ».</dd>
         <dt>Bus CAN</dt><dd>Arbitrage : l'identifiant le plus faible gagne. Une consigne frein bien priorisée reste rapide même bus chargé ; ce sont les messages de basse priorité qui attendent.</dd>
         <dt>DDS</dt><dd>En publication périodique, le contrôleur détecte le silence (Deadline, Liveliness) et passe en état sûr. En événementiel, un ordre perdu passe inaperçu.</dd>
@@ -446,7 +447,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li><b>Fail-Operational.</b> Scénario C : LiDAR aveuglé, le radar prend le relais, la vitesse tombe à 15 km/h, la mission continue.</li>
         <li><b>QoS DDS.</b> Scénario D, plusieurs fois : quand l'événement d'arrêt se perd, le journal signale un ordre non appliqué. Repassez en « périodique » : plus de perte silencieuse, au prix de la disponibilité si le réseau perd beaucoup.</li>
         <li><b>CAN et réseau mine.</b> Scénario E et l'oscilloscope ; puis coupez le réseau mine : les camions finissent leur autorisation et s'arrêtent, sans freinage brutal.</li>
-        <li><b>Le niveau 1 propose, le niveau 2 dispose.</b> Scénario F : le calculateur d'autonomie du tombereau le plus rapide se fige. Ouvrez « Niveaux 1 ↔ 2 » : passé le délai du battement, le niveau 2 passe seul en CONTROLLED_STOP à freinage maximal et la distance parcourue s'affiche. Redémarrez le niveau 1 : l'arrêt n'est relâché qu'après un battement stable.</li>
+        <li><b>Le niveau 1 propose, le niveau 2 dispose.</b> Scénario F : le calculateur d'autonomie du tombereau le plus rapide se fige. Ouvrez « Niveaux 1 ↔ 2 » : passé le délai du battement, le niveau 2 passe seul en CONTROLLED_STOP à freinage maximal, et le délai de détection ainsi que la distance parcourue s'affichent. Redémarrez le niveau 1 : l'arrêt n'est relâché qu'après un battement stable. Avec le noyau généraliste, la détection est plus lente : les consignes déjà en vol arrivent encore avant que le silence commence à compter.</li>
         <li><b>Une consigne fausse n'arrive jamais aux freins.</b> Scénario G, puis la carte « Autonomie · niveau 1 » pour choisir le défaut : le niveau 2 rejette la consigne avec son code, la dernière consigne acceptée reste en vigueur et le camion continue. En continu, une série de rejets consécutifs vaut une perte du niveau 1.</li>
         <li><b>Le prix d'un noyau généraliste.</b> Choisissez le noyau « généraliste » : le terme de calcul de t_lat augmente (valeurs illustratives, lues dans le modèle), la bulle d'arrêt s'allonge d'autant à l'écran et le camion parcourt réellement cette distance en plus.</li>
       </ol>
@@ -462,9 +463,9 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li><b>Le véhicule non équipé est un cas dégradé.</b> En exploitation, tout véhicule entrant en zone autonome porte un terminal et projette sa propre bulle ; l'accès est contrôlé. La perception embarquée est la barrière de dernier recours (famille ISO 21815, anticollision).</li>
         <li><b>Référentiels.</b> IEC 61508 est la norme mère ; ISO 13849 traite des parties des systèmes de commande relatives à la sécurité ; pour les engins on raisonne aussi ISO 19014 (en MPLr plutôt qu'en SIL), ISO 17757 (machines autonomes) et ISO 23725 (interface FMS ↔ AHS). Le sigle « SIL / HIL » est ambigu : écrire SiL pour Software-in-the-Loop.</li>
         <li><b>Réarmement.</b> L'état d'urgence est verrouillé et demande un acquittement : une reprise automatique après exception est un vrai mode de défaillance (voir l'incident WA dans les sources).</li>
-        <li><b>Le niveau 1 propose, le niveau 2 autorise ou bloque.</b> Le calculateur d'autonomie est considéré comme non sûr par conception : ses consignes (vitesse demandée, horodatage, compteur de séquence, somme de contrôle) passent par un contrôleur de sûreté indépendant, qui les revérifie avec ses propres mesures de position et de vitesse. Rien n'arrive aux freins sans son accord. Le battement est surveillé : un niveau 1 silencieux, ou qui se trompe sans cesse, provoque un arrêt contrôlé à freinage maximal décidé par le niveau 2 seul.</li>
-        <li><b>Pourquoi cet arrêt n'est pas verrouillé alors que l'urgence l'est.</b> La perte du niveau 1 est une panne du calculateur d'autonomie, pas un événement dangereux en soi : l'arrêt contrôlé suffit, et le niveau 2 le relâche quand le battement est de nouveau stable. L'état d'urgence reste verrouillé : une reprise automatique après un vrai événement est un mode de défaillance. Un niveau 1 de retour ne relâche jamais un freinage d'urgence verrouillé.</li>
-        <li><b>Le profil de noyau est un pire cas, pas une mesure.</b> Un noyau généraliste n'offre pas de borne de latence ; PREEMPT_RT en offre une. Le simulateur ne mesure aucun noyau : chaque profil est une borne illustrative du temps de calcul du niveau 1, qui entre dans t_lat (la bulle s'allonge) et retarde d'autant ce que le niveau 1 transmet au niveau 2 (le camion parcourt réellement la distance en plus). Le choix du noyau ne provoque jamais de perte de battement : sa borne reste sous l'échéance.</li>
+        <li><b>Le niveau 1 propose, le niveau 2 autorise ou bloque.</b> Le calculateur d'autonomie est considéré comme non sûr par conception : ses consignes (vitesse demandée, horodatage, compteur de séquence, somme de contrôle) passent par un contrôleur de sûreté indépendant, qui les revérifie avec sa propre mesure de position. Rien n'arrive aux freins sans son accord. Le battement est surveillé : un niveau 1 silencieux, ou qui se trompe sans cesse, provoque un arrêt contrôlé à freinage maximal décidé par le niveau 2 seul.</li>
+        <li><b>Pourquoi cet arrêt n'est pas verrouillé alors que l'urgence l'est.</b> La perte du niveau 1 est une panne du calculateur d'autonomie, pas un événement dangereux en soi : l'arrêt contrôlé suffit, et le niveau 2 le relâche quand le battement est de nouveau stable, après le court maintien d'état habituel ; l'onglet « Niveaux 1 ↔ 2 » compte à rebours jusqu'au relâchement réel. L'état d'urgence reste verrouillé : une reprise automatique après un vrai événement est un mode de défaillance. Un niveau 1 de retour ne relâche jamais un freinage d'urgence verrouillé.</li>
+        <li><b>Le profil de noyau est un pire cas, pas une mesure.</b> Un noyau généraliste n'offre pas de borne de latence ; PREEMPT_RT en offre une. Le simulateur ne mesure aucun noyau : chaque profil est une borne illustrative du temps de calcul du niveau 1, qui entre dans t_lat (la bulle s'allonge) et retarde d'autant ce que le niveau 1 transmet au niveau 2 (le camion parcourt réellement la distance en plus). Le choix du noyau ne provoque jamais de perte de battement : sa borne reste sous l'échéance. Il retarde en revanche la détection d'un gel du niveau 1, car les consignes déjà en vol arrivent encore avant que le silence commence à compter.</li>
       </ol>
     </section>
     <section data-gpane="archi" data-i18n-html="guide.archi">
@@ -578,7 +579,7 @@ const STATIC = {
     'ui.scD': 'D · DDS losses', 'ui.scDt': 'The stop command can be lost. Replay, then switch to “periodic state”.',
     'ui.scE': 'E · Saturated CAN', 'ui.scEt': 'Load 75 %: brake deadline missed → controlled stop. Raise to 90 %: watchdog → emergency.',
     'ui.scF': 'F · Level 1 frozen', 'ui.scFt': 'The autonomy computer of the fastest truck stops sending: level 2 must stop it on its own.',
-    'ui.scG': 'G · Bad setpoint', 'ui.scGt': 'Level 1 sends a defective setpoint (chosen in the “Autonomy computer” card): level 2 rejects it.',
+    'ui.scG': 'G · Bad setpoint', 'ui.scGt': 'Level 1 sends a defective setpoint (chosen in the “Autonomy · level 1” card): level 2 rejects it.',
     'ui.l1H': 'Autonomy · level 1', 'ui.kernAria': 'Kernel of the autonomy computer', 'ui.freezeT': 'The autonomy computer of the selected truck stops sending (or restarts).',
     'ui.defAria': 'Defect of the setpoint sent', 'ui.defOver': 'Overspeed', 'ui.defBeyond': 'Beyond the authority', 'ui.defStale': 'Stale timestamp', 'ui.defReplay': 'Replay', 'ui.defInteg': 'Invalid integrity',
     'ui.defSend': 'Send', 'ui.defSendT': 'Level 1 of the selected truck sends a setpoint with this defect.', 'ui.defRepeat': 'Continuous',
@@ -614,7 +615,7 @@ const STATIC = {
       <p>It plays the unpredictable human driver: it obeys neither the FMS nor the trucks. Click on the map, then <b>W/↑</b> forward, <b>S/↓</b> brake or reverse, <b>A/←</b> and <b>D/→</b> steer. With the <b>V2X beacon</b>, the FMS sees it and reserves the intersections for it; without the beacon, only the trucks' sensors detect it.</p>
       <h3>The controls</h3>
       <dl>
-        <dt>Scenarios</dt><dd>A: equipped pickup, the FMS revokes the truck's I1 token. B: unequipped pickup, only perception protects. C: B in dust, radar fallback. D: stop sent once in BEST_EFFORT with 50 % loss. E: saturated CAN bus with a mis-prioritised brake command. A scenario is armed and starts as soon as a loaded truck leaves the shovel. F and G start at once: F freezes level 1 of the fastest truck (level 2 must stop it on its own), G sends a defective setpoint (level 2 must reject it). A to E set the computer's kernel back to PREEMPT_RT.</dd>
+        <dt>Scenarios</dt><dd>A: equipped pickup, the FMS revokes the truck's I1 token. B: unequipped pickup, only perception protects. C: B in dust, radar fallback. D: stop sent once in BEST_EFFORT with 50 % loss. E: saturated CAN bus with a mis-prioritised brake command. A scenario is armed and starts as soon as a loaded truck leaves the shovel. F and G start at once: F freezes level 1 of the fastest truck (level 2 must stop it on its own), G sends a defective setpoint (level 2 must reject it). A to E and the reset button set the computer's kernel back to PREEMPT_RT.</dd>
         <dt>Selected truck</dt><dd>Faults, mass, CAN bus and DDS apply to the chosen truck (tabs AHT-01 to 03 on the left, or click on the map). EMERGENCY_BRAKE is latched: you must click “Re-arm”.</dd>
         <dt>CAN bus</dt><dd>Arbitration: the lowest identifier wins. A well-prioritised brake command stays fast even on a loaded bus; it is the low-priority messages that wait.</dd>
         <dt>DDS</dt><dd>With periodic publishing, the controller detects silence (Deadline, Liveliness) and goes to a safe state. Event-driven, a lost command goes unnoticed.</dd>
@@ -630,7 +631,7 @@ const STATIC = {
         <li><b>Fail-Operational.</b> Scenario C: LiDAR blinded, the radar takes over, speed drops to 15 km/h, the mission continues.</li>
         <li><b>DDS QoS.</b> Scenario D, several times: when the stop event is lost, the log reports a command not applied. Switch back to “periodic”: no more silent loss, at the cost of availability if the network loses a lot.</li>
         <li><b>CAN and mine network.</b> Scenario E and the oscilloscope; then cut the mine network: the trucks use up their authority and stop, without harsh braking.</li>
-        <li><b>Level 1 proposes, level 2 disposes.</b> Scenario F: the autonomy computer of the fastest truck freezes. Open “Levels 1 ↔ 2”: once the heartbeat deadline has passed, level 2 alone switches to CONTROLLED_STOP at maximum braking and the distance travelled is shown. Restart level 1: the stop is only released after a stable heartbeat.</li>
+        <li><b>Level 1 proposes, level 2 disposes.</b> Scenario F: the autonomy computer of the fastest truck freezes. Open “Levels 1 ↔ 2”: once the heartbeat deadline has passed, level 2 alone switches to CONTROLLED_STOP at maximum braking, and the detection delay and the distance travelled are shown. Restart level 1: the stop is only released after a stable heartbeat. With the general-purpose kernel, detection is slower: the setpoints already in flight still arrive before the silence starts to count.</li>
         <li><b>A wrong setpoint never reaches the brakes.</b> Scenario G, then the “Autonomy · level 1” card to choose the defect: level 2 rejects the setpoint with its code, the last accepted setpoint stays in force and the truck carries on. Sent continuously, a run of consecutive rejections counts as a loss of level 1.</li>
         <li><b>The price of a general-purpose kernel.</b> Choose the “general-purpose” kernel: the computing term of t_lat grows (illustrative values, read from the model), the stop zone gets longer on screen by the same amount and the truck really travels that extra distance.</li>
       </ol>`,
@@ -645,9 +646,9 @@ const STATIC = {
         <li><b>The unequipped vehicle is a degraded case.</b> In operation, every vehicle entering the autonomous zone carries a terminal and projects its own zone; access is controlled. On-board perception is the last-resort barrier (ISO 21815 family, collision avoidance).</li>
         <li><b>Standards.</b> IEC 61508 is the parent standard; ISO 13849 covers the safety-related parts of control systems; for earth-moving machinery one also reasons with ISO 19014 (in MPLr rather than SIL), ISO 17757 (autonomous machines) and ISO 23725 (FMS ↔ AHS interface). The acronym “SIL / HIL” is ambiguous: write SiL for Software-in-the-Loop.</li>
         <li><b>Re-arming.</b> The emergency state is latched and requires an acknowledgement: automatic resumption after an exception is a real failure mode (see the WA incident in the sources).</li>
-        <li><b>Level 1 proposes, level 2 allows or blocks.</b> The autonomy computer is considered unsafe by design: its setpoints (requested speed, timestamp, sequence counter, checksum) go through an independent safety controller, which rechecks them with its own position and speed measurements. Nothing reaches the brakes without its agreement. The heartbeat is watched: a silent level 1, or one that is wrong all the time, leads to a controlled stop at maximum braking decided by level 2 alone.</li>
-        <li><b>Why this stop is not latched while the emergency is.</b> Losing level 1 is a failure of the autonomy computer, not a dangerous event in itself: the controlled stop is enough, and level 2 releases it once the heartbeat is stable again. The emergency state stays latched: automatic resumption after a real event is a failure mode. A level 1 that comes back never releases a latched emergency brake.</li>
-        <li><b>The kernel profile is a worst case, not a measurement.</b> A general-purpose kernel gives no latency bound; PREEMPT_RT does. The simulator measures no kernel: each profile is an illustrative bound on the computing time of level 1, which enters t_lat (the zone gets longer) and delays by the same amount what level 1 passes to level 2 (the truck really travels the extra distance). Choosing the kernel never causes a heartbeat loss: its bound stays under the deadline.</li>
+        <li><b>Level 1 proposes, level 2 allows or blocks.</b> The autonomy computer is considered unsafe by design: its setpoints (requested speed, timestamp, sequence counter, checksum) go through an independent safety controller, which rechecks them with its own position measurement. Nothing reaches the brakes without its agreement. The heartbeat is watched: a silent level 1, or one that is wrong all the time, leads to a controlled stop at maximum braking decided by level 2 alone.</li>
+        <li><b>Why this stop is not latched while the emergency is.</b> Losing level 1 is a failure of the autonomy computer, not a dangerous event in itself: the controlled stop is enough, and level 2 releases it once the heartbeat is stable again, after the usual short hold of the state; the “Levels 1 ↔ 2” tab counts down to the real release. The emergency state stays latched: automatic resumption after a real event is a failure mode. A level 1 that comes back never releases a latched emergency brake.</li>
+        <li><b>The kernel profile is a worst case, not a measurement.</b> A general-purpose kernel gives no latency bound; PREEMPT_RT does. The simulator measures no kernel: each profile is an illustrative bound on the computing time of level 1, which enters t_lat (the zone gets longer) and delays by the same amount what level 1 passes to level 2 (the truck really travels the extra distance). Choosing the kernel never causes a heartbeat loss: its bound stays under the deadline. It does delay the detection of a frozen level 1, because the setpoints already in flight still arrive before the silence starts to count.</li>
       </ol>`,
     'guide.archi': `
       <h3>Two computers, two roles</h3>
@@ -709,7 +710,7 @@ const STATIC = {
     'ui.scD': 'D · DDS-Verluste', 'ui.scDt': 'Der Haltebefehl kann verloren gehen. Wiederholen, dann auf „periodischer Zustand“ umschalten.',
     'ui.scE': 'E · CAN überlastet', 'ui.scEt': 'Last 75 %: Brems-Deadline überschritten → kontrollierter Halt. Auf 90 % erhöhen: Watchdog → Notbremsung.',
     'ui.scF': 'F · Ebene 1 eingefroren', 'ui.scFt': 'Der Autonomierechner des schnellsten Lkw sendet nicht mehr: Ebene 2 muss ihn allein anhalten.',
-    'ui.scG': 'G · Sollwert falsch', 'ui.scGt': 'Ebene 1 sendet einen fehlerhaften Sollwert (in der Karte „Autonomierechner“ gewählt): Ebene 2 lehnt ihn ab.',
+    'ui.scG': 'G · Sollwert falsch', 'ui.scGt': 'Ebene 1 sendet einen fehlerhaften Sollwert (in der Karte „Autonomie · Ebene 1“ gewählt): Ebene 2 lehnt ihn ab.',
     'ui.l1H': 'Autonomie · Ebene 1', 'ui.kernAria': 'Kernel des Autonomierechners', 'ui.freezeT': 'Der Autonomierechner des ausgewählten Lkw sendet nicht mehr (oder startet neu).',
     'ui.defAria': 'Fehler des gesendeten Sollwerts', 'ui.defOver': 'Geschwindigkeitsüberschreitung', 'ui.defBeyond': 'Über die Bewegungsfreigabe hinaus', 'ui.defStale': 'Veralteter Zeitstempel', 'ui.defReplay': 'Wiedereinspielung', 'ui.defInteg': 'Ungültige Integrität',
     'ui.defSend': 'Senden', 'ui.defSendT': 'Ebene 1 des ausgewählten Lkw sendet einen Sollwert mit diesem Fehler.', 'ui.defRepeat': 'Dauerhaft',
@@ -745,7 +746,7 @@ const STATIC = {
       <p>Er spielt den unberechenbaren menschlichen Fahrer: Er gehorcht weder dem FMS noch den Muldenkippern. Klicken Sie auf die Karte, dann <b>W/↑</b> vorwärts, <b>S/↓</b> bremsen oder rückwärts, <b>A/←</b> und <b>D/→</b> lenken. Mit dem <b>V2X-Sender</b> sieht ihn das FMS und reserviert ihm die Kreuzungen; ohne Sender erkennen ihn nur die Sensoren der Muldenkipper.</p>
       <h3>Die Bedienelemente</h3>
       <dl>
-        <dt>Szenarien</dt><dd>A: Pick-up mit V2X, das FMS entzieht dem Muldenkipper das I1-Token. B: Pick-up ohne V2X, nur die Wahrnehmung schützt. C: B im Staub, Rückfall auf Radar. D: Haltebefehl einmalig in BEST_EFFORT mit 50 % Verlust gesendet. E: überlasteter CAN-Bus mit falsch priorisiertem Bremsbefehl. Ein Szenario wird scharfgeschaltet und startet, sobald ein beladener Muldenkipper den Bagger verlässt. F und G starten sofort: F friert Ebene 1 des schnellsten Lkw ein (Ebene 2 muss ihn allein anhalten), G sendet einen fehlerhaften Sollwert (Ebene 2 muss ihn ablehnen). A bis E setzen den Kernel des Rechners auf PREEMPT_RT zurück.</dd>
+        <dt>Szenarien</dt><dd>A: Pick-up mit V2X, das FMS entzieht dem Muldenkipper das I1-Token. B: Pick-up ohne V2X, nur die Wahrnehmung schützt. C: B im Staub, Rückfall auf Radar. D: Haltebefehl einmalig in BEST_EFFORT mit 50 % Verlust gesendet. E: überlasteter CAN-Bus mit falsch priorisiertem Bremsbefehl. Ein Szenario wird scharfgeschaltet und startet, sobald ein beladener Muldenkipper den Bagger verlässt. F und G starten sofort: F friert Ebene 1 des schnellsten Lkw ein (Ebene 2 muss ihn allein anhalten), G sendet einen fehlerhaften Sollwert (Ebene 2 muss ihn ablehnen). A bis E und die Schaltfläche Zurücksetzen setzen den Kernel des Rechners auf PREEMPT_RT zurück.</dd>
         <dt>Ausgewählter Muldenkipper</dt><dd>Störungen, Masse, CAN-Bus und DDS gelten für den gewählten Muldenkipper (Reiter AHT-01 bis 03 links oder Klick auf die Karte). EMERGENCY_BRAKE ist verriegelt: Klicken Sie auf „Quittieren“.</dd>
         <dt>CAN-Bus</dt><dd>Arbitrierung: Der niedrigste Identifier gewinnt. Ein richtig priorisierter Bremsbefehl bleibt auch bei hoher Buslast schnell; warten müssen die Nachrichten niedriger Priorität.</dd>
         <dt>DDS</dt><dd>Bei periodischer Publikation erkennt der Controller Funkstille (Deadline, Liveliness) und geht in den sicheren Zustand. Ereignisgesteuert bleibt ein verlorener Befehl unbemerkt.</dd>
@@ -761,7 +762,7 @@ const STATIC = {
         <li><b>Fail-Operational.</b> Szenario C: LiDAR geblendet, das Radar übernimmt, die Geschwindigkeit fällt auf 15 km/h, die Mission geht weiter.</li>
         <li><b>DDS-QoS.</b> Szenario D, mehrmals: Geht das Halt-Ereignis verloren, meldet das Protokoll einen nicht angewendeten Befehl. Zurück auf „periodisch“: kein stiller Verlust mehr, auf Kosten der Verfügbarkeit, wenn das Netz viel verliert.</li>
         <li><b>CAN und Minennetz.</b> Szenario E und das Oszilloskop; dann das Minennetz trennen: Die Muldenkipper fahren ihre Freigabe zu Ende und halten an, ohne harte Bremsung.</li>
-        <li><b>Ebene 1 schlägt vor, Ebene 2 entscheidet.</b> Szenario F: Der Autonomierechner des schnellsten Lkw friert ein. Öffnen Sie „Ebenen 1 ↔ 2“: Nach der Frist des Herzschlags schaltet Ebene 2 allein auf CONTROLLED_STOP mit maximaler Bremsung und die zurückgelegte Strecke wird angezeigt. Starten Sie Ebene 1 neu: Der Halt wird erst nach einem stabilen Herzschlag aufgehoben.</li>
+        <li><b>Ebene 1 schlägt vor, Ebene 2 entscheidet.</b> Szenario F: Der Autonomierechner des schnellsten Lkw friert ein. Öffnen Sie „Ebenen 1 ↔ 2“: Nach der Frist des Herzschlags schaltet Ebene 2 allein auf CONTROLLED_STOP mit maximaler Bremsung, und die Erkennungszeit sowie die zurückgelegte Strecke werden angezeigt. Starten Sie Ebene 1 neu: Der Halt wird erst nach einem stabilen Herzschlag aufgehoben. Mit dem Allzweck-Kernel erfolgt die Erkennung später: Die bereits unterwegs befindlichen Sollwerte treffen noch ein, bevor die Stille zu zählen beginnt.</li>
         <li><b>Ein falscher Sollwert erreicht nie die Bremsen.</b> Szenario G, dann die Karte „Autonomie · Ebene 1“ zur Wahl des Fehlers: Ebene 2 lehnt den Sollwert mit seinem Code ab, der zuletzt akzeptierte Sollwert bleibt gültig und der Lkw fährt weiter. Dauerhaft gesendet, zählt eine Serie aufeinanderfolgender Ablehnungen wie ein Verlust von Ebene 1.</li>
         <li><b>Der Preis eines Allzweck-Kernels.</b> Wählen Sie den Kernel „Allzweck“: Der Rechenterm von t_lat steigt (illustrative Werte, aus dem Modell gelesen), die Haltezone wird auf dem Bildschirm entsprechend länger und der Lkw legt diese Strecke tatsächlich zusätzlich zurück.</li>
       </ol>`,
@@ -776,9 +777,9 @@ const STATIC = {
         <li><b>Das Fahrzeug ohne V2X ist ein degradierter Fall.</b> Im Betrieb trägt jedes Fahrzeug, das in die autonome Zone einfährt, ein Terminal und projiziert seine eigene Zone; der Zugang ist kontrolliert. Die bordeigene Wahrnehmung ist die letzte Barriere (Normenreihe ISO 21815, Kollisionsvermeidung).</li>
         <li><b>Normen.</b> IEC 61508 ist die Grundnorm; ISO 13849 behandelt sicherheitsbezogene Teile von Steuerungen; für Erdbaumaschinen argumentiert man auch mit ISO 19014 (in MPLr statt SIL), ISO 17757 (autonome Maschinen) und ISO 23725 (Schnittstelle FMS ↔ AHS). Das Kürzel „SIL / HIL“ ist mehrdeutig: SiL für Software-in-the-Loop schreiben.</li>
         <li><b>Quittierung.</b> Der Notfallzustand ist verriegelt und erfordert eine Quittierung: Ein automatisches Wiederanlaufen nach einer Ausnahme ist ein realer Fehlermodus (siehe den WA-Vorfall in den Quellen).</li>
-        <li><b>Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert.</b> Der Autonomierechner gilt als von Grund auf nicht sicher: Seine Sollwerte (geforderte Geschwindigkeit, Zeitstempel, Sequenzzähler, Prüfsumme) laufen über einen unabhängigen Sicherheitscontroller, der sie mit eigenen Messungen von Position und Geschwindigkeit erneut prüft. Nichts erreicht die Bremsen ohne seine Zustimmung. Der Herzschlag wird überwacht: Eine stumme oder ständig irrende Ebene 1 führt zu einem kontrollierten Halt mit maximaler Bremsung, den Ebene 2 allein beschließt.</li>
-        <li><b>Warum dieser Halt nicht verriegelt ist, der Notfall aber schon.</b> Der Verlust von Ebene 1 ist ein Ausfall des Autonomierechners, kein gefährliches Ereignis an sich: Der kontrollierte Halt genügt, und Ebene 2 hebt ihn auf, sobald der Herzschlag wieder stabil ist. Der Notfallzustand bleibt verriegelt: Eine automatische Wiederaufnahme nach einem echten Ereignis ist ein Fehlermodus. Eine zurückgekehrte Ebene 1 hebt nie eine verriegelte Notbremsung auf.</li>
-        <li><b>Das Kernel-Profil ist ein ungünstigster Fall, keine Messung.</b> Ein Allzweck-Kernel bietet keine Latenzgrenze, PREEMPT_RT schon. Der Simulator misst keinen Kernel: Jedes Profil ist eine illustrative Grenze der Rechenzeit von Ebene 1. Sie geht in t_lat ein (die Haltezone wird länger) und verzögert in gleichem Maß, was Ebene 1 an Ebene 2 übermittelt (der Lkw legt die Strecke tatsächlich zusätzlich zurück). Die Wahl des Kernels verursacht nie einen Herzschlagverlust: Seine Grenze bleibt unter der Frist.</li>
+        <li><b>Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert.</b> Der Autonomierechner gilt als von Grund auf nicht sicher: Seine Sollwerte (geforderte Geschwindigkeit, Zeitstempel, Sequenzzähler, Prüfsumme) laufen über einen unabhängigen Sicherheitscontroller, der sie mit einer eigenen Positionsmessung erneut prüft. Nichts erreicht die Bremsen ohne seine Zustimmung. Der Herzschlag wird überwacht: Eine stumme oder ständig irrende Ebene 1 führt zu einem kontrollierten Halt mit maximaler Bremsung, den Ebene 2 allein beschließt.</li>
+        <li><b>Warum dieser Halt nicht verriegelt ist, der Notfall aber schon.</b> Der Verlust von Ebene 1 ist ein Ausfall des Autonomierechners, kein gefährliches Ereignis an sich: Der kontrollierte Halt genügt, und Ebene 2 hebt ihn auf, sobald der Herzschlag wieder stabil ist, nach dem üblichen kurzen Halten des Zustands; der Reiter „Ebenen 1 ↔ 2“ zählt bis zur tatsächlichen Aufhebung herunter. Der Notfallzustand bleibt verriegelt: Eine automatische Wiederaufnahme nach einem echten Ereignis ist ein Fehlermodus. Eine zurückgekehrte Ebene 1 hebt nie eine verriegelte Notbremsung auf.</li>
+        <li><b>Das Kernel-Profil ist ein ungünstigster Fall, keine Messung.</b> Ein Allzweck-Kernel bietet keine Latenzgrenze, PREEMPT_RT schon. Der Simulator misst keinen Kernel: Jedes Profil ist eine illustrative Grenze der Rechenzeit von Ebene 1. Sie geht in t_lat ein (die Haltezone wird länger) und verzögert in gleichem Maß, was Ebene 1 an Ebene 2 übermittelt (der Lkw legt die Strecke tatsächlich zusätzlich zurück). Die Wahl des Kernels verursacht nie einen Herzschlagverlust: Seine Grenze bleibt unter der Frist. Sie verzögert aber die Erkennung eines eingefrorenen Ebene 1, weil die bereits unterwegs befindlichen Sollwerte noch eintreffen, bevor die Stille zu zählen beginnt.</li>
       </ol>`,
     'guide.archi': `
       <h3>Zwei Rechner, zwei Rollen</h3>
@@ -991,6 +992,8 @@ const MSG = {
   'l12.brake': ['Freins', 'Brakes', 'Bremsen'],
   'l12.hVerdict': ['verdict', 'verdict', 'Urteil'], 'l12.ok': ['accepté', 'accepted', 'akzeptiert'],
   'l12.noEx': ['Aucun échange pour le moment.', 'No exchange yet.', 'Noch kein Austausch.'],
+  'l12.frz': ['Gel : détecté en {s} s, {m} m parcourus', 'Freeze: detected in {s} s, {m} m travelled so far', 'Einfrieren: erkannt nach {s} s, bisher {m} m zurückgelegt'],
+  'l12.frzDone': ['Gel : détecté en {s} s, arrêt après {m} m', 'Freeze: detected in {s} s, stopped after {m} m', 'Einfrieren: erkannt nach {s} s, Halt nach {m} m'],
   'l12.release': ['Reprise dans', 'Resume in', 'Weiter in'],
   'l12.brRel': ['relâchés', 'released', 'gelöst'], 'l12.brSvc': ['freinage', 'braking', 'bremst'], 'l12.brFull': ['freinage max', 'full braking', 'Vollbremsung'], 'l12.brWd': ['watchdog ECU', 'ECU watchdog', 'ECU-Watchdog'],
   'l1.freeze': ['Niveau 1 figé : plus aucune consigne émise', 'Level 1 frozen: no more setpoints sent', 'Ebene 1 eingefroren: keine Sollwerte mehr gesendet'],
@@ -1064,7 +1067,8 @@ const P = {
   fmsPeriod: 0.5, fmsLease: 2.0, authHorizon: 160, tokenReq: 175,
   gnssDR: 5.0, loadTime: 10, dumpTime: 6,
   // Niveau 1 → niveau 2 (spec 002) : échéance du battement, péremption d'une consigne, stabilité avant reprise, rejets consécutifs tolérés, historique du niveau 2
-  l1Deadline: 0.30, l1Stale: 0.25, l1Stable: 1.0, l1RejBound: 10, l1Hist: 1.0
+  l1Deadline: 0.30, l1Stale: 0.25, l1Stable: 1.0, l1RejBound: 10, l1Hist: 1.0,
+  stateHold: 1.0   // maintien d'un état de sûreté après la disparition de sa cause (hystérésis du superviseur)
 };
 const ENV = { mu: 0.6, ramp: 0.10, dust: false, fms: true, scale: 2, paused: false, kernel: 'RT', l1Defect: 'OVERSPEED', l1Repeat: false };   // kernel : profil du calculateur d'autonomie, 'RT' (PREEMPT_RT, défaut) ou 'GP' (généraliste)
 const latCpu = () => ENV.kernel === 'GP' ? P.latCpuGP : P.latCpuRT;
@@ -1396,7 +1400,7 @@ function l1EmitSetpoint(T) {
   if (A.frozen) return;
   const d = A.defect;
   let sp;
-  if (d === 'REPLAY' && A.captured.length) sp = { ...A.captured[0] };   // une ancienne consigne, intacte, renvoyée à la place de la nouvelle
+  if (d === 'REPLAY' && A.captured.length) sp = { ...A.captured[A.captured.length - 1] };   // la consigne précédente, intacte, renvoyée à la place de la nouvelle : assez fraîche, même avec le retard du noyau généraliste, pour que le verdict soit « séquence »
   else {
     sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v };
     if (d === 'STALE') sp.ts -= 1.0;
@@ -1496,8 +1500,9 @@ function supervise(T) {
   if (L2.hbLost) {
     const dl = N(P.l1Deadline * 1000);
     add(2, 'L1_HEARTBEAT_LOST', hbAge > P.l1Deadline ? M('sup.l1Lost', { ms: N(hbAge * 1000), dl }) : M('sup.l1Back', { s: N(now - L2.stableSince, 1), need: N(P.l1Stable, 1) }), 'MAX');
-    if (T.l1.ev.tFreeze !== null && T.l1.ev.tDetect === null) T.l1.ev.tDetect = now;
   }
+  // Délai de détection : l'instant où le silence dépasse l'échéance après un gel (et non dès que la perte est active : un nouveau gel pendant la reprise donnait alors 0,02 s).
+  if (hbAge > P.l1Deadline && T.l1.ev.tFreeze !== null && T.l1.ev.tDetect === null) T.l1.ev.tDetect = now;
   // Rejets consécutifs : un niveau 1 vivant mais qui se trompe sans cesse est traité comme un niveau 1 perdu (même arrêt, même reprise).
   if (L2.rejRun >= P.l1RejBound) { L2.rejLost = true; L2.rejStable = 0; }
   else if (L2.rejLost) {
@@ -1512,7 +1517,7 @@ function supervise(T) {
   if (sev >= 3 && !T.latched) T.latched = true;
   let target = T.latched ? 3 : sev;
   const cur = LEVEL[T.state];
-  if (target >= cur) { if (target > 0) T.lowerAt = now + 1.0; }
+  if (target >= cur) { if (target > 0) T.lowerAt = now + P.stateHold; }
   else if (now < T.lowerAt) target = cur;
   const prev = T.state;
   T.state = NAMES[target];
@@ -1593,7 +1598,7 @@ function resetSim() {
   const noyau = ENV.kernel;
   ENV.dust = false; ENV.fms = true; ENV.kernel = 'RT';
   logEv('SIM', 0, 'INFO', M('log.started'), 'info');
-  if (noyau !== 'RT') logEv('SIM', 0, 'ENV', M('log.kernelReset'), 'info');
+  if (noyau !== 'RT') logEv('SIM', 0, 'KERNEL_RESET', M('log.kernelReset'), 'info');
   syncControls();
 }
 /* msg : message {k, p} traduit à l'affichage (voir I18N), ou RAW(texte). */
@@ -1691,7 +1696,7 @@ function scenario(code) {
   if (code === 'F' || code === 'G') { scenarioNiveau1(code); return; }   // F et G gardent le profil de noyau choisi (spec 002, S12b)
   // A à E sont calibrés sur PREEMPT_RT : le profil y revient, et le visiteur en est averti.
   const noyau = ENV.kernel !== 'RT';
-  if (noyau) { ENV.kernel = 'RT'; logEv('SIM', 0, 'ENV', M('log.kernelReset'), 'info'); }
+  if (noyau) { ENV.kernel = 'RT'; logEv('SIM', 0, 'KERNEL_RESET', M('log.kernelReset'), 'info'); }
   const avis = noyau ? ' ' + t('toast.kernelReset') : '';
   if (code === 'E') {
     const T = sim.trucks[selected]; T.can.load = 75; T.can.misprio = true;
@@ -1957,8 +1962,11 @@ function renderL12(T) {
   const br = T.ecuEmergency ? 3 : T.fullBrake ? 2 : T.lastCmd < -0.2 ? 1 : 0, hb = sim.t - L.lastValid;
   // Reprise : pendant que le battement, ou les consignes, sont revenus et que la stabilité se confirme, le temps restant avant le
   // relâchement prend la place de l'âge du battement (qui vaut alors zéro).
-  const reste = (L.hbLost && L.stableSince && sim.t - L.lastValid <= P.l1Deadline) ? P.l1Stable - (sim.t - L.stableSince)
+  const recup = (L.hbLost && L.stableSince && sim.t - L.lastValid <= P.l1Deadline) ? P.l1Stable - (sim.t - L.stableSince)
     : (L.rejLost && L.rejStable && L.rejRun === 0) ? P.l1Stable - (sim.t - L.rejStable) : null;
+  // Le décompte va jusqu'au relâchement réel : fin de la stabilité, puis maintien d'état ; une fois la cause disparue, il ne reste que le maintien.
+  const reste = recup !== null ? recup + P.stateHold
+    : (!L.hbLost && !L.rejLost && !T.latched && !T.reasons.some(r => r.lvl > 0) && LEVEL[T.state] > 0 && T.lowerAt > sim.t) ? T.lowerAt - sim.t : null;
   const row = (k, v) => `<div><span>${k}</span><span class="num">${v}</span></div>`;
   const b1 = $('blkL1'), b2 = $('blkL2');
   b1.dataset.status = st; b2.dataset.brake = BRAKE_ETAT[br];
@@ -1978,6 +1986,9 @@ function renderL12(T) {
   h += exs.length ? exs.map(e => `<div class="xr${e.ok ? '' : ' bad'}"><span>#${e.seq}</span><span>${fmt(e.ts, 2)}</span><span>${fmt(e.v * 3.6, 1)}</span><span>${fmt(e.d, 0)}</span><span>${e.sumOk ? '✓' : '✗'}</span><span>${e.ok ? t('l12.ok') : e.code}</span></div>`).join('') : `<div class="none">${t('l12.noEx')}</div>`;
   const rj = L.rej[L.rej.length - 1];
   if (rj) h += `<div class="why">${rp(rj.msg)}</div>`;
+  // Gel du niveau 1 (scénario F) : délai de détection et distance parcourue depuis le gel, mesurés par le modèle.
+  const ev = A.ev;
+  if (ev.tDetect !== null) h += `<div class="frz">${t(ev.sStill !== null ? 'l12.frzDone' : 'l12.frz', { s: N(ev.tDetect - ev.tFreeze, 2), m: N((ev.sStill !== null ? ev.sStill : T.s) - ev.sFreeze, 1) })}</div>`;
   $('exL12').innerHTML = h;
 }
 let logDirty = true, lastTabs = '';

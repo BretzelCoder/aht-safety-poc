@@ -313,8 +313,15 @@ test.describe('T-16 levels 1 ↔ 2 pane, exchanges (S8, S11)', () => {
     await expect(page.locator('#blkL2')).toContainText('Resume in');
     await expect(page.locator('#blkL2')).not.toContainText('Heartbeat');
     const reste = Number((await page.locator('#blkL2').innerText()).match(/Resume in\s+([0-9.]+) s/)[1]);
-    expect(reste, 'seconds left (1 s of stable heartbeat, 0.5 s done)').toBeGreaterThan(0.3);
-    expect(reste).toBeLessThanOrEqual(0.6);
+    const P = await page.evaluate(() => ({ stable: window.__sim.P.l1Stable, maintien: window.__sim.P.stateHold }));
+    // Il reste 0,5 s de stabilité à confirmer, puis le maintien d'état habituel : le décompte va jusqu'au relâchement réel.
+    expect(reste, 'seconds left until the real release (stability still to confirm plus the state hold)').toBeGreaterThan(P.stable - 0.5 + P.maintien - 0.1);
+    expect(reste).toBeLessThanOrEqual(P.stable - 0.5 + P.maintien + 0.1);
+    await page.evaluate(() => { for (let i = 0; i < 50; i++) window.__sim.step(); });      // la stabilité est confirmée, le maintien d'état court encore
+    await expect(page.locator('#blkL2')).toContainText('Resume in');
+    await expect.poll(async () => Number((await page.locator('#blkL2').innerText()).match(/Resume in\s+([0-9.]+) s/)[1]), { message: 'only the state hold is left (s)' }).toBeLessThanOrEqual(P.maintien);
+    expect(await page.evaluate(() => window.__sim.sim.trucks[0].l2.hbLost), 'the heartbeat loss itself is over').toBe(false);
+    expect(await page.evaluate(() => window.__sim.sim.trucks[0].state), 'but the truck is still held in its stop').toBe('CONTROLLED_STOP');
     await page.evaluate(() => { for (let i = 0; i < 100; i++) window.__sim.step(); });
     await expect(page.locator('#blkL2')).toContainText('Heartbeat');
     await expect(page.locator('#blkL2')).not.toContainText('Resume in');
@@ -462,21 +469,21 @@ test.describe('T-18 deployment view (S16, S17, S18)', () => {
 test.describe('T-20 guide text (S19, AC-19)', () => {
   const GUIDE = {
     fr: {
-      prise: ['Autonomie · niveau 1', 'F et G partent aussitôt', 'Niveaux 1 ↔ 2', 'ⓘ'],
-      visite: ['Scénario F', 'Scénario G', 'noyau généraliste'],
-      modele: ['Le niveau 1 propose, le niveau 2 autorise ou bloque', 'pas verrouillé alors que l\'urgence l\'est', 'pire cas, pas une mesure', 'ISO 13849'],
+      prise: ['Autonomie · niveau 1', 'F et G partent aussitôt', 'et la réinitialisation remettent', 'Niveaux 1 ↔ 2', 'ⓘ'],
+      visite: ['Scénario F', 'Scénario G', 'noyau généraliste', 'le délai de détection ainsi que la distance parcourue s\'affichent', 'la détection est plus lente'],
+      modele: ['Le niveau 1 propose, le niveau 2 autorise ou bloque', 'pas verrouillé alors que l\'urgence l\'est', 'pire cas, pas une mesure', 'ISO 13849', 'sa propre mesure de position', 'compte à rebours jusqu\'au relâchement réel', 'retarde en revanche la détection'],
       limites: ['copies exactes de l\'état simulé', 'ne tombe jamais en panne', 'calcul maison', 'sans passer par le niveau 1', 'bornes illustratives', 'Seul l\'écart avec PREEMPT_RT', 'sans prétention de conformité'],
     },
     en: {
-      prise: ['Autonomy · level 1', 'F and G start at once', 'Levels 1 ↔ 2', 'ⓘ'],
-      visite: ['Scenario F', 'Scenario G', 'general-purpose kernel'],
-      modele: ['Level 1 proposes, level 2 allows or blocks', 'not latched while the emergency is', 'worst case, not a measurement', 'ISO 13849'],
+      prise: ['Autonomy · level 1', 'F and G start at once', 'and the reset button set', 'Levels 1 ↔ 2', 'ⓘ'],
+      visite: ['Scenario F', 'Scenario G', 'general-purpose kernel', 'the detection delay and the distance travelled are shown', 'detection is slower'],
+      modele: ['Level 1 proposes, level 2 allows or blocks', 'not latched while the emergency is', 'worst case, not a measurement', 'ISO 13849', 'its own position measurement', 'counts down to the real release', 'does delay the detection'],
       limites: ['exact copies of the simulated state', 'never fails', 'home-made calculation', 'without going through level 1', 'illustrative bounds', 'Only the difference from PREEMPT_RT', 'no claim of conformity'],
     },
     de: {
-      prise: ['Autonomie · Ebene 1', 'F und G starten sofort', 'Ebenen 1 ↔ 2', 'ⓘ'],
-      visite: ['Szenario F', 'Szenario G', 'Allzweck-Kernels'],
-      modele: ['Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert', 'nicht verriegelt ist, der Notfall aber schon', 'ungünstigster Fall, keine Messung', 'ISO 13849'],
+      prise: ['Autonomie · Ebene 1', 'F und G starten sofort', 'die Schaltfläche Zurücksetzen setzen', 'Ebenen 1 ↔ 2', 'ⓘ'],
+      visite: ['Szenario F', 'Szenario G', 'Allzweck-Kernels', 'die Erkennungszeit sowie die zurückgelegte Strecke werden angezeigt', 'erfolgt die Erkennung später'],
+      modele: ['Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert', 'nicht verriegelt ist, der Notfall aber schon', 'ungünstigster Fall, keine Messung', 'ISO 13849', 'eigenen Positionsmessung', 'bis zur tatsächlichen Aufhebung herunter', 'verzögert aber die Erkennung'],
       limites: ['exakte Kopien des simulierten Zustands', 'fällt nie aus', 'eigene Rechnung', 'ohne über Ebene 1 zu laufen', 'illustrative Grenzen', 'Nur die Differenz zu PREEMPT_RT', 'ohne Konformitätsanspruch'],
     },
   };
@@ -488,6 +495,7 @@ test.describe('T-20 guide text (S19, AC-19)', () => {
         await page.click(`[data-gtab="${onglet}"]`);
         const texte = await page.locator(`[data-gpane="${onglet}"]`).innerText();
         for (const phrase of phrases) expect(texte, `${lang}, tab ${onglet}: "${phrase}"`).toContain(phrase);
+        if (onglet === 'modele') expect(texte, 'level 2 judges with its own position, not its speed (S6)').not.toMatch(/position et de vitesse|position and speed measurements|Position und Geschwindigkeit/);
       }
     });
   }
@@ -579,5 +587,77 @@ test.describe('Guide window size (S21, AC-23)', () => {
         expect(mesures.some(m => m.defile), 'a long tab scrolls inside the window').toBe(true);
       });
     }
+  }
+});
+
+// Revue de la spec 002 (T-27) : délai de détection et distance du scénario F à l'écran ; liste des échanges selon le camion ; journal retraduit ; infobulle de G.
+test.describe('Review fixes: freeze measurements on screen, exchange list per truck, log, tooltip', () => {
+  const GEL = {
+    fr: { vite: s => `Gel : détecté en ${s}`, enCours: m => `${m} m parcourus`, fini: m => `arrêt après ${m} m`, virgule: true },
+    en: { vite: s => `Freeze: detected in ${s}`, enCours: m => `${m} m travelled so far`, fini: m => `stopped after ${m} m`, virgule: false },
+    de: { vite: s => `Einfrieren: erkannt nach ${s}`, enCours: m => `bisher ${m} m zurückgelegt`, fini: m => `Halt nach ${m} m`, virgule: true },
+  };
+  for (const lang of ['fr', 'en', 'de']) {
+    test(`${lang}: scenario F shows the detection delay and the distance travelled, equal to the model's own measurement`, async ({ page }) => {
+      await openPage(page, lang);
+      await pauseAndSeed(page, 1);
+      await page.evaluate(() => { for (let i = 0; i < 500; i++) window.__sim.step(); });
+      await page.click('#tabL12');
+      await expect(page.locator('#exL12 .frz'), 'nothing before a freeze').toHaveCount(0);
+      const g = GEL[lang], fmt = (x, d) => (g.virgule ? x.toFixed(d).replace('.', ',') : x.toFixed(d));
+      // En cours : détecté, le camion freine encore, la distance est celle parcourue jusqu'ici.
+      const mi = await page.evaluate(() => {
+        const S = window.__sim, T = S.sim.trucks[0]; S.l1Freeze(0);
+        let n = 0; while (T.l1.ev.tDetect === null && n++ < 200) S.step();
+        for (let i = 0; i < 10; i++) S.step();
+        return { delai: T.l1.ev.tDetect - T.l1.ev.tFreeze, distance: T.s - T.l1.ev.sFreeze, enMouvement: T.v > 0.3, arrete: T.l1.ev.sStill !== null };
+      });
+      expect(mi.enMouvement && !mi.arrete, 'the truck is still braking').toBe(true);
+      await expect(page.locator('#exL12 .frz')).toHaveText(`${g.vite(fmt(mi.delai, 2))} s, ${g.enCours(fmt(mi.distance, 1))}`);
+      // Terminé : la distance est celle de l'arrêt, mesurée par le modèle.
+      const fin = await page.evaluate(() => {
+        const S = window.__sim, T = S.sim.trucks[0]; let n = 0; while (T.l1.ev.sStill === null && n++ < 2000) S.step(); S.step();
+        return { delai: T.l1.ev.tDetect - T.l1.ev.tFreeze, distance: T.l1.ev.sStill - T.l1.ev.sFreeze };
+      });
+      await expect(page.locator('#exL12 .frz')).toHaveText(`${g.vite(fmt(fin.delai, 2))} s, ${g.fini(fmt(fin.distance, 1))}`);
+      expect(fin.distance, 'the truck travelled before it stopped (m)').toBeGreaterThan(5);
+    });
+  }
+
+  test('a language switch retranslates the freeze line and the log lines already written', async ({ page }) => {
+    await openPage(page, 'en');
+    await pauseAndSeed(page, 1);
+    await page.evaluate(() => { const S = window.__sim; for (let i = 0; i < 500; i++) S.step(); S.scenario('F'); for (let i = 0; i < 400; i++) S.step(); });
+    await page.click('#tabL12');
+    await expect(page.locator('#exL12 .frz')).toContainText('stopped after');
+    await expect(page.locator('#log')).toContainText('Scenario F: level 1 of');
+    await page.click('[data-lang="fr"]');
+    await expect(page.locator('#exL12 .frz')).toContainText('arrêt après');
+    await expect(page.locator('#log')).toContainText('Scénario F : le niveau 1 de');
+    await page.click('[data-lang="de"]');
+    await expect(page.locator('#exL12 .frz')).toContainText('Halt nach');
+    await expect(page.locator('#log')).toContainText('Szenario F: Ebene 1 von');
+  });
+
+  test('selecting another truck changes the exchange list, not only the blocks', async ({ page }) => {
+    await openPage(page, 'en');
+    await pauseAndSeed(page, 1);
+    await page.evaluate(() => { for (let i = 0; i < 500; i++) window.__sim.step(); });
+    await page.click('#tabL12');
+    await page.waitForSelector('#tabs button');
+    const lire = async i => page.evaluate(k => { const T = window.__sim.sim.trucks[k], e = T.l2.ex[T.l2.ex.length - 1]; return { v: (e.v * 3.6).toFixed(1), seq: e.seq }; }, i);
+    const t0 = await lire(0), t1 = await lire(1);
+    expect(t0.v, 'the two trucks are not driving at the same speed (setup)').not.toBe(t1.v);
+    await expect(page.locator('#exL12 .xr:not(.hd)').last().locator('span').nth(2)).toHaveText(t0.v);
+    await page.click('#tabs button[data-sel="1"]');
+    await expect(page.locator('#exL12 .xr:not(.hd)').last().locator('span').nth(2)).toHaveText(t1.v);
+  });
+
+  for (const [lang, titre] of [['fr', 'Autonomie · niveau 1'], ['en', 'Autonomy · level 1'], ['de', 'Autonomie · Ebene 1']]) {
+    test(`${lang}: the tooltip of scenario G names the real title of the card`, async ({ page }) => {
+      await openPage(page, lang);
+      expect((await page.locator('#cardL1 h3').textContent()).trim()).toBe(titre);
+      expect(await page.locator('[data-scen="G"]').getAttribute('title')).toContain(titre);
+    });
   }
 });

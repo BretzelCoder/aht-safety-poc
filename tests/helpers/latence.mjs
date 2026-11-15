@@ -16,8 +16,9 @@ export function verifierRelationsProfil(P) {
   if (!(P.l1Deadline > PERIODE + delta)) {
     err(`heartbeat deadline ${P.l1Deadline} s should exceed the setpoint period ${PERIODE} s plus the profile delay ${delta.toFixed(3)} s`);
   }
-  if (!(P.l1Stale > delta)) {
-    err(`setpoint staleness limit ${P.l1Stale} s should exceed the profile delay ${delta.toFixed(3)} s`);
+  // Une consigne rejouée est la précédente : elle a déjà un pas d'âge à l'émission, et le retard du profil s'y ajoute.
+  if (!(P.l1Stale > PERIODE + delta)) {
+    err(`setpoint staleness limit ${P.l1Stale} s should exceed the profile delay ${delta.toFixed(3)} s plus the age of a replayed setpoint (${PERIODE} s)`);
   }
   return erreurs;
 }

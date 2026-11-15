@@ -47,7 +47,7 @@ The live demo counts visits with [GoatCounter](https://www.goatcounter.com/), a 
 | F | Level 1 frozen | The autonomy computer of the fastest truck stops sending. Level 2 notices the silence after the heartbeat deadline and brings the truck to a controlled stop at maximum braking, on its own. Restart level 1: the stop is released after a stable heartbeat. |
 | G | Defective setpoint | Level 1 sends one setpoint with the chosen defect (overspeed, beyond the movement authority, stale timestamp, replay, invalid integrity). Level 2 rejects it, names the defect and the truck carries on. Sent continuously, consecutive rejections stop the truck as a lost heartbeat does. |
 
-Scenarios A to E set the kernel profile back to PREEMPT_RT, which is what their outcomes are calibrated on; F and G keep the profile you chose, so you can compare the two on a failing autonomy computer.
+Scenarios A to E and the Reset button set the kernel profile back to PREEMPT_RT, which is what their outcomes are calibrated on; F and G keep the profile you chose, so you can compare the two on a failing autonomy computer.
 
 ## Modelling choices
 
@@ -61,8 +61,8 @@ Scenarios A to E set the kernel profile back to PREEMPT_RT, which is what their 
 - **Unequipped vehicles are a degraded case:** in operation every vehicle entering the autonomous zone carries a terminal; on-board perception is the last barrier.
 - **Emergency state is latched** and needs an explicit acknowledgement before the truck can move again.
 - **Level 1 proposes, level 2 allows or blocks.** Every setpoint is judged on its checksum, its age, its sequence number, its speed against the limit of the road section and its goal against the end of the movement authority. The last two use level 2's own measured position and the authority it holds, never the position or speed that level 1 claims. A rejected setpoint never reaches the actuators.
-- **Losing level 1 is a controlled stop, not an emergency.** A silent level 1, or one whose setpoints keep being rejected, brings the truck to a controlled stop at maximum braking decided by level 2 alone. That stop is not latched: it is released once the heartbeat has been stable for a stated time. The emergency state stays latched, and a recovered level 1 never releases it.
-- **The kernel profile is a worst case, not a measurement.** Each profile is an illustrative bound on the computing time of level 1. It enters `t_lat`, and the difference from PREEMPT_RT delays what level 1 passes to level 2, so the truck really travels the extra distance. The heartbeat deadline stays above that delay: a profile never causes a heartbeat loss by itself.
+- **Losing level 1 is a controlled stop, not an emergency.** A silent level 1, or one whose setpoints keep being rejected, brings the truck to a controlled stop at maximum braking decided by level 2 alone. That stop is not latched: it is released once the heartbeat has been stable for a stated time, after the usual short hold of the state; the Levels 1 ↔ 2 view counts down to the real release. The emergency state stays latched, and a recovered level 1 never releases it.
+- **The kernel profile is a worst case, not a measurement.** Each profile is an illustrative bound on the computing time of level 1. It enters `t_lat`, and the difference from PREEMPT_RT delays what level 1 passes to level 2, so the truck really travels the extra distance. The heartbeat deadline stays above that delay: a profile never causes a heartbeat loss by itself. The delay does make a frozen level 1 be detected later, because the setpoints already in flight keep arriving; scenario F shows the detection delay and the distance the truck travels before it stops.
 
 ## Code structure
 

@@ -112,13 +112,41 @@ test.describe('T-11 kernel profile at scenario launch (S12b, AC-22)', () => {
         S.scenario(c);
         return {
           kernel: S.ENV.kernel,
-          journal: S.sim.log.some(l => l.code === 'ENV' && l.msg.k === 'log.kernelReset'),
+          journal: S.sim.log.some(l => l.code === 'KERNEL_RESET' && l.msg.k === 'log.kernelReset'),
           avis: document.getElementById('toast').textContent,
         };
       }, code);
       expect(r.kernel, 'profile after launch').toBe('RT');
       expect(r.journal, 'a line in the event log').toBe(true);
       expect(r.avis, 'a message on screen').toContain('PREEMPT_RT');
+    });
+  }
+
+  test('the reset line reaches the log even right after the profile was changed with the select (no 3-second masking)', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    await page.evaluate(() => { for (let i = 0; i < 50; i++) window.__sim.step(); });
+    await page.selectOption('#selKernel', 'GP');
+    const r = await page.evaluate(() => { const S = window.__sim; S.scenario('B'); return { lignes: S.sim.log.filter(l => l.msg && (l.msg.k === 'log.kernelGP' || l.msg.k === 'log.kernelReset')).map(l => l.msg.k), noyau: S.ENV.kernel }; });
+    expect(r.noyau).toBe('RT');
+    expect(r.lignes, 'both lines: the choice, then the return to PREEMPT_RT').toEqual(['log.kernelGP', 'log.kernelReset']);
+  });
+
+  for (const code of ['A', 'B', 'C', 'D', 'E']) {
+    test(`scenario ${code} started with the general-purpose kernel selected plays exactly as with PREEMPT_RT (pinned outcome of AC-1)`, async ({ page }) => {
+      await openPage(page);
+      const jouer = async (noyau) => {
+        await pauseAndSeed(page, 3);
+        if (noyau === 'GP') await page.selectOption('#selKernel', 'GP');
+        return page.evaluate(c => {
+          const S = window.__sim; S.scenario(c);
+          for (let i = 0; i < 3000; i++) S.step();                                   // 60 s
+          return JSON.stringify({ kernel: S.ENV.kernel, trucks: S.sim.trucks.map(T => [T.s, T.v, T.state]), codes: S.sim.log.filter(l => l.code !== 'KERNEL_RESET' && l.code !== 'ENV').map(l => `${l.t.toFixed(2)} ${l.id} ${l.code}`), collisions: S.sim.collisions });
+        }, code);
+      };
+      const rt = await jouer('RT'), gp = await jouer('GP');
+      expect(JSON.parse(gp).kernel).toBe('RT');
+      expect(gp, `scenario ${code}: same positions, speeds, states, event log and collisions`).toBe(rt);
     });
   }
 
