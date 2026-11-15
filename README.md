@@ -66,7 +66,7 @@ Scenarios A to E and the Reset button set the kernel profile back to PREEMPT_RT,
 
 ## Code structure
 
-Everything lives in `index.html` (vanilla JavaScript, HTML5 canvas, no framework). The script is split into four modules:
+The simulator is vanilla JavaScript on an HTML5 canvas, with no framework, no build step and no package for the page (ADR-1). The script is split into four modules:
 
 1. **MineWorld & PhysicsEngine:** haul road graph, grades, longitudinal dynamics with traction, braking and adhesion limits.
 2. **EmbeddedCommsBus:** CAN response-time model per priority class, DDS safety topic with loss, retransmission, Deadline and Liveliness, and the ordered link from level 1 to level 2 (delayed by the kernel profile, with a home-made checksum).
@@ -75,7 +75,38 @@ Everything lives in `index.html` (vanilla JavaScript, HTML5 canvas, no framework
 
 Physics runs at a fixed 50 Hz step, decoupled from rendering.
 
-An I18N block at the top of the script holds the translations. French static text stays in the HTML (`data-i18n*` attributes) with English and German in `STATIC`; dynamic messages are `[fr, en, de]` triplets in `MSG`. Log entries and supervisor reasons are stored as message keys with parameters and translated at display time, so switching language also re-translates the event history.
+The translation files (`js/i18n-*.js`) are loaded first and hold the translations. French static text stays in the HTML (`data-i18n*` attributes) with English and German in `STATIC`; dynamic messages are `[fr, en, de]` triplets in `MSG`. Log entries and supervisor reasons are stored as message keys with parameters and translated at display time, so switching language also re-translates the event history.
+
+### Where things are
+
+The page is `index.html` plus its own plain files, loaded by ordinary `<script src>` and `<link>` tags in the order below (no module, no build, no installation; it opens from a downloaded folder). The code is the one script that used to sit in `index.html`, cut along its own joints and moved without change. The files share the page's global scope. Each file starts with a comment that names its concern and ends with a release stamp that `node scripts/stamps.mjs` keeps up to date; the page starts only if every file is present and of the same release, and otherwise says so in French, English and German (that message is written inline in `index.html`, because the translation files may be the ones that are missing). A check fails when this table, the tags and the files disagree.
+
+| File | Concern | What it holds |
+|---|---|---|
+| `index.html` | entry | Entry file: markup, French static text and French guide (ADR-2), the load registry, the script tags in load order, the load guard and its failure message in French, English and German. |
+| `css/style.css` | style | The style sheet. |
+| `js/base.js` | base | Two helpers used everywhere (`$`, `clamp`). |
+| `js/analytics.js` | analytics | GoatCounter, on the published site only (ADR-3). |
+| `js/i18n-engine.js` | i18n | Current language, `fmt`, `M`, `N`, `RAW`, `t`, and the empty `STATIC` tables. |
+| `js/i18n-en-ui.js` | i18n | English interface strings (`STATIC.en`). |
+| `js/i18n-en-guide.js` | guide | English guide text (`STATIC.en`, `guide.*`). |
+| `js/i18n-de-ui.js` | i18n | German interface strings (`STATIC.de`). |
+| `js/i18n-de-guide.js` | guide | German guide text (`STATIC.de`, `guide.*`). |
+| `js/i18n-messages.js` | i18n | `MSG`: the `[fr, en, de]` triplets of dynamic messages. |
+| `js/i18n-apply.js` | i18n | `applyStatic`: puts the static translations into the HTML. |
+| `js/m1-world-physics.js` | module-1 | Module 1 (MineWorld & PhysicsEngine): road graph, model parameters, braking envelope. |
+| `js/m2-comms-bus.js` | module-2 | Module 2 (EmbeddedCommsBus): CAN, DDS, the level 1 → level 2 link. |
+| `js/m3-perception.js` | module-3 | Module 3 (AutonomyAndSafetyCore): sensors, obstacle distance, stop bubble. |
+| `js/m3-fms-planner.js` | module-3 | Module 3: FMS tokens and movement authority, operating cycle, planner. |
+| `js/m3-levels.js` | module-3 | Module 3: level 1 emission and failure, level 2 measurements and judgement of setpoints. |
+| `js/m3-supervisor-control.js` | module-3 | Module 3: safety supervisor, motion controller, truck physics. |
+| `js/m4-state.js` | module-4 | Module 4 (FaultInjector & TelemetryHUD): simulation state, trucks, light vehicles, event log, `step`. |
+| `js/m4-scenarios.js` | module-4 | Module 4: scenarios A to G and fault injection. |
+| `js/m4-render.js` | module-4 | Module 4: map and oscilloscope drawing. |
+| `js/m4-hud.js` | module-4 | Module 4: telemetry panels, levels 1 ↔ 2 view, toast. |
+| `js/m4-controls.js` | module-4 | Module 4: the visitor's controls, language switch, guide opening. |
+| `js/m4-start.js` | module-4 | Module 4: the 50 Hz loop and the start-up of the page. |
+| `js/test-hook.js` | test-hook | `window.__sim`, the door reserved for the automated checks. |
 
 ## Automated checks
 

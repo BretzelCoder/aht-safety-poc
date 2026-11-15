@@ -3,10 +3,11 @@
 import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { verifierRequetes } from './helpers/chargements.mjs';
+import { verifierCarte, verifierPageComplete, MARQUEURS_PAGE } from './helpers/carte.mjs';
 import { fichiersDeLaBase, extraireBase } from '../scripts/lire-base.mjs';
 import { empreinteDe, ecrireEmpreinte, lireEmpreinte, lireManifeste, ecrireManifeste, verifierEmpreintes } from '../scripts/empreintes.mjs';
 import { readPage, reconstituerPage, lireTexte } from '../scripts/read-page.mjs';
@@ -233,5 +234,75 @@ test.describe('T-28 requests of the page (spec 003, AC-16)', () => {
     const erreurs = verifierRequetes([...ok, base + 'js/a.js'], attendus);
     expect(erreurs.map(e => e.fichier)).toEqual(['js/a.js']);
     expect(erreurs[0].message).toContain('2 times');
+  });
+});
+
+// T-26 : la carte des fichiers de la page (spec 003, S10 et AC-12).
+test.describe('T-26 the map of the page files (spec 003, S10, AC-12)', () => {
+  const etiquettes = ['css/style.css', 'js/a.js', 'js/b.js'];
+  const readme = '| File | Concern | What |\n|---|---|---|\n| `index.html` | entry | x |\n| `css/style.css` | style | x |\n| `js/a.js` | base | x |\n| `js/b.js` | module-1 | x |\n';
+  const claude = 'Stack: `css/style.css`, `js/a.js`, `js/b.js`.';
+  const sain = () => ({ etiquettes, repertoire: [...etiquettes], readme, claude, suivis: [...etiquettes], textes: { 'js/a.js': 'a\nb\n', 'js/b.js': 'a\r\nb\r\n' } });
+
+  test('tags, directory, README, CLAUDE.md and git agreeing give no error', () => {
+    expect(verifierCarte(sain())).toEqual([]);
+  });
+
+  test('a file missing from the README map, and a README row without a file, are reported', () => {
+    const e1 = verifierCarte({ ...sain(), readme: readme.replace('| `js/b.js` | module-1 | x |\n', '') });
+    expect(e1.map(e => e.fichier + ' ' + e.message).join('|')).toContain('no row for js/b.js');
+    const e2 = verifierCarte({ ...sain(), readme: readme + '| `js/fantome.js` | base | x |\n' });
+    expect(e2.map(e => e.message).join('|')).toContain('names js/fantome.js');
+  });
+
+  test('a file missing from CLAUDE.md, and a path in CLAUDE.md that no tag loads, are reported', () => {
+    const e1 = verifierCarte({ ...sain(), claude: 'Stack: `css/style.css`, `js/a.js`.' });
+    expect(e1.map(e => e.fichier + ' ' + e.message).join('|')).toContain('CLAUDE.md the Stack part does not name js/b.js');
+    const e2 = verifierCarte({ ...sain(), claude: claude + ' Also `js/fantome.js`.' });
+    expect(e2.map(e => e.message).join('|')).toContain('names js/fantome.js');
+  });
+
+  test('a file in js/ that no tag loads, and a tag that names no file, are reported', () => {
+    const e1 = verifierCarte({ ...sain(), repertoire: [...etiquettes, 'js/orphelin.js'] });
+    expect(e1.map(e => e.fichier + ' ' + e.message).join('|')).toContain('js/orphelin.js exists in js/ or css/ but no tag of index.html loads it');
+    const e2 = verifierCarte({ ...sain(), repertoire: ['css/style.css', 'js/a.js'] });
+    expect(e2.map(e => e.fichier + ' ' + e.message).join('|')).toContain('js/b.js is named by a tag but does not exist');
+  });
+
+  test('a tag in another case than the file is reported as such (GitHub Pages is case-sensitive)', () => {
+    const e = verifierCarte({ ...sain(), repertoire: ['css/style.css', 'js/a.js', 'js/B.js'] });
+    expect(e.map(x => x.message).join('|')).toContain('another case');
+  });
+
+  test('an untracked file is reported, and outside a git checkout the check is skipped', () => {
+    const e = verifierCarte({ ...sain(), suivis: ['css/style.css', 'js/a.js'] });
+    expect(e.map(x => x.fichier + ' ' + x.message).join('|')).toContain('js/b.js is not tracked by git');
+    expect(verifierCarte({ ...sain(), suivis: null })).toEqual([]);
+  });
+
+  test('a file that mixes CRLF and LF is reported', () => {
+    const e = verifierCarte({ ...sain(), textes: { 'js/a.js': 'a\r\nb\nc\r\n' } });
+    expect(e.map(x => x.fichier + ' ' + x.message).join('|')).toContain('js/a.js mixes CRLF and LF');
+  });
+
+  test('on the real repository the map is true', () => {
+    const { fichiers } = readPage(racine);
+    const repertoire = ['js', 'css'].flatMap(d => readdirSync(racine + d).map(f => `${d}/${f}`));
+    let suivis = null;
+    try { suivis = execFileSync('git', ['ls-files', 'js', 'css'], { cwd: racine }).toString().split('\n').filter(Boolean); } catch { /* hors d'un dépôt git */ }
+    const textes = Object.fromEntries(fichiers.map(f => [f, readFileSync(racine + f, 'utf8')]));
+    const erreurs = verifierCarte({
+      etiquettes: fichiers, repertoire, suivis, textes,
+      readme: readFileSync(racine + 'README.md', 'utf8').replace(/\r\n/g, '\n'), claude: readFileSync(racine + 'CLAUDE.md', 'utf8').replace(/\r\n/g, '\n'),
+    });
+    expect(erreurs, erreurs.map(e => `${e.fichier}: ${e.message}`).join('\n')).toEqual([]);
+    expect(fichiers.length, '22 scripts and one style sheet').toBe(23);
+  });
+
+  test('the rebuilt page holds the code of every module, and the entry file alone does not', () => {
+    expect(verifierPageComplete(readPage(racine).html)).toEqual([]);
+    const seul = verifierPageComplete(readFileSync(racine + 'index.html', 'utf8'));
+    expect(seul.length, 'a reader that returned only index.html would lose them').toBe(MARQUEURS_PAGE.length);
+    expect(seul[0].message).toContain('does not give the whole code');
   });
 });
