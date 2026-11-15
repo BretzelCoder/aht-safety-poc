@@ -7,7 +7,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdi
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { verifierRequetes } from './helpers/chargements.mjs';
-import { verifierCarte, verifierPageComplete, MARQUEURS_PAGE } from './helpers/carte.mjs';
+import { verifierCarte, verifierPageComplete, MARQUEURS_PAGE, verifierConcerns, lireCarteReadme, CONCERNS } from './helpers/carte.mjs';
 import { fichiersDeLaBase, extraireBase } from '../scripts/lire-base.mjs';
 import { empreinteDe, ecrireEmpreinte, lireEmpreinte, lireManifeste, ecrireManifeste, verifierEmpreintes } from '../scripts/empreintes.mjs';
 import { readPage, reconstituerPage, lireTexte } from '../scripts/read-page.mjs';
@@ -304,5 +304,75 @@ test.describe('T-26 the map of the page files (spec 003, S10, AC-12)', () => {
     const seul = verifierPageComplete(readFileSync(racine + 'index.html', 'utf8'));
     expect(seul.length, 'a reader that returned only index.html would lose them').toBe(MARQUEURS_PAGE.length);
     expect(seul[0].message).toContain('does not give the whole code');
+  });
+});
+
+// T-27 : un seul concern par fichier, et les empreintes des vrais fichiers (spec 003, S8, S13, AC-10, AC-15).
+test.describe('T-27 one concern per file, and the stamps of the real files (spec 003, AC-10, AC-15)', () => {
+  const entete = c => `/* aht-safety-poc : x\n   @concern ${c}\n*/\n'use strict';\n`;
+  const sain = () => ({
+    fichiers: [
+      { chemin: 'js/a.js', texte: entete('module-2') + '/* ====\n   MODULE 2 — EmbeddedCommsBus\n   ==== */\nconst x = 1;\n' },
+      { chemin: 'js/b.js', texte: entete('i18n') + '/* ====\n   I18N — langues\n   ==== */\n' },
+    ],
+    carte: new Map([['js/a.js', 'module-2'], ['js/b.js', 'i18n']]),
+  });
+
+  test('files that declare one concern each, and carry their own banners, give no error', () => {
+    const { fichiers, carte } = sain();
+    expect(verifierConcerns(fichiers, carte)).toEqual([]);
+  });
+
+  test('a module-3 banner pasted into a module-2 file is reported', () => {
+    const { fichiers, carte } = sain();
+    fichiers[0].texte += '/* ====\n   MODULE 3 — AutonomyAndSafetyCore\n   ==== */\nfunction supervise() {}\n';
+    const e = verifierConcerns(fichiers, carte);
+    expect(e.map(x => x.fichier), e.map(x => x.message).join('\n')).toEqual(['js/a.js']);
+    expect(e[0].message).toContain('module-3');
+  });
+
+  test('a second @concern marker pasted into a file is reported', () => {
+    const { fichiers, carte } = sain();
+    fichiers[1].texte += '/* @concern module-1 */\n';
+    expect(verifierConcerns(fichiers, carte).map(x => x.message).join('|')).toContain('second `@concern module-1`');
+  });
+
+  test('a file without header, an unknown concern, and a README column that disagrees are reported', () => {
+    const { fichiers, carte } = sain();
+    fichiers.push({ chemin: 'js/c.js', texte: 'const c = 1;\n' });
+    expect(verifierConcerns(fichiers, carte).map(x => x.fichier + ' ' + x.message).join('|')).toContain('js/c.js has no `@concern` marker');
+    const inconnu = [{ chemin: 'js/d.js', texte: entete('module-9') }];
+    expect(verifierConcerns(inconnu, new Map()).map(x => x.message).join('|')).toContain('"module-9", which is not one of');
+    expect(verifierConcerns(fichiers.slice(0, 2), new Map([['js/a.js', 'module-3'], ['js/b.js', 'i18n']])).map(x => x.message).join('|')).toContain('the README map says "module-3"');
+  });
+
+  test('on the real repository every file declares one concern, the same as the README map', () => {
+    const { fichiers } = readPage(racine);
+    const carte = lireCarteReadme(readFileSync(racine + 'README.md', 'utf8').replace(/\r\n/g, '\n'));
+    const textes = fichiers.map(chemin => ({ chemin, texte: lireTexte(racine + chemin) }));
+    const erreurs = verifierConcerns(textes, carte);
+    expect(erreurs, erreurs.map(e => `${e.fichier}: ${e.message}`).join('\n')).toEqual([]);
+    expect(new Set(textes.map(f => /@concern\s+(\S+)/.exec(f.texte)[1])), 'the ten kinds of concern are all used').toEqual(new Set(CONCERNS));
+  });
+
+  test('on the real repository every stamp is the hash of its file and the manifest says the same', () => {
+    const { fichiers } = readPage(racine);
+    const propres = fichiers.map(chemin => ({ chemin, texte: readFileSync(racine + chemin, 'utf8') }));
+    const manifeste = lireManifeste(readFileSync(racine + 'index.html', 'utf8'));
+    const erreurs = verifierEmpreintes(propres, manifeste);
+    expect(erreurs, erreurs.map(e => `${e.fichier}: ${e.message}`).join('\n')).toEqual([]);
+    expect(manifeste.size).toBe(23);
+  });
+
+  test('a real file edited without running scripts/stamps.mjs is reported, and so is a changed manifest line', () => {
+    const chemin = 'js/m2-comms-bus.js';
+    const { fichiers } = readPage(racine);
+    const propres = fichiers.map(c => ({ chemin: c, texte: readFileSync(racine + c, 'utf8') }));
+    const manifeste = lireManifeste(readFileSync(racine + 'index.html', 'utf8'));
+    const modifie = propres.map(f => f.chemin === chemin ? { ...f, texte: f.texte.replace('function canResponse', 'function canResponseX') } : f);
+    expect(modifie.find(f => f.chemin === chemin).texte, 'the breakage is applied').not.toBe(propres.find(f => f.chemin === chemin).texte);
+    expect(verifierEmpreintes(modifie, manifeste).map(e => e.fichier + ' ' + e.message).join('|')).toContain(`${chemin} its stamp`);
+    const autre = new Map(manifeste); autre.set('js/base.js', '00000000');
+    expect(verifierEmpreintes(propres, autre).map(e => e.message).join('|')).toContain('the manifest says 00000000 for js/base.js');
   });
 });
