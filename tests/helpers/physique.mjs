@@ -28,6 +28,24 @@ export async function mesurerPhysique(page) {
 // doit mettre ces valeurs à jour dans la même spec.
 export const ATTENDU = { videPlat: 20.2, chargeDescente: 42.2, tolerance: 0.5, arrosageVide: 0.30, arrosageCharge: 0.01 };
 
+// Profil de noyau généraliste (spec 002, plan section 2, S13), mesuré le 2026-11-15 : latence de calcul 0,25 s au lieu
+// de 0,05 s, soit +0,2 s sur t_lat et +v·0,2 s sur la distance d'arrêt à 40 km/h.
+export const ATTENDU_GP = { videPlat: 22.4, chargeDescente: 44.4, tolerance: 0.5, ecartLatence: 0.2 };
+
+/**
+ * Mesure t_lat et les distances d'arrêt à 40 km/h pour un profil de noyau ('RT' ou 'GP'),
+ * avec les fonctions du modèle, comme `mesurerPhysique`. Un pas est joué pour que bubble() recalcule t_lat.
+ */
+export async function mesurerProfil(page, profil) {
+  return page.evaluate(kernel => {
+    const { brakeEnvelope, stopDistance, P, sim, ENV, step } = window.__sim;
+    ENV.kernel = kernel; step();
+    const tLat = sim.trucks[0].m.tLat, v = 40 / 3.6;
+    const d = (masse, pente) => stopDistance(v, tLat, Math.max(0.15, brakeEnvelope(masse, pente, 0.6).aEff), P.marginSIL);
+    return { tLat, v, videPlat: d(P.mEmpty, 0), chargeDescente: d(P.mLoaded, -0.10), videPlatCharge: d(P.mLoaded, 0) };
+  }, profil);
+}
+
 /** Rend la liste des invariants rompus ; vide quand le modèle les respecte. */
 export function verifierPhysique(m) {
   const erreurs = [];

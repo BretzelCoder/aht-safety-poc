@@ -946,7 +946,7 @@ function mcReceive(T) {
 
 /* Lien niveau 1 → niveau 2 (spec 002) : file ordonnée (FIFO), retardée par l'écart du profil de noyau avec PREEMPT_RT.
    Une somme de contrôle maison (pas un vrai CRC) permet au niveau 2 de détecter une consigne altérée. */
-const l1Delay = () => 0;
+const l1Delay = () => latCpu() - P.latCpuRT;   // 0 avec PREEMPT_RT : la dynamique par défaut ne change pas
 function sumOf(sp) {
   return (sp.session * 31 + sp.seq * 17 + Math.round(sp.ts * 1000) * 13 + Math.round(sp.vDemand * 1000) * 7 + Math.round(sp.dGoal * 100) * 3) % 65521;
 }
