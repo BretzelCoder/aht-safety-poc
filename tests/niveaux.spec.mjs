@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { openPage, pauseAndSeed } from './helpers/page.mjs';
 import { conduiteNominale, paquets } from './helpers/niveaux.mjs';
+import { scenarioFSurGraines, scenarioGSurGraines } from './helpers/niveaux-scenarios.mjs';
 
 test.describe('T-04 level 1 → level 2 setpoint stream (S1, S2)', () => {
   test('each truck sends one complete setpoint per step, the sequence rises by one, the controller follows the accepted setpoint', async ({ page }) => {
@@ -414,5 +415,26 @@ test.describe('T-11 scenarios F and G', () => {
       expect(r[d].defaut, `${d}: one setpoint only`).toBeNull();
       expect(r[d].etat, `${d}: the truck carries on`).not.toBe('CONTROLLED_STOP');
     }
+  });
+});
+
+// T-12 : scénarios F et G sur 40 graines (AC-3, AC-6).
+test.describe('T-12 scenarios F and G over 40 seeds (AC-3, AC-6)', () => {
+  for (const graines of paquets(40, 4)) {
+    test(`F, seeds ${graines[0]} to ${graines[graines.length - 1]}: detected in 0.30 to 0.34 s, controlled stop at maximum braking, truck stopped, no collision`, async ({ page }) => {
+      await openPage(page);
+      const anomalies = await scenarioFSurGraines(page, graines);
+      expect(anomalies, anomalies.join('\n')).toEqual([]);
+    });
+    test(`G, seeds ${graines[0]} to ${graines[graines.length - 1]}: five defects at three moments are rejected, never applied, never beyond the authority`, async ({ page }) => {
+      await openPage(page);
+      const anomalies = await scenarioGSurGraines(page, graines);
+      expect(anomalies, anomalies.join('\n')).toEqual([]);
+    });
+  }
+  test('G in a dust cloud, seeds 1 to 10', async ({ page }) => {
+    await openPage(page);
+    const anomalies = await scenarioGSurGraines(page, paquets(10, 1)[0], { poussiere: true, moments: ['cruise'] });
+    expect(anomalies, anomalies.join('\n')).toEqual([]);
   });
 });

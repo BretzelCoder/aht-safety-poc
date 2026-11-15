@@ -1160,7 +1160,7 @@ function l1EmitSetpoint(T) {
     sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v };
     if (d === 'STALE') sp.ts -= 1.0;
     if (d === 'OVERSPEED') sp.vDemand = vLimitAt(T.s + P.len / 2) + 15 / 3.6;   // 15 km/h au-dessus de la limite du tronçon
-    if (d === 'BEYOND_MA') sp.dGoal += 30;                                         // 30 m au-delà de la fin d'autorisation
+    if (d === 'BEYOND_MA') { sp.vDemand = vLimitAt(T.s + P.len / 2); sp.dGoal += 30; }   // vitesse de ligne sans tenir compte de l'autorisation, objectif 30 m au-delà de sa fin
     sp.sum = sumOf(sp);
     if (d === 'INTEGRITY') sp.vDemand += 5;                  // altérée après le calcul de la somme de contrôle
     if (!d) { A.captured.push({ ...sp }); if (A.captured.length > 5) A.captured.shift(); }
@@ -1852,7 +1852,7 @@ requestAnimationFrame(frame);
 window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelope, stopDistance, resetSim, setSel: i => { selected = i; }, setLang,
   // Réservé aux vérifications automatiques (spec 002) : envoie une consigne du niveau 1 du tombereau i, les champs de `patch`
   // remplaçant ceux d'une consigne normale ; la somme de contrôle est recalculée sauf si `patch.sum` est fourni.
-  l1Freeze: i => l1Freeze(sim.trucks[i]), l1Restart: i => l1Restart(sim.trucks[i]),
+  PATH, vLimitAt, l1Freeze: i => l1Freeze(sim.trucks[i]), l1Restart: i => l1Restart(sim.trucks[i]),
   l1Inject: (i, patch) => {
     const T = sim.trucks[i], A = T.l1;
     const sp = { session: A.session, seq: A.seq++, ts: sim.t, vDemand: T.vPlan, dGoal: Math.max(0, T.auth.sEnd - T.s), sClaim: T.s, vClaim: T.v, ...patch };
