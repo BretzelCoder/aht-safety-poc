@@ -13,6 +13,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+// Registre de chargement (spec 003) : chaque fichier propre de la page s'y inscrit à sa dernière ligne, avec son
+// empreinte ; la garde, en bas de page, compare ce registre au manifeste `attendu` avant de démarrer la simulation.
+// Le manifeste est tenu à jour par `node scripts/stamps.mjs`.
+window.AHT = {
+  attendu: {
+  },
+  vu: {}, n: {}, erreur: null,
+  inscrire(chemin, empreinte) { this.vu[chemin] = empreinte; this.n[chemin] = (this.n[chemin] || 0) + 1; }
+};
+</script>
 <style>
 /* Console d'exploitation minière : fond graphite, ocre "piste", sémantique sûreté vert/ambre/rouge.
    Layout : carte de la mine à gauche, télémétrie à droite, commandes dessous, notes d'architecte en pied. */
@@ -2185,7 +2196,38 @@ window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelop
   },
   // Réservé aux vérifications automatiques (spec 001) : tables de traduction et clés introuvables.
   i18n: { MSG, STATIC, LANGS, t }, i18nMissing };
-demarrer();
+</script>
+<!-- Échec de chargement (spec 003) : écrit ici dans les trois langues, sans passer par les fichiers de traduction,
+     car ce peut être eux qui manquent. Affiché par la garde de démarrage ci-dessous, jamais autrement. -->
+<div id="chargementErreur" role="alert" hidden style="display:none;position:fixed;inset:0;z-index:9999;overflow:auto;padding:24px;background:#10151a;color:#f2f4f6;font:16px/1.5 system-ui,sans-serif">
+  <p lang="fr"><strong>Le simulateur n'a pas pu démarrer :</strong> un fichier de la page manque ou n'est pas à jour. Rechargez la page en contournant le cache (Ctrl+F5).</p>
+  <p lang="en"><strong>The simulator could not start:</strong> a file of the page is missing or out of date. Reload the page bypassing the cache (Ctrl+F5).</p>
+  <p lang="de"><strong>Der Simulator konnte nicht starten:</strong> Eine Datei der Seite fehlt oder ist nicht aktuell. Laden Sie die Seite unter Umgehung des Caches neu (Strg+F5).</p>
+  <p><code id="chargementFichiers"></code></p>
+</div>
+<script>
+// Garde de démarrage (spec 003, S12 et S13) : la simulation ne démarre que si chaque fichier attendu est présent,
+// chargé une seule fois et de la même version que index.html. Sinon, le message ci-dessus est montré, l'erreur est
+// notée dans AHT.erreur (lue par les tests) et levée (visible dans la console), et rien n'est branché.
+(function () {
+  const A = window.AHT, problemes = [];
+  const feuille = () => getComputedStyle(document.documentElement).getPropertyValue('--aht-stamp').trim().replace(/^['"]|['"]$/g, '');
+  for (const [chemin, attendue] of Object.entries(A.attendu)) {
+    const vue = chemin.endsWith('.css') ? feuille() : A.vu[chemin];
+    if (!vue) problemes.push(chemin + ' (missing)');
+    else if (vue !== attendue) problemes.push(chemin + ' (other version)');
+    else if (A.n[chemin] > 1) problemes.push(chemin + ' (loaded twice)');
+  }
+  for (const chemin of Object.keys(A.vu)) if (!(chemin in A.attendu)) problemes.push(chemin + ' (not expected)');
+  if (problemes.length) {
+    A.erreur = problemes.join(', ');
+    const boite = document.getElementById('chargementErreur');
+    document.getElementById('chargementFichiers').textContent = A.erreur;
+    boite.hidden = false; boite.style.display = 'block';
+    throw new Error('aht-safety-poc: the page cannot start, ' + A.erreur);
+  }
+  demarrer();
+})();
 </script>
 </body>
 </html>

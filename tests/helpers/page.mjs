@@ -26,7 +26,7 @@ function installerHasard(graine) {
  * Retourne le journal de ce qui s'est passé : requêtes, requêtes bloquées,
  * erreurs de la page et erreurs de la console.
  */
-export async function openPage(page, lang = 'fr', { seed = 1 } = {}) {
+export async function openPage(page, lang = 'fr', { seed = 1, chemin = null } = {}) {
   const journal = { requetes: [], bloquees: [], erreursPage: [], erreursConsole: [] };
   page.on('request', r => journal.requetes.push(r.url()));
   page.on('pageerror', e => journal.erreursPage.push(e.message));
@@ -39,14 +39,20 @@ export async function openPage(page, lang = 'fr', { seed = 1 } = {}) {
     journal.bloquees.push(route.request().url());
     return route.abort();
   });
-  await page.goto(`${urlPage}?lang=${lang}`);
+  // `chemin` : une copie de la page ailleurs (tests du chargement, spec 003) ; sinon index.html du dépôt.
+  const url = chemin ? pathToFileURL(chemin).href : urlPage;
+  await page.goto(`${url}?lang=${lang}`);
   // Une page cassée (erreur de syntaxe, exception au démarrage) ne définit jamais window.__sim : on échoue vite,
   // avec l'erreur de la page, au lieu d'attendre le délai du test (30 s) pour chacun des tests.
+  // Depuis la spec 003, la garde de démarrage de la page note dans AHT.erreur les fichiers qui manquent, qui sont
+  // d'une autre version ou chargés deux fois : on s'arrête aussitôt, en les nommant, sans attendre le délai.
   try {
-    await page.waitForFunction(() => window.__sim && window.__sim.sim, undefined, { timeout: 8000 });
+    await page.waitForFunction(() => (window.__sim && window.__sim.sim) || (window.AHT && window.AHT.erreur), undefined, { timeout: 8000 });
   } catch {
     throw new Error(`the page did not start within 8 s (page errors: ${journal.erreursPage.join(' | ') || 'none'})`);
   }
+  const refus = await page.evaluate(() => (window.AHT && window.AHT.erreur) || null);
+  if (refus) throw new Error(`the page refused to start, files: ${refus}`);
   return journal;
 }
 
