@@ -6,6 +6,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { verifierRequetes } from './helpers/chargements.mjs';
 import { fichiersDeLaBase, extraireBase } from '../scripts/lire-base.mjs';
 import { empreinteDe, ecrireEmpreinte, lireEmpreinte, lireManifeste, ecrireManifeste, verifierEmpreintes } from '../scripts/empreintes.mjs';
 import { readPage, reconstituerPage, lireTexte } from '../scripts/read-page.mjs';
@@ -202,5 +203,35 @@ test.describe('T-13 release stamps (spec 003, S13, AC-15)', () => {
     expect(perime.stdout).toContain('js/a.js');
     expect(lancer().status).toBe(0);
     expect(lancer('--check').status).toBe(0);
+  });
+});
+
+// T-15 (avec T-28) : ce que la page demande depuis le disque (spec 003, AC-16).
+test.describe('T-28 requests of the page (spec 003, AC-16)', () => {
+  const attendus = ['index.html', 'css/style.css', 'js/a.js'];
+  const base = 'file:///C:/depot/';
+  const ok = [base + 'index.html?lang=fr', base + 'css/style.css', base + 'js/a.js'];
+
+  test('exactly the entry file and its own files, once each, give no error', () => {
+    expect(verifierRequetes(ok, attendus)).toEqual([]);
+    expect(verifierRequetes([...ok, 'https://fonts.googleapis.com/css2'], attendus), 'network requests are not file requests').toEqual([]);
+  });
+
+  test('a file the page is not supposed to request is reported', () => {
+    const erreurs = verifierRequetes([...ok, base + 'js/intrus.js'], attendus);
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].fichier).toContain('intrus.js');
+  });
+
+  test('an own file that is never requested is reported', () => {
+    const erreurs = verifierRequetes(ok.slice(0, 2), attendus);
+    expect(erreurs.map(e => e.fichier)).toEqual(['js/a.js']);
+    expect(erreurs[0].message).toContain('never requested');
+  });
+
+  test('a file requested twice is reported', () => {
+    const erreurs = verifierRequetes([...ok, base + 'js/a.js'], attendus);
+    expect(erreurs.map(e => e.fichier)).toEqual(['js/a.js']);
+    expect(erreurs[0].message).toContain('2 times');
   });
 });

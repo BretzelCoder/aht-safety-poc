@@ -1,6 +1,11 @@
 // T-08 : rendu dans les trois langues (S5), et ce que la page charge (S10 moitié exécution, AC-15).
 import { test, expect } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
 import { openPage } from './helpers/page.mjs';
+import { readPage } from '../scripts/read-page.mjs';
+import { verifierRequetes } from './helpers/chargements.mjs';
+
+const propres = ['index.html', ...readPage(fileURLToPath(new URL('..', import.meta.url))).fichiers];
 
 // Textes attendus, écrits en dur : le test doit détecter une traduction fausse, pas seulement une incohérence.
 const LANGUES = {
@@ -27,13 +32,13 @@ for (const [lang, attendu] of Object.entries(LANGUES)) {
       await expect(page.locator('#bGuide')).toContainText(attendu.guide);
     });
 
-    test('requests nothing but index.html and the blocked Google Fonts, and no analytics', async ({ page }) => {
+    test('requests nothing but index.html, its own files and the blocked Google Fonts, and no analytics', async ({ page }) => {
       const journal = await openPage(page, lang);
       await page.waitForTimeout(300);
 
       const fichiers = journal.requetes.filter(u => u.startsWith('file:'));
-      expect(fichiers.length, 'only index.html is requested from disk').toBe(1);
-      expect(fichiers[0]).toContain('index.html');
+      const ecarts = verifierRequetes(fichiers, propres);
+      expect(ecarts, ecarts.map(e => e.fichier + ' ' + e.message).join('\n')).toEqual([]);
 
       const externes = journal.requetes.filter(u => !u.startsWith('file:'));
       for (const u of externes) {

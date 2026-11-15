@@ -75,6 +75,20 @@ test.describe('T-14 start-up guard (spec 003, S12, S13)', () => {
     copie.retirer();
   });
 
+  test('the style sheet deleted: the page says so and does not start', async ({ page }) => {
+    const copie = copierPage();
+    rmSync(join(copie.dossier, 'css/style.css'));
+    await verifierRefus(page, copie, 'css/style.css', 'missing');
+    copie.retirer();
+  });
+
+  test('the style sheet with another stamp than the manifest: the page says "other version"', async ({ page }) => {
+    const copie = copierPage();
+    copie.ecrire('css/style.css', copie.lire('css/style.css').replace(/--aht-stamp: '[0-9a-f]{8}'/, "--aht-stamp: '00000000'"));
+    await verifierRefus(page, copie, 'css/style.css', 'other version');
+    copie.retirer();
+  });
+
   test('the real page starts: the message stays hidden', async ({ page }) => {
     await openPage(page, 'fr');
     await expect(page.locator('#chargementErreur')).toBeHidden();
