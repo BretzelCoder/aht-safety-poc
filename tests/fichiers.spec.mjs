@@ -2,6 +2,11 @@
 // Contrôles statiques : ils lisent des fichiers sans ouvrir de page.
 import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fichiersDeLaBase, extraireBase } from '../scripts/lire-base.mjs';
 import { readPage, reconstituerPage, lireTexte } from '../scripts/read-page.mjs';
 
 const racine = fileURLToPath(new URL('..', import.meta.url));
@@ -55,5 +60,46 @@ test.describe('T-05 reader of the whole page (spec 003, S7, AC-7, AC-18)', () =>
     const brut = lireTexte(racine + 'index.html');
     if (liste.length === 0) expect(html, 'single-file page: the reader changes nothing').toBe(brut);
     else for (const f of liste) expect(html, `${f} is inlined`).toContain(lireTexte(racine + f).replace(/\n$/, '').split('\n')[0]);
+  });
+});
+
+// T-10 : la page de référence d'une révision git, d'un seul fichier ou de plusieurs (spec 003, section 4 et AC-6).
+test.describe('T-10 reference page of a git revision (spec 003, AC-6)', () => {
+  const git = (cwd, ...args) => execFileSync('git', ['-c', 'user.name=test', '-c', 'user.email=test@example.org', '-c', 'core.autocrlf=false', ...args], { cwd }).toString();
+  const nouveauDepot = fichiers => {
+    const dossier = mkdtempSync(join(tmpdir(), 'aht-depot-'));
+    git(dossier, 'init', '-q');
+    for (const [chemin, texte] of Object.entries(fichiers)) {
+      mkdirSync(dirname(join(dossier, chemin)), { recursive: true });
+      writeFileSync(join(dossier, chemin), texte);
+    }
+    git(dossier, 'add', '-A');
+    git(dossier, 'commit', '-q', '-m', 'x');
+    return dossier;
+  };
+
+  test('a single-file base gives index.html alone', () => {
+    const depot = nouveauDepot({ 'index.html': '<html></html>', 'README.md': 'x' });
+    expect(fichiersDeLaBase('HEAD', depot)).toEqual(['index.html']);
+    const sortie = mkdtempSync(join(tmpdir(), 'aht-sortie-'));
+    expect(extraireBase('HEAD', depot, sortie)).toEqual(['index.html']);
+    expect(readFileSync(join(sortie, 'index.html'), 'utf8')).toBe('<html></html>');
+  });
+
+  test('a base with css/ and js/ gives all of them with their folders, and ignores unrelated files', () => {
+    const depot = nouveauDepot({
+      'index.html': '<html></html>', 'css/style.css': 'a{}', 'js/m1.js': 'const a = 1;', 'js/sous/b.js': 'const b = 2;',
+      'README.md': 'x', 'tests/t.mjs': 'x', 'docs/js/notes.md': 'x',
+    });
+    expect(fichiersDeLaBase('HEAD', depot)).toEqual(['css/style.css', 'index.html', 'js/m1.js', 'js/sous/b.js']);
+    const sortie = mkdtempSync(join(tmpdir(), 'aht-sortie-'));
+    extraireBase('HEAD', depot, sortie);
+    expect(readFileSync(join(sortie, 'js/sous/b.js'), 'utf8')).toBe('const b = 2;');
+    expect(existsSync(join(sortie, 'README.md')), 'an unrelated file is not copied').toBe(false);
+  });
+
+  test('a revision without index.html is refused', () => {
+    const depot = nouveauDepot({ 'README.md': 'x' });
+    expect(() => extraireBase('HEAD', depot, mkdtempSync(join(tmpdir(), 'aht-sortie-')))).toThrow('no index.html');
   });
 });

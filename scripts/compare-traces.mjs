@@ -9,8 +9,8 @@
 // appliqué, latence de réaction, distance à l'obstacle, puis le journal complet. Rend 0 si tout est identique,
 // 1 à la première différence (cas, pas, tombereau, grandeur).
 import { chromium } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { extraireBase } from './lire-base.mjs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -76,11 +76,11 @@ function comparer(cas, a, b) {
   return null;
 }
 
-// Page de référence : le fichier de la base, copié dans un dossier temporaire.
+// Page de référence : les fichiers de la page dans la révision de base (index.html seul, ou avec css/ et js/),
+// recopiés dans un dossier temporaire (spec 003).
 const dossier = mkdtempSync(join(tmpdir(), 'aht-base-'));
-const fichierBase = join(dossier, 'index.html');
-writeFileSync(fichierBase, execFileSync('git', ['show', `${base}:index.html`], { cwd: racine, maxBuffer: 64 * 1024 * 1024 }));
-const urlBase = pathToFileURL(fichierBase).href;
+const fichiersBase = extraireBase(base, racine, dossier);
+const urlBase = pathToFileURL(join(dossier, 'index.html')).href;
 const urlBranche = pathToFileURL(join(racine, 'index.html')).href;
 
 const cas = [];
@@ -113,4 +113,4 @@ try {
   await browser.close();
 }
 if (difference) { console.log(`DIFFERENT — ${difference}`); process.exit(1); }
-console.log(`identical — ${cas.length} cases of ${secondes} s at 0.02 s (${nbGraines} seeds without scenario, scenarios A to E on seeds 1 and 2, scenarios F and G on seeds 1 and 2 under both kernel profiles), compared with ${base}.`);
+console.log(`identical — ${cas.length} cases of ${secondes} s at 0.02 s (${nbGraines} seeds without scenario, scenarios A to E on seeds 1 and 2, scenarios F and G on seeds 1 and 2 under both kernel profiles), compared with ${base} (${fichiersBase.length} file${fichiersBase.length > 1 ? "s" : ""} of the page).`);
