@@ -214,6 +214,9 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 .archi .ly{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;margin-bottom:5px;font-weight:600}
 .archi .ly:last-child{margin-bottom:0}
 .archi .ly small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+/* Une couche, deux variantes égales côte à côte (temps réel, standard) */
+.archi .ly.vars .cells{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:5px}
+.archi .ly.vars .cells>div{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-weight:600}
 .amid{display:flex;flex-direction:column;justify-content:center;gap:16px;text-align:center;font-size:12px;color:var(--muted)}
 @media (max-width:700px){.archi{grid-template-columns:minmax(0,1fr)}.amid{flex-direction:row;justify-content:space-around}}
 #cardScope{position:relative}
@@ -467,13 +470,12 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
     <section data-gpane="archi" data-i18n-html="guide.archi">
       <h3>Deux calculateurs, deux rôles</h3>
       <p>Le niveau 1 propose, le niveau 2 autorise ou bloque. Le calculateur d'autonomie (niveau 1) perçoit, planifie et exécute les autorisations de mouvement du FMS ; il est considéré comme non sûr par conception. Le contrôleur de sûreté (niveau 2) revérifie chaque consigne avec ses propres mesures, surveille le battement du niveau 1 et décide seul de l'arrêt sûr. C'est le motif « doer / checker » du guide, rendu visible.</p>
-      <div class="archi" role="img" aria-label="Schéma illustratif : le niveau 1 (matériel, noyau Linux temps réel ou standard, distribution Linux, DDS / ROS 2, applications) envoie ses consignes au niveau 2 (microcontrôleur de sûreté, RTOS ou bare metal, logiciel de sûreté), qui répond par un verdict.">
+      <div class="archi" role="img" aria-label="Schéma illustratif : le niveau 1 (matériel, Linux en variante temps réel ou standard, DDS / ROS 2, applications) envoie ses consignes au niveau 2 (microcontrôleur de sûreté, RTOS ou bare metal, logiciel de sûreté), qui répond par un verdict.">
         <div class="acol l1">
           <h4>Niveau 1 · autonomie</h4>
           <div class="ly">Applications<small>perception, planification, exécution des autorisations de mouvement du FMS</small></div>
           <div class="ly">Intergiciel<small>DDS / ROS 2</small></div>
-          <div class="ly">Distribution Linux<small>variante temps réel ou standard</small></div>
-          <div class="ly">Noyau Linux<small>PREEMPT_RT (temps réel, latence bornée) ou généraliste (standard, sans borne)</small></div>
+          <div class="ly vars">Linux (noyau et distribution)<div class="cells"><div>Temps réel<small>PREEMPT_RT : latence bornée</small></div><div>Standard<small>noyau généraliste : latence sans borne</small></div></div></div>
           <div class="ly">Matériel<small>calculateur embarqué</small></div>
         </div>
         <div class="amid"><div>consigne · horodatage · séquence · intégrité →</div><div>← verdict : accepté ou refusé</div></div>
@@ -485,7 +487,7 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         </div>
       </div>
       <h3>Niveau 1 : une pile logicielle sur un calculateur embarqué</h3>
-      <p>Matériel, noyau Linux, distribution Linux, intergiciel DDS / ROS 2, puis les applications. Le noyau et la distribution existent en variante temps réel ou standard, comme dans la carte « Autonomie · niveau 1 » : un noyau PREEMPT_RT borne la latence d'ordonnancement, un noyau généraliste n'offre pas cette borne. Les latences de la carte sont illustratives.</p>
+      <p>Matériel, Linux (noyau et distribution), intergiciel DDS / ROS 2, puis les applications. Linux existe en variante temps réel ou standard, comme dans la carte « Autonomie · niveau 1 » : un noyau PREEMPT_RT borne la latence d'ordonnancement, un noyau généraliste n'offre pas cette borne. Les latences de la carte sont illustratives.</p>
       <h3>Niveau 2 : petit, simple, vérifiable</h3>
       <p>Un microcontrôleur de sûreté qui exécute un RTOS certifiable ou du code bare metal, en double canal : deux canaux qui calculent et se comparent. Peu de code, peu de dépendances, pas de ROS 2 : c'est ce qui permet de l'argumenter.</p>
       <h3>Référentiels</h3>
@@ -650,13 +652,12 @@ const STATIC = {
     'guide.archi': `
       <h3>Two computers, two roles</h3>
       <p>Level 1 proposes, level 2 allows or blocks. The autonomy computer (level 1) perceives, plans and carries out the FMS movement authorities; it is considered unsafe by design. The safety controller (level 2) rechecks every setpoint with its own measurements, watches the heartbeat of level 1 and alone decides on the safe stop. This is the “doer / checker” pattern of the guide, made visible.</p>
-      <div class="archi" role="img" aria-label="Illustrative diagram: level 1 (hardware, real-time or standard Linux kernel, Linux distribution, DDS / ROS 2, applications) sends its setpoints to level 2 (safety microcontroller, RTOS or bare metal, safety software), which answers with a verdict.">
+      <div class="archi" role="img" aria-label="Illustrative diagram: level 1 (hardware, Linux in a real-time or standard variant, DDS / ROS 2, applications) sends its setpoints to level 2 (safety microcontroller, RTOS or bare metal, safety software), which answers with a verdict.">
         <div class="acol l1">
           <h4>Level 1 · autonomy</h4>
           <div class="ly">Applications<small>perception, planning, execution of the FMS movement authorities</small></div>
           <div class="ly">Middleware<small>DDS / ROS 2</small></div>
-          <div class="ly">Linux distribution<small>real-time or standard variant</small></div>
-          <div class="ly">Linux kernel<small>PREEMPT_RT (real-time, bounded latency) or general-purpose (standard, no bound)</small></div>
+          <div class="ly vars">Linux (kernel and distribution)<div class="cells"><div>Real-time<small>PREEMPT_RT: bounded latency</small></div><div>Standard<small>general-purpose kernel: no latency bound</small></div></div></div>
           <div class="ly">Hardware<small>on-board computer</small></div>
         </div>
         <div class="amid"><div>setpoint · timestamp · sequence · integrity →</div><div>← verdict: accepted or rejected</div></div>
@@ -668,7 +669,7 @@ const STATIC = {
         </div>
       </div>
       <h3>Level 1: a software stack on an on-board computer</h3>
-      <p>Hardware, Linux kernel, Linux distribution, DDS / ROS 2 middleware, then the applications. The kernel and the distribution exist in a real-time or a standard variant, as in the “Autonomy · level 1” card: a PREEMPT_RT kernel bounds the scheduling latency, a general-purpose kernel gives no such bound. The latencies of the card are illustrative.</p>
+      <p>Hardware, Linux (kernel and distribution), DDS / ROS 2 middleware, then the applications. Linux exists in a real-time or a standard variant, as in the “Autonomy · level 1” card: a PREEMPT_RT kernel bounds the scheduling latency, a general-purpose kernel gives no such bound. The latencies of the card are illustrative.</p>
       <h3>Level 2: small, simple, verifiable</h3>
       <p>A safety microcontroller running a certifiable RTOS or bare-metal code, with two channels that compute and compare. Little code, few dependencies, no ROS 2: this is what makes it possible to build a safety argument.</p>
       <h3>Reference frameworks</h3>
@@ -782,13 +783,12 @@ const STATIC = {
     'guide.archi': `
       <h3>Zwei Rechner, zwei Rollen</h3>
       <p>Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert. Der Autonomierechner (Ebene 1) nimmt wahr, plant und führt die Bewegungsfreigaben des FMS aus; er gilt als von Grund auf nicht sicher. Der Sicherheitscontroller (Ebene 2) prüft jeden Sollwert mit eigenen Messungen erneut, überwacht den Herzschlag von Ebene 1 und entscheidet allein über den sicheren Halt. Das ist das Muster „Doer / Checker“ der Anleitung, sichtbar gemacht.</p>
-      <div class="archi" role="img" aria-label="Illustratives Schema: Ebene 1 (Hardware, Linux-Kernel in Echtzeit- oder Standardvariante, Linux-Distribution, DDS / ROS 2, Anwendungen) sendet ihre Sollwerte an Ebene 2 (Sicherheits-Mikrocontroller, RTOS oder Bare Metal, Sicherheitssoftware), die mit einem Urteil antwortet.">
+      <div class="archi" role="img" aria-label="Illustratives Schema: Ebene 1 (Hardware, Linux in Echtzeit- oder Standardvariante, DDS / ROS 2, Anwendungen) sendet ihre Sollwerte an Ebene 2 (Sicherheits-Mikrocontroller, RTOS oder Bare Metal, Sicherheitssoftware), die mit einem Urteil antwortet.">
         <div class="acol l1">
           <h4>Ebene 1 · Autonomie</h4>
           <div class="ly">Anwendungen<small>Wahrnehmung, Planung, Ausführung der FMS-Bewegungsfreigaben</small></div>
           <div class="ly">Middleware<small>DDS / ROS 2</small></div>
-          <div class="ly">Linux-Distribution<small>Echtzeit- oder Standardvariante</small></div>
-          <div class="ly">Linux-Kernel<small>PREEMPT_RT (Echtzeit, begrenzte Latenz) oder Allzweck (Standard, ohne Grenze)</small></div>
+          <div class="ly vars">Linux (Kernel und Distribution)<div class="cells"><div>Echtzeit<small>PREEMPT_RT: begrenzte Latenz</small></div><div>Standard<small>Allzweck-Kernel: keine Latenzgrenze</small></div></div></div>
           <div class="ly">Hardware<small>Bordrechner</small></div>
         </div>
         <div class="amid"><div>Sollwert · Zeitstempel · Sequenz · Integrität →</div><div>← Urteil: akzeptiert oder abgelehnt</div></div>
@@ -800,7 +800,7 @@ const STATIC = {
         </div>
       </div>
       <h3>Ebene 1: ein Software-Stack auf einem Bordrechner</h3>
-      <p>Hardware, Linux-Kernel, Linux-Distribution, Middleware DDS / ROS 2, darüber die Anwendungen. Kernel und Distribution gibt es in einer Echtzeit- und in einer Standardvariante, wie in der Karte „Autonomie · Ebene 1“: Ein PREEMPT_RT-Kernel begrenzt die Scheduling-Latenz, ein Allzweck-Kernel bietet diese Grenze nicht. Die Latenzen der Karte sind illustrativ.</p>
+      <p>Hardware, Linux (Kernel und Distribution), Middleware DDS / ROS 2, darüber die Anwendungen. Linux gibt es in einer Echtzeit- und in einer Standardvariante, wie in der Karte „Autonomie · Ebene 1“: Ein PREEMPT_RT-Kernel begrenzt die Scheduling-Latenz, ein Allzweck-Kernel bietet diese Grenze nicht. Die Latenzen der Karte sind illustrativ.</p>
       <h3>Ebene 2: klein, einfach, überprüfbar</h3>
       <p>Ein Sicherheits-Mikrocontroller, der ein zertifizierbares RTOS oder Bare-Metal-Code ausführt, zweikanalig: zwei Kanäle, die rechnen und sich vergleichen. Wenig Code, wenige Abhängigkeiten, kein ROS 2: Nur so lässt sich eine Sicherheitsargumentation aufbauen.</p>
       <h3>Bezugsrahmen</h3>

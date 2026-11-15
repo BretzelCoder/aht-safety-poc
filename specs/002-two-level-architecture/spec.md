@@ -3,7 +3,7 @@
 > Status: APPROVED
 > Created: 2026-11-15 · Approved: 2026-11-15
 > Amended 2026-11-15 at plan approval, validated by the owner: S6 and AC-7 say that the verdict uses level 2's measured position, not its speed.
-> Amended 2026-11-15, after delivery, on the owner's request: the deployment view names no Linux distribution and no build system (no Debian, no Yocto): level 1 shows a "Linux distribution" layer with a real-time or standard variant, like the kernel profile (S16, AC-16, AC-18, section 5); and every tab of the guide has the same window size (new S21, AC-23).
+> Amended 2026-11-15, after delivery, on the owner's request: the deployment view names no Linux distribution and no build system (no Debian, no Yocto): level 1 shows one "Linux (kernel and distribution)" layer with two equal variants, real-time and standard, like the kernel profile (S16, AC-16, AC-18, section 5); and every tab of the guide has the same window size (new S21, AC-23).
 > Input: owner brief "Brief VS Code – Évolutions aht-safety-poc architecture à deux niveaux" (attached to the `/specify` request; not stored in the repository). No `docs/brainstorm/` note exists for this topic.
 
 ## 1. Problem / Why
@@ -51,7 +51,7 @@ Terms: **level 1** = the autonomy computer (perception, planning, execution of t
 - **S15 — The profile alone breaks nothing.** As a visitor, when I switch profile, then no heartbeat loss and no rejected setpoint appears because of the switch alone: each profile's worst-case latency stays inside the heartbeat deadline.
 
 ### Part 4 — Deployment view
-- **S16 — Software stack of level 1.** As a visitor, I can open a deployment view showing level 1 as layers: hardware, kernel (real-time PREEMPT_RT or general-purpose), Linux distribution (real-time or standard variant), middleware (DDS / ROS 2), applications. The kernel and the distribution are shown in the same two variants as the kernel profile of the configuration card, so the diagram and the configuration agree. No distribution and no build system is named. Nothing claims which choice a real project made. *(Amended 2026-11-15, owner request: Debian and the Yocto option removed.)*
+- **S16 — Software stack of level 1.** As a visitor, I can open a deployment view showing level 1 as four layers: hardware, Linux (kernel and distribution), middleware (DDS / ROS 2), applications. The Linux layer is drawn as two equal variants side by side, real-time (PREEMPT_RT, bounded latency) and standard (general-purpose kernel, no latency bound), the same two variants as the kernel profile of the configuration card, so the diagram and the configuration agree. No distribution and no build system is named. Nothing claims which choice a real project made. *(Amended 2026-11-15, owner request: Debian and the Yocto option removed; then kernel and distribution merged into one Linux layer with two equal variants.)*
 - **S17 — Level 2 hardware and software.** The same view shows level 2 as a safety microcontroller running a certifiable RTOS or bare-metal code, with two channels.
 - **S18 — Reference standards without conformity.** The view and the guide name IEC 61508, ISO 13849 and ISO 17757 as reference frameworks and say the simulator does not claim conformity with any of them.
 
@@ -112,7 +112,7 @@ Every criterion that says "always" is checked over at least 40 seeds and 60 simu
 - [ ] AC-23 — In French, English and German, at 1600×900 and at 1920×1080, the window of the guide has exactly the same width and height on each of its tabs, the header with the tabs does not move, and a tab longer than the window scrolls inside it. *(evidence: tasks.md, "Guide window size" (T-25))*
 
 **Part 4**
-- [x] AC-16 — The deployment view lists, in the three languages, the five layers of level 1 (applications, middleware DDS / ROS 2, Linux distribution with its real-time or standard variant, kernel PREEMPT_RT or general-purpose, hardware) and the elements of level 2, names no distribution and no build system, makes no claim about a real choice, and names IEC 61508, ISO 13849 and ISO 17757 with a non-conformity statement. *(evidence: tasks.md, "Deployment view" (T-18) and its amendment (T-25))*
+- [x] AC-16 — The deployment view lists, in the three languages, the four layers of level 1 (applications, middleware DDS / ROS 2, Linux with two equal variants side by side, real-time and standard, hardware) and the elements of level 2, names no distribution and no build system, makes no claim about a real choice, and names IEC 61508, ISO 13849 and ISO 17757 with a non-conformity statement. *(evidence: tasks.md, "Deployment view" (T-18) and its amendments (T-25, T-26))*
 
 **Across the parts**
 - [x] AC-17 — Every new `MSG` triplet has three entries and every new `data-i18n*` key exists in English and German (the existing translation checks enforce it at run time in the three languages). *(evidence: tasks.md, "Runtime translations" (T-19))*

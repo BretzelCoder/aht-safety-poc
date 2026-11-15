@@ -395,9 +395,9 @@ test.describe('T-17 t_lat breakdown (S13)', () => {
 // T-18 : vue de déploiement, onglet « Architecture » du guide (S16, S17, S18 ; AC-16).
 test.describe('T-18 deployment view (S16, S17, S18)', () => {
   const TEXTES = {
-    fr: { nonConf: 'ne prétend à la conformité', illustratif: 'illustratif', couches: ['Applications', 'Intergiciel', 'Distribution Linux', 'Noyau Linux', 'Matériel'], variante: 'temps réel ou standard', noyau: 'PREEMPT_RT (temps réel', l2: ['Logiciel de sûreté', 'RTOS certifiable', 'Microcontrôleur de sûreté'], doubleCanal: 'double canal' },
-    en: { nonConf: 'claims no conformity', illustratif: 'Illustrative', couches: ['Applications', 'Middleware', 'Linux distribution', 'Linux kernel', 'Hardware'], variante: 'real-time or standard', noyau: 'PREEMPT_RT (real-time', l2: ['Safety software', 'Certifiable RTOS', 'Safety microcontroller'], doubleCanal: 'dual channel' },
-    de: { nonConf: 'erhebt keinen Anspruch auf Konformität', illustratif: 'Illustrativ', couches: ['Anwendungen', 'Middleware', 'Linux-Distribution', 'Linux-Kernel', 'Hardware'], variante: 'Echtzeit- oder Standardvariante', noyau: 'PREEMPT_RT (Echtzeit', l2: ['Sicherheitssoftware', 'Zertifizierbares RTOS', 'Sicherheits-Mikrocontroller'], doubleCanal: 'zweikanalig' },
+    fr: { nonConf: 'ne prétend à la conformité', illustratif: 'illustratif', couches: ['Applications', 'Intergiciel', 'Linux (noyau et distribution)', 'Matériel'], variantes: [['Temps réel', 'PREEMPT_RT'], ['Standard', 'généraliste']], l2: ['Logiciel de sûreté', 'RTOS certifiable', 'Microcontrôleur de sûreté'], doubleCanal: 'double canal' },
+    en: { nonConf: 'claims no conformity', illustratif: 'Illustrative', couches: ['Applications', 'Middleware', 'Linux (kernel and distribution)', 'Hardware'], variantes: [['Real-time', 'PREEMPT_RT'], ['Standard', 'general-purpose']], l2: ['Safety software', 'Certifiable RTOS', 'Safety microcontroller'], doubleCanal: 'dual channel' },
+    de: { nonConf: 'erhebt keinen Anspruch auf Konformität', illustratif: 'Illustrativ', couches: ['Anwendungen', 'Middleware', 'Linux (Kernel und Distribution)', 'Hardware'], variantes: [['Echtzeit', 'PREEMPT_RT'], ['Standard', 'Allzweck']], l2: ['Sicherheitssoftware', 'Zertifizierbares RTOS', 'Sicherheits-Mikrocontroller'], doubleCanal: 'zweikanalig' },
   };
   async function ouvrirArchi(page, lang) {
     await openPage(page, lang);
@@ -407,17 +407,22 @@ test.describe('T-18 deployment view (S16, S17, S18)', () => {
   }
 
   for (const lang of ['fr', 'en', 'de']) {
-    test(`${lang}: the tab lists the five layers of level 1 with the real-time or standard variant, no distribution name, the elements of level 2 and the standards`, async ({ page }) => {
+    test(`${lang}: the tab lists the four layers of level 1, Linux as two equal variants, no distribution name, the elements of level 2 and the standards`, async ({ page }) => {
       const x = TEXTES[lang];
       const section = await ouvrirArchi(page, lang);
       await expect(section).toBeVisible();
       const couches = section.locator('.acol.l1 > .ly');
-      await expect(couches, 'five layers of level 1').toHaveCount(5);
-      for (let i = 0; i < 5; i++) await expect(couches.nth(i), `layer ${i + 1} from the top`).toContainText(x.couches[i]);
+      await expect(couches, 'four layers of level 1').toHaveCount(4);
+      for (let i = 0; i < 4; i++) await expect(couches.nth(i), `layer ${i + 1} from the top`).toContainText(x.couches[i]);
       await expect(couches.nth(1)).toContainText('DDS / ROS 2');
-      await expect(couches.nth(3), 'the kernel layer offers both variants of the configuration').toContainText(x.noyau);
-      await expect(couches.nth(3)).toContainText('PREEMPT_RT');
-      await expect(couches.nth(2), 'the Linux distribution has a real-time or standard variant, like the configuration').toContainText(x.variante);
+      const cases = couches.nth(2).locator('.cells > div');
+      await expect(cases, 'the Linux layer has exactly two variants, like the configuration').toHaveCount(2);
+      for (let i = 0; i < 2; i++) { await expect(cases.nth(i)).toContainText(x.variantes[i][0]); await expect(cases.nth(i)).toContainText(x.variantes[i][1]); }
+      const boites = await cases.evaluateAll(els => els.map(e => { const b = e.getBoundingClientRect(), c = getComputedStyle(e); return { w: Math.round(b.width), h: Math.round(b.height), top: Math.round(b.top), fond: c.backgroundColor, bordure: c.borderColor, graisse: c.fontWeight }; }));
+      expect(boites[0].w, 'the two variants have the same width').toBe(boites[1].w);
+      expect(boites[0].top, 'side by side').toBe(boites[1].top);
+      expect(boites[0].fond, 'equal: same background').toBe(boites[1].fond);
+      expect(boites[0].bordure, 'equal: same border').toBe(boites[1].bordure);
       await expect(section.locator('.acol.l1 .opt, .acol.l1 .alt'), 'no alternative distribution or build system is drawn').toHaveCount(0);
       const l2 = section.locator('.acol.l2 > .ly');
       await expect(l2, 'three elements of level 2').toHaveCount(3);
