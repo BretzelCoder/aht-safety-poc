@@ -760,8 +760,11 @@ function rp(v) {
   }
   return typeof v === 'string' ? vid(v) : String(v);
 }
+const i18nMissing = new Set();           // clés introuvables, lues par les vérifications automatiques
 function t(k, p) {
   const e = MSG[k], s = e ? (e[LI()] ?? e[0]) : k;
+  if (!e) i18nMissing.add(k);
+  else if (e[LI()] === undefined) i18nMissing.add(`${k} (${LANG})`);
   return p ? s.replace(/\{(\w+)\}/g, (m, n) => (p[n] !== undefined ? rp(p[n]) : m)) : s;
 }
 const ORIG = new Map();
@@ -1681,7 +1684,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelope, stopDistance, resetSim, setSel: i => { selected = i; }, setLang };
+window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelope, stopDistance, resetSim, setSel: i => { selected = i; }, setLang,
+  // Réservé aux vérifications automatiques (spec 001) : tables de traduction et clés introuvables.
+  i18n: { MSG, STATIC, LANGS, t }, i18nMissing };
 })();
 </script>
 </body>
