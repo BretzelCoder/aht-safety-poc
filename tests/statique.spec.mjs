@@ -10,7 +10,7 @@ import {
 } from './helpers/controles-statiques.mjs';
 
 const lire = chemin => readFileSync(fileURLToPath(new URL(chemin, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
-// La page complète : index.html avec ses fichiers propres (spec 003). Tant que la page est un seul fichier, c'est index.html lui-même.
+// La page complète : index.html avec ses fichiers propres (spec 003), lue par scripts/read-page.mjs.
 const html = readPage(fileURLToPath(new URL('..', import.meta.url))).html;
 const readme = lire('../README.md');
 
