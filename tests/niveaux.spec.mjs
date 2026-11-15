@@ -299,3 +299,72 @@ test.describe('T-09 heartbeat loss and restart (S3, S4)', () => {
     expect(r.latched).toBe(true);
   });
 });
+
+// T-10 : rejets persistants (S7, AC-8).
+test.describe('T-10 persistent rejection (S7)', () => {
+  test('one isolated defective setpoint, of any of the five kinds, does not stop the truck', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0], res = {};
+      for (let i = 0; i < 500; i++) S.step();
+      for (const d of ['OVERSPEED', 'BEYOND_MA', 'STALE', 'REPLAY', 'INTEGRITY']) {
+        T.l1.defect = d; S.step();
+        const rejete = !T.l2.ex[T.l2.ex.length - 1].ok;
+        for (let i = 0; i < 150; i++) S.step();              // 3 s : le camion roule toujours
+        res[d] = { rejete, etat: T.state, v: T.v };
+      }
+      return { res, codes: [...new Set(S.sim.log.filter(l => l.code.startsWith('L1_')).map(l => l.code))] };
+    });
+    for (const [d, x] of Object.entries(r.res)) {
+      expect(x.rejete, `${d}: the defective setpoint was rejected`).toBe(true);
+      expect(x.etat, `${d}: the truck keeps going`).not.toBe('CONTROLLED_STOP');
+      expect(x.v, `${d}: the truck is moving (m/s)`).toBeGreaterThan(1);
+    }
+    expect(r.codes, 'no level 1 cause raised by isolated defects').toEqual([]);
+  });
+
+  test('a continuous overspeed defect stops the truck through L1_SETPOINTS_REJECTED (the heartbeat stays alive); the stop is released once setpoints are valid again', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0], pas = n => { for (let i = 0; i < n; i++) S.step(); };
+      pas(500); const t0 = S.sim.t;
+      T.l1.defect = 'OVERSPEED'; T.l1.repeat = true;
+      let tCause = null;
+      for (let i = 0; i < 400; i++) { S.step(); if (tCause === null && T.reasons.some(x => x.code === 'L1_SETPOINTS_REJECTED')) tCause = S.sim.t - t0; }
+      const arrete = T.v < 0.3, etat = T.state;
+      const aMonte = S.sim.log.some(l => l.id === T.id && l.code === 'L1_HEARTBEAT_LOST');
+      T.l1.repeat = false; T.l1.defect = null; const t1 = S.sim.t; let tLibre = null, vMax = 0;
+      for (let i = 0; i < 1000; i++) { S.step(); vMax = Math.max(vMax, T.v); if (tLibre === null && T.state === 'NOMINAL') tLibre = S.sim.t - t1; }
+      return { tCause, arrete, etat, heartbeat: aMonte, tLibre, vMax, latched: T.latched };
+    });
+    expect(r.tCause, 'cause raised after the 10th consecutive rejection (0.2 s)').toBeGreaterThanOrEqual(0.18);
+    expect(r.tCause).toBeLessThanOrEqual(0.26);
+    expect(r.etat).toBe('CONTROLLED_STOP');
+    expect(r.arrete, 'the truck is stopped').toBe(true);
+    expect(r.heartbeat, 'level 1 is alive and wrong: no heartbeat loss').toBe(false);
+    expect(r.tLibre, 'released about 2 s after setpoints are valid again').toBeGreaterThan(1.9);
+    expect(r.tLibre).toBeLessThan(2.5);
+    expect(r.vMax).toBeGreaterThan(2);
+    expect(r.latched).toBe(false);
+  });
+
+  test('a continuous integrity defect raises the rejection cause first, then the heartbeat loss; both are logged', async ({ page }) => {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    const r = await page.evaluate(() => {
+      const S = window.__sim, T = S.sim.trucks[0];
+      for (let i = 0; i < 500; i++) S.step();
+      T.l1.defect = 'INTEGRITY'; T.l1.repeat = true;
+      for (let i = 0; i < 400; i++) S.step();
+      const l = code => S.sim.log.find(x => x.id === T.id && x.code === code);
+      return { rej: l('L1_SETPOINTS_REJECTED')?.t ?? null, hb: l('L1_HEARTBEAT_LOST')?.t ?? null, etat: T.state, v: T.v };
+    });
+    expect(r.rej, 'rejection cause logged').not.toBeNull();
+    expect(r.hb, 'malformed messages are no heartbeat: loss logged too').not.toBeNull();
+    expect(r.rej, 'the rejection run (0.2 s) comes before the heartbeat deadline (0.3 s)').toBeLessThan(r.hb);
+    expect(r.etat).toBe('CONTROLLED_STOP');
+    expect(r.v).toBeLessThan(0.3);
+  });
+});
