@@ -26,7 +26,7 @@ function installerHasard(graine) {
  * Retourne le journal de ce qui s'est passé : requêtes, requêtes bloquées,
  * erreurs de la page et erreurs de la console.
  */
-export async function openPage(page, lang = 'fr', { seed = 1, chemin = null } = {}) {
+export async function openPage(page, lang = 'fr', { seed = 1, chemin = null, adresse = null } = {}) {
   const journal = { requetes: [], bloquees: [], erreursPage: [], erreursConsole: [] };
   page.on('request', r => journal.requetes.push(r.url()));
   page.on('pageerror', e => journal.erreursPage.push(e.message));
@@ -35,12 +35,14 @@ export async function openPage(page, lang = 'fr', { seed = 1, chemin = null } = 
   });
   await page.addInitScript(installerHasard, seed);
   // Réseau coupé : seules les requêtes file:// passent (polices et GoatCounter bloqués).
-  await page.route(url => !url.protocol.startsWith('file'), route => {
+  // `adresse` : la page servie par le serveur local de répétition de GitHub Pages (spec 003) ; cette origine-là passe aussi.
+  const origineLocale = adresse ? new URL(adresse).origin : null;
+  await page.route(url => !url.protocol.startsWith('file') && url.origin !== origineLocale, route => {
     journal.bloquees.push(route.request().url());
     return route.abort();
   });
   // `chemin` : une copie de la page ailleurs (tests du chargement, spec 003) ; sinon index.html du dépôt.
-  const url = chemin ? pathToFileURL(chemin).href : urlPage;
+  const url = adresse ?? (chemin ? pathToFileURL(chemin).href : urlPage);
   await page.goto(`${url}?lang=${lang}`);
   // Une page cassée (erreur de syntaxe, exception au démarrage) ne définit jamais window.__sim : on échoue vite,
   // avec l'erreur de la page, au lieu d'attendre le délai du test (30 s) pour chacun des tests.
