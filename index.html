@@ -420,13 +420,14 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
       <p>C'est le conducteur humain imprévisible : il n'obéit ni au FMS ni aux camions. Cliquez sur la carte, puis <b>Z/↑</b> avancer, <b>S/↓</b> freiner ou reculer, <b>Q/←</b> et <b>D/→</b> tourner. Avec la <b>balise V2X</b>, le FMS le voit et lui réserve les intersections ; sans balise, seuls les capteurs des camions le détectent.</p>
       <h3>Les commandes</h3>
       <dl>
-        <dt>Scénarios</dt><dd>A : pick-up équipé, le FMS retire le jeton I1 au camion. B : pick-up non équipé, seule la perception protège. C : B dans la poussière, repli radar. D : arrêt envoyé une seule fois en BEST_EFFORT avec 50 % de pertes. E : bus CAN saturé avec consigne frein mal priorisée. Un scénario s'arme et part dès qu'un camion chargé quitte la pelle.</dd>
+        <dt>Scénarios</dt><dd>A : pick-up équipé, le FMS retire le jeton I1 au camion. B : pick-up non équipé, seule la perception protège. C : B dans la poussière, repli radar. D : arrêt envoyé une seule fois en BEST_EFFORT avec 50 % de pertes. E : bus CAN saturé avec consigne frein mal priorisée. Un scénario s'arme et part dès qu'un camion chargé quitte la pelle. F et G partent aussitôt : F fige le niveau 1 du tombereau le plus rapide (le niveau 2 doit l'arrêter seul), G envoie une consigne défectueuse (le niveau 2 doit la rejeter). A à E remettent le noyau du calculateur sur PREEMPT_RT.</dd>
         <dt>Tombereau sélectionné</dt><dd>Les pannes, la masse, le bus CAN et le DDS s'appliquent au camion choisi (onglets AHT-01 à 03 à gauche, ou clic sur la carte). EMERGENCY_BRAKE est verrouillé : il faut cliquer sur « Réarmer ».</dd>
         <dt>Bus CAN</dt><dd>Arbitrage : l'identifiant le plus faible gagne. Une consigne frein bien priorisée reste rapide même bus chargé ; ce sont les messages de basse priorité qui attendent.</dd>
         <dt>DDS</dt><dd>En publication périodique, le contrôleur détecte le silence (Deadline, Liveliness) et passe en état sûr. En événementiel, un ordre perdu passe inaperçu.</dd>
+        <dt>Autonomie · niveau 1</dt><dd>Cette carte (colonne de gauche) choisit le noyau du calculateur d'autonomie : PREEMPT_RT (latence bornée) ou généraliste, avec des latences illustratives. Elle fige ou redémarre le niveau 1 du tombereau sélectionné, et lui fait envoyer une consigne défectueuse (survitesse, au-delà de l'autorisation, horodatage périmé, rejeu, intégrité invalide), une fois ou « en continu ».</dd>
       </dl>
       <h3>Les panneaux</h3>
-      <p>À gauche, sous les scénarios : état du superviseur et état réellement appliqué par le contrôleur (ils divergent quand un ordre se perd), avec les raisons. À droite : calcul de la bulle avec ses termes, santé des capteurs et liens, oscilloscope CAN/DDS, journal des codes défaut.</p>
+      <p>À gauche, sous les scénarios : état du superviseur et état réellement appliqué par le contrôleur (ils divergent quand un ordre se perd), avec les raisons. À droite : calcul de la bulle avec ses termes, santé des capteurs et liens, oscilloscope CAN/DDS, journal des codes défaut. L'oscilloscope a un second onglet, « Niveaux 1 ↔ 2 » : à gauche ce que le niveau 1 annonce, à droite ce que le niveau 2 mesure, puis les dernières consignes échangées avec leur verdict. Le bouton ⓘ ouvre l'onglet « Architecture » de ce guide.</p>
     </section>
     <section data-gpane="visite" data-i18n-html="guide.visite">
       <ol>
@@ -436,6 +437,9 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li><b>Fail-Operational.</b> Scénario C : LiDAR aveuglé, le radar prend le relais, la vitesse tombe à 15 km/h, la mission continue.</li>
         <li><b>QoS DDS.</b> Scénario D, plusieurs fois : quand l'événement d'arrêt se perd, le journal signale un ordre non appliqué. Repassez en « périodique » : plus de perte silencieuse, au prix de la disponibilité si le réseau perd beaucoup.</li>
         <li><b>CAN et réseau mine.</b> Scénario E et l'oscilloscope ; puis coupez le réseau mine : les camions finissent leur autorisation et s'arrêtent, sans freinage brutal.</li>
+        <li><b>Le niveau 1 propose, le niveau 2 dispose.</b> Scénario F : le calculateur d'autonomie du tombereau le plus rapide se fige. Ouvrez « Niveaux 1 ↔ 2 » : passé le délai du battement, le niveau 2 passe seul en CONTROLLED_STOP à freinage maximal et la distance parcourue s'affiche. Redémarrez le niveau 1 : l'arrêt n'est relâché qu'après un battement stable.</li>
+        <li><b>Une consigne fausse n'arrive jamais aux freins.</b> Scénario G, puis la carte « Autonomie · niveau 1 » pour choisir le défaut : le niveau 2 rejette la consigne avec son code, la dernière consigne acceptée reste en vigueur et le camion continue. En continu, une série de rejets consécutifs vaut une perte du niveau 1.</li>
+        <li><b>Le prix d'un noyau généraliste.</b> Choisissez le noyau « généraliste » : le terme de calcul de t_lat augmente (valeurs illustratives, lues dans le modèle), la bulle d'arrêt s'allonge d'autant à l'écran et le camion parcourt réellement cette distance en plus.</li>
       </ol>
     </section>
     <section data-gpane="modele" data-i18n-html="guide.modele">
@@ -449,6 +453,9 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li><b>Le véhicule non équipé est un cas dégradé.</b> En exploitation, tout véhicule entrant en zone autonome porte un terminal et projette sa propre bulle ; l'accès est contrôlé. La perception embarquée est la barrière de dernier recours (famille ISO 21815, anticollision).</li>
         <li><b>Référentiels.</b> IEC 61508 est la norme mère ; pour les engins on raisonne aussi ISO 19014 (en MPLr plutôt qu'en SIL), ISO 17757 (machines autonomes) et ISO 23725 (interface FMS ↔ AHS). Le sigle « SIL / HIL » est ambigu : écrire SiL pour Software-in-the-Loop.</li>
         <li><b>Réarmement.</b> L'état d'urgence est verrouillé et demande un acquittement : une reprise automatique après exception est un vrai mode de défaillance (voir l'incident WA dans les sources).</li>
+        <li><b>Le niveau 1 propose, le niveau 2 autorise ou bloque.</b> Le calculateur d'autonomie est considéré comme non sûr par conception : ses consignes (vitesse demandée, horodatage, compteur de séquence, somme de contrôle) passent par un contrôleur de sûreté indépendant, qui les revérifie avec ses propres mesures de position et de vitesse. Rien n'arrive aux freins sans son accord. Le battement est surveillé : un niveau 1 silencieux, ou qui se trompe sans cesse, provoque un arrêt contrôlé à freinage maximal décidé par le niveau 2 seul.</li>
+        <li><b>Pourquoi cet arrêt n'est pas verrouillé alors que l'urgence l'est.</b> La perte du niveau 1 est une panne du calculateur d'autonomie, pas un événement dangereux en soi : l'arrêt contrôlé suffit, et le niveau 2 le relâche quand le battement est de nouveau stable. L'état d'urgence reste verrouillé : une reprise automatique après un vrai événement est un mode de défaillance. Un niveau 1 de retour ne relâche jamais un freinage d'urgence verrouillé.</li>
+        <li><b>Le profil de noyau est un pire cas, pas une mesure.</b> Un noyau généraliste n'offre pas de borne de latence ; PREEMPT_RT en offre une. Le simulateur ne mesure aucun noyau : chaque profil est une borne illustrative du temps de calcul du niveau 1, qui entre dans t_lat (la bulle s'allonge) et retarde d'autant ce que le niveau 1 transmet au niveau 2 (le camion parcourt réellement la distance en plus). Le choix du noyau ne provoque jamais de perte de battement : sa borne reste sous l'échéance.</li>
       </ol>
     </section>
     <section data-gpane="archi" data-i18n-html="guide.archi">
@@ -487,6 +494,10 @@ dialog#guide::backdrop{background:rgba(8,9,10,.7)}
         <li>Ordres de grandeur plausibles mais génériques : 160 → 400 t, frein 1,15 MN, traction 2,6 MW, résistance au roulement 2 %. La bulle ignore la résistance au roulement (marge conservatrice).</li>
         <li>CAN : temps de réponse approché par <code>C + U·20 ms / (1 − U)</code> pour un trafic en rafales synchronisé ; DDS : retransmission RELIABLE toutes les 30 ms.</li>
         <li>Le pick-up est dessiné ×1,5 pour la lisibilité ; les collisions utilisent sa taille réelle.</li>
+        <li>Niveaux 1 et 2 : les mesures du niveau 2 (position, vitesse, freins) sont des copies exactes de l'état simulé, sans bruit ni panne. Le niveau 2 ne tombe jamais en panne et ses deux canaux ne sont pas simulés (ils n'apparaissent que sur le schéma d'architecture).</li>
+        <li>La somme de contrôle des consignes est un calcul maison, pas un vrai CRC ni un protocole de bout en bout normalisé. Les diagnostics des capteurs (LiDAR, radar, GNSS) arrivent au niveau 2 sans passer par le niveau 1.</li>
+        <li>Les deux profils de noyau sont deux bornes illustratives du temps de calcul, pas des mesures d'un noyau réel. Seul l'écart avec PREEMPT_RT est simulé comme un retard des sorties du niveau 1 ; le temps de calcul lui-même est un terme du budget t_lat.</li>
+        <li>L'architecture du schéma (pile logicielle, Yocto, microcontrôleur de sûreté) est illustrative : ce n'est la description du système réel d'aucun constructeur. Les normes citées (IEC 61508, ISO 13849, ISO 17757) sont des cadres de référence, sans prétention de conformité.</li>
       </ul>
       <h3>Sources</h3>
       <ul>
@@ -595,13 +606,14 @@ const STATIC = {
       <p>It plays the unpredictable human driver: it obeys neither the FMS nor the trucks. Click on the map, then <b>W/↑</b> forward, <b>S/↓</b> brake or reverse, <b>A/←</b> and <b>D/→</b> steer. With the <b>V2X beacon</b>, the FMS sees it and reserves the intersections for it; without the beacon, only the trucks' sensors detect it.</p>
       <h3>The controls</h3>
       <dl>
-        <dt>Scenarios</dt><dd>A: equipped pickup, the FMS revokes the truck's I1 token. B: unequipped pickup, only perception protects. C: B in dust, radar fallback. D: stop sent once in BEST_EFFORT with 50 % loss. E: saturated CAN bus with a mis-prioritised brake command. A scenario is armed and starts as soon as a loaded truck leaves the shovel.</dd>
+        <dt>Scenarios</dt><dd>A: equipped pickup, the FMS revokes the truck's I1 token. B: unequipped pickup, only perception protects. C: B in dust, radar fallback. D: stop sent once in BEST_EFFORT with 50 % loss. E: saturated CAN bus with a mis-prioritised brake command. A scenario is armed and starts as soon as a loaded truck leaves the shovel. F and G start at once: F freezes level 1 of the fastest truck (level 2 must stop it on its own), G sends a defective setpoint (level 2 must reject it). A to E set the computer's kernel back to PREEMPT_RT.</dd>
         <dt>Selected truck</dt><dd>Faults, mass, CAN bus and DDS apply to the chosen truck (tabs AHT-01 to 03 on the left, or click on the map). EMERGENCY_BRAKE is latched: you must click “Re-arm”.</dd>
         <dt>CAN bus</dt><dd>Arbitration: the lowest identifier wins. A well-prioritised brake command stays fast even on a loaded bus; it is the low-priority messages that wait.</dd>
         <dt>DDS</dt><dd>With periodic publishing, the controller detects silence (Deadline, Liveliness) and goes to a safe state. Event-driven, a lost command goes unnoticed.</dd>
+        <dt>Autonomy · level 1</dt><dd>This card (left column) chooses the kernel of the autonomy computer: PREEMPT_RT (bounded latency) or general-purpose, with illustrative latencies. It freezes or restarts level 1 of the selected truck and makes it send a defective setpoint (overspeed, beyond the authority, stale timestamp, replay, invalid integrity), once or “continuously”.</dd>
       </dl>
       <h3>The panels</h3>
-      <p>On the left, under the scenarios: the supervisor state and the state actually applied by the controller (they diverge when a command is lost), with the reasons. On the right: the stop zone calculation with its terms, sensor and link health, CAN/DDS oscilloscope, fault code log.</p>`,
+      <p>On the left, under the scenarios: the supervisor state and the state actually applied by the controller (they diverge when a command is lost), with the reasons. On the right: the stop zone calculation with its terms, sensor and link health, CAN/DDS oscilloscope, fault code log. The oscilloscope has a second tab, “Levels 1 ↔ 2”: on the left what level 1 claims, on the right what level 2 measures, then the latest setpoints exchanged with their verdict. The ⓘ button opens the “Architecture” tab of this guide.</p>`,
     'guide.visite': `
       <ol>
         <li><b>Reading the map.</b> Each truck projects an amber (caution) and a red (SIL stop) band along its path. The cyan line is its movement authority granted by the FMS; squares I1/I2 show who holds the token.</li>
@@ -610,6 +622,9 @@ const STATIC = {
         <li><b>Fail-Operational.</b> Scenario C: LiDAR blinded, the radar takes over, speed drops to 15 km/h, the mission continues.</li>
         <li><b>DDS QoS.</b> Scenario D, several times: when the stop event is lost, the log reports a command not applied. Switch back to “periodic”: no more silent loss, at the cost of availability if the network loses a lot.</li>
         <li><b>CAN and mine network.</b> Scenario E and the oscilloscope; then cut the mine network: the trucks use up their authority and stop, without harsh braking.</li>
+        <li><b>Level 1 proposes, level 2 disposes.</b> Scenario F: the autonomy computer of the fastest truck freezes. Open “Levels 1 ↔ 2”: once the heartbeat deadline has passed, level 2 alone switches to CONTROLLED_STOP at maximum braking and the distance travelled is shown. Restart level 1: the stop is only released after a stable heartbeat.</li>
+        <li><b>A wrong setpoint never reaches the brakes.</b> Scenario G, then the “Autonomy · level 1” card to choose the defect: level 2 rejects the setpoint with its code, the last accepted setpoint stays in force and the truck carries on. Sent continuously, a run of consecutive rejections counts as a loss of level 1.</li>
+        <li><b>The price of a general-purpose kernel.</b> Choose the “general-purpose” kernel: the computing term of t_lat grows (illustrative values, read from the model), the stop zone gets longer on screen by the same amount and the truck really travels that extra distance.</li>
       </ol>`,
     'guide.modele': `
       <ol>
@@ -622,6 +637,9 @@ const STATIC = {
         <li><b>The unequipped vehicle is a degraded case.</b> In operation, every vehicle entering the autonomous zone carries a terminal and projects its own zone; access is controlled. On-board perception is the last-resort barrier (ISO 21815 family, collision avoidance).</li>
         <li><b>Standards.</b> IEC 61508 is the parent standard; for earth-moving machinery one also reasons with ISO 19014 (in MPLr rather than SIL), ISO 17757 (autonomous machines) and ISO 23725 (FMS ↔ AHS interface). The acronym “SIL / HIL” is ambiguous: write SiL for Software-in-the-Loop.</li>
         <li><b>Re-arming.</b> The emergency state is latched and requires an acknowledgement: automatic resumption after an exception is a real failure mode (see the WA incident in the sources).</li>
+        <li><b>Level 1 proposes, level 2 allows or blocks.</b> The autonomy computer is considered unsafe by design: its setpoints (requested speed, timestamp, sequence counter, checksum) go through an independent safety controller, which rechecks them with its own position and speed measurements. Nothing reaches the brakes without its agreement. The heartbeat is watched: a silent level 1, or one that is wrong all the time, leads to a controlled stop at maximum braking decided by level 2 alone.</li>
+        <li><b>Why this stop is not latched while the emergency is.</b> Losing level 1 is a failure of the autonomy computer, not a dangerous event in itself: the controlled stop is enough, and level 2 releases it once the heartbeat is stable again. The emergency state stays latched: automatic resumption after a real event is a failure mode. A level 1 that comes back never releases a latched emergency brake.</li>
+        <li><b>The kernel profile is a worst case, not a measurement.</b> A general-purpose kernel gives no latency bound; PREEMPT_RT does. The simulator measures no kernel: each profile is an illustrative bound on the computing time of level 1, which enters t_lat (the zone gets longer) and delays by the same amount what level 1 passes to level 2 (the truck really travels the extra distance). Choosing the kernel never causes a heartbeat loss: its bound stays under the deadline.</li>
       </ol>`,
     'guide.archi': `
       <h3>Two computers, two roles</h3>
@@ -659,6 +677,10 @@ const STATIC = {
         <li>Plausible but generic orders of magnitude: 160 → 400 t, braking 1.15 MN, traction 2.6 MW, rolling resistance 2 %. The zone ignores rolling resistance (conservative margin).</li>
         <li>CAN: response time approximated by <code>C + U·20 ms / (1 − U)</code> for synchronised bursty traffic; DDS: RELIABLE retransmission every 30 ms.</li>
         <li>The pickup is drawn ×1.5 for readability; collisions use its real size.</li>
+        <li>Levels 1 and 2: the measurements of level 2 (position, speed, brakes) are exact copies of the simulated state, with no noise and no failure. Level 2 never fails and its two channels are not simulated (they only appear in the architecture diagram).</li>
+        <li>The checksum of the setpoints is a home-made calculation, not a real CRC nor a standardised end-to-end protocol. Sensor diagnostics (LiDAR, radar, GNSS) reach level 2 without going through level 1.</li>
+        <li>The two kernel profiles are two illustrative bounds on the computing time, not measurements of a real kernel. Only the difference from PREEMPT_RT is simulated, as a delay on the outputs of level 1; the computing time itself is a term of the t_lat budget.</li>
+        <li>The architecture of the diagram (software stack, Yocto, safety microcontroller) is illustrative: it is not the description of any manufacturer's real system. The standards cited (IEC 61508, ISO 13849, ISO 17757) are reference frameworks, with no claim of conformity.</li>
       </ul>
       <h3>Sources</h3>
       <ul>
@@ -716,13 +738,14 @@ const STATIC = {
       <p>Er spielt den unberechenbaren menschlichen Fahrer: Er gehorcht weder dem FMS noch den Muldenkippern. Klicken Sie auf die Karte, dann <b>W/↑</b> vorwärts, <b>S/↓</b> bremsen oder rückwärts, <b>A/←</b> und <b>D/→</b> lenken. Mit dem <b>V2X-Sender</b> sieht ihn das FMS und reserviert ihm die Kreuzungen; ohne Sender erkennen ihn nur die Sensoren der Muldenkipper.</p>
       <h3>Die Bedienelemente</h3>
       <dl>
-        <dt>Szenarien</dt><dd>A: Pick-up mit V2X, das FMS entzieht dem Muldenkipper das I1-Token. B: Pick-up ohne V2X, nur die Wahrnehmung schützt. C: B im Staub, Rückfall auf Radar. D: Haltebefehl einmalig in BEST_EFFORT mit 50 % Verlust gesendet. E: überlasteter CAN-Bus mit falsch priorisiertem Bremsbefehl. Ein Szenario wird scharfgeschaltet und startet, sobald ein beladener Muldenkipper den Bagger verlässt.</dd>
+        <dt>Szenarien</dt><dd>A: Pick-up mit V2X, das FMS entzieht dem Muldenkipper das I1-Token. B: Pick-up ohne V2X, nur die Wahrnehmung schützt. C: B im Staub, Rückfall auf Radar. D: Haltebefehl einmalig in BEST_EFFORT mit 50 % Verlust gesendet. E: überlasteter CAN-Bus mit falsch priorisiertem Bremsbefehl. Ein Szenario wird scharfgeschaltet und startet, sobald ein beladener Muldenkipper den Bagger verlässt. F und G starten sofort: F friert Ebene 1 des schnellsten Lkw ein (Ebene 2 muss ihn allein anhalten), G sendet einen fehlerhaften Sollwert (Ebene 2 muss ihn ablehnen). A bis E setzen den Kernel des Rechners auf PREEMPT_RT zurück.</dd>
         <dt>Ausgewählter Muldenkipper</dt><dd>Störungen, Masse, CAN-Bus und DDS gelten für den gewählten Muldenkipper (Reiter AHT-01 bis 03 links oder Klick auf die Karte). EMERGENCY_BRAKE ist verriegelt: Klicken Sie auf „Quittieren“.</dd>
         <dt>CAN-Bus</dt><dd>Arbitrierung: Der niedrigste Identifier gewinnt. Ein richtig priorisierter Bremsbefehl bleibt auch bei hoher Buslast schnell; warten müssen die Nachrichten niedriger Priorität.</dd>
         <dt>DDS</dt><dd>Bei periodischer Publikation erkennt der Controller Funkstille (Deadline, Liveliness) und geht in den sicheren Zustand. Ereignisgesteuert bleibt ein verlorener Befehl unbemerkt.</dd>
+        <dt>Autonomie · Ebene 1</dt><dd>Diese Karte (linke Spalte) wählt den Kernel des Autonomierechners: PREEMPT_RT (begrenzte Latenz) oder Allzweck, mit illustrativen Latenzen. Sie friert Ebene 1 des ausgewählten Lkw ein oder startet sie neu und lässt sie einen fehlerhaften Sollwert senden (Geschwindigkeitsüberschreitung, über die Bewegungsfreigabe hinaus, veralteter Zeitstempel, Wiedereinspielung, ungültige Integrität), einmal oder „dauerhaft“.</dd>
       </dl>
       <h3>Die Anzeigen</h3>
-      <p>Links unter den Szenarien: Zustand des Supervisors und tatsächlich vom Controller angewendeter Zustand (sie weichen ab, wenn ein Befehl verloren geht), mit den Gründen. Rechts: Berechnung der Haltezone mit ihren Termen, Zustand von Sensoren und Verbindungen, CAN/DDS-Oszilloskop, Fehlercode-Protokoll.</p>`,
+      <p>Links unter den Szenarien: Zustand des Supervisors und tatsächlich vom Controller angewendeter Zustand (sie weichen ab, wenn ein Befehl verloren geht), mit den Gründen. Rechts: Berechnung der Haltezone mit ihren Termen, Zustand von Sensoren und Verbindungen, CAN/DDS-Oszilloskop, Fehlercode-Protokoll. Das Oszilloskop hat einen zweiten Reiter, „Ebenen 1 ↔ 2“: links, was Ebene 1 angibt, rechts, was Ebene 2 misst, darunter die letzten ausgetauschten Sollwerte mit ihrem Urteil. Die Schaltfläche ⓘ öffnet den Reiter „Architektur“ dieser Anleitung.</p>`,
     'guide.visite': `
       <ol>
         <li><b>Die Karte lesen.</b> Jeder Muldenkipper projiziert entlang seiner Bahn ein bernsteinfarbenes (Vorsicht) und ein rotes (SIL-Halt) Band. Die cyanfarbene Linie ist seine vom FMS erteilte Fahrfreigabe; die Quadrate I1/I2 zeigen, wer das Token hält.</li>
@@ -731,6 +754,9 @@ const STATIC = {
         <li><b>Fail-Operational.</b> Szenario C: LiDAR geblendet, das Radar übernimmt, die Geschwindigkeit fällt auf 15 km/h, die Mission geht weiter.</li>
         <li><b>DDS-QoS.</b> Szenario D, mehrmals: Geht das Halt-Ereignis verloren, meldet das Protokoll einen nicht angewendeten Befehl. Zurück auf „periodisch“: kein stiller Verlust mehr, auf Kosten der Verfügbarkeit, wenn das Netz viel verliert.</li>
         <li><b>CAN und Minennetz.</b> Szenario E und das Oszilloskop; dann das Minennetz trennen: Die Muldenkipper fahren ihre Freigabe zu Ende und halten an, ohne harte Bremsung.</li>
+        <li><b>Ebene 1 schlägt vor, Ebene 2 entscheidet.</b> Szenario F: Der Autonomierechner des schnellsten Lkw friert ein. Öffnen Sie „Ebenen 1 ↔ 2“: Nach der Frist des Herzschlags schaltet Ebene 2 allein auf CONTROLLED_STOP mit maximaler Bremsung und die zurückgelegte Strecke wird angezeigt. Starten Sie Ebene 1 neu: Der Halt wird erst nach einem stabilen Herzschlag aufgehoben.</li>
+        <li><b>Ein falscher Sollwert erreicht nie die Bremsen.</b> Szenario G, dann die Karte „Autonomie · Ebene 1“ zur Wahl des Fehlers: Ebene 2 lehnt den Sollwert mit seinem Code ab, der zuletzt akzeptierte Sollwert bleibt gültig und der Lkw fährt weiter. Dauerhaft gesendet, zählt eine Serie aufeinanderfolgender Ablehnungen wie ein Verlust von Ebene 1.</li>
+        <li><b>Der Preis eines Allzweck-Kernels.</b> Wählen Sie den Kernel „Allzweck“: Der Rechenterm von t_lat steigt (illustrative Werte, aus dem Modell gelesen), die Haltezone wird auf dem Bildschirm entsprechend länger und der Lkw legt diese Strecke tatsächlich zusätzlich zurück.</li>
       </ol>`,
     'guide.modele': `
       <ol>
@@ -743,6 +769,9 @@ const STATIC = {
         <li><b>Das Fahrzeug ohne V2X ist ein degradierter Fall.</b> Im Betrieb trägt jedes Fahrzeug, das in die autonome Zone einfährt, ein Terminal und projiziert seine eigene Zone; der Zugang ist kontrolliert. Die bordeigene Wahrnehmung ist die letzte Barriere (Normenreihe ISO 21815, Kollisionsvermeidung).</li>
         <li><b>Normen.</b> IEC 61508 ist die Grundnorm; für Erdbaumaschinen argumentiert man auch mit ISO 19014 (in MPLr statt SIL), ISO 17757 (autonome Maschinen) und ISO 23725 (Schnittstelle FMS ↔ AHS). Das Kürzel „SIL / HIL“ ist mehrdeutig: SiL für Software-in-the-Loop schreiben.</li>
         <li><b>Quittierung.</b> Der Notfallzustand ist verriegelt und erfordert eine Quittierung: Ein automatisches Wiederanlaufen nach einer Ausnahme ist ein realer Fehlermodus (siehe den WA-Vorfall in den Quellen).</li>
+        <li><b>Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert.</b> Der Autonomierechner gilt als von Grund auf nicht sicher: Seine Sollwerte (geforderte Geschwindigkeit, Zeitstempel, Sequenzzähler, Prüfsumme) laufen über einen unabhängigen Sicherheitscontroller, der sie mit eigenen Messungen von Position und Geschwindigkeit erneut prüft. Nichts erreicht die Bremsen ohne seine Zustimmung. Der Herzschlag wird überwacht: Eine stumme oder ständig irrende Ebene 1 führt zu einem kontrollierten Halt mit maximaler Bremsung, den Ebene 2 allein beschließt.</li>
+        <li><b>Warum dieser Halt nicht verriegelt ist, der Notfall aber schon.</b> Der Verlust von Ebene 1 ist ein Ausfall des Autonomierechners, kein gefährliches Ereignis an sich: Der kontrollierte Halt genügt, und Ebene 2 hebt ihn auf, sobald der Herzschlag wieder stabil ist. Der Notfallzustand bleibt verriegelt: Eine automatische Wiederaufnahme nach einem echten Ereignis ist ein Fehlermodus. Eine zurückgekehrte Ebene 1 hebt nie eine verriegelte Notbremsung auf.</li>
+        <li><b>Das Kernel-Profil ist ein ungünstigster Fall, keine Messung.</b> Ein Allzweck-Kernel bietet keine Latenzgrenze, PREEMPT_RT schon. Der Simulator misst keinen Kernel: Jedes Profil ist eine illustrative Grenze der Rechenzeit von Ebene 1. Sie geht in t_lat ein (die Haltezone wird länger) und verzögert in gleichem Maß, was Ebene 1 an Ebene 2 übermittelt (der Lkw legt die Strecke tatsächlich zusätzlich zurück). Die Wahl des Kernels verursacht nie einen Herzschlagverlust: Seine Grenze bleibt unter der Frist.</li>
       </ol>`,
     'guide.archi': `
       <h3>Zwei Rechner, zwei Rollen</h3>
@@ -780,6 +809,10 @@ const STATIC = {
         <li>Plausible, aber generische Größenordnungen: 160 → 400 t, Bremskraft 1,15 MN, Traktion 2,6 MW, Rollwiderstand 2 %. Die Zone vernachlässigt den Rollwiderstand (konservative Reserve).</li>
         <li>CAN: Antwortzeit angenähert durch <code>C + U·20 ms / (1 − U)</code> für synchronisierten Burst-Verkehr; DDS: RELIABLE-Wiederholung alle 30 ms.</li>
         <li>Der Pick-up ist zur Lesbarkeit ×1,5 gezeichnet; Kollisionen verwenden seine reale Größe.</li>
+        <li>Ebenen 1 und 2: Die Messungen von Ebene 2 (Position, Geschwindigkeit, Bremsen) sind exakte Kopien des simulierten Zustands, ohne Rauschen und ohne Ausfall. Ebene 2 fällt nie aus, und ihre zwei Kanäle werden nicht simuliert (sie erscheinen nur im Architekturschema).</li>
+        <li>Die Prüfsumme der Sollwerte ist eine eigene Rechnung, kein echtes CRC und kein genormtes Ende-zu-Ende-Protokoll. Die Sensordiagnosen (LiDAR, Radar, GNSS) erreichen Ebene 2, ohne über Ebene 1 zu laufen.</li>
+        <li>Die beiden Kernel-Profile sind zwei illustrative Grenzen der Rechenzeit, keine Messungen eines echten Kernels. Nur die Differenz zu PREEMPT_RT wird als Verzögerung der Ausgaben von Ebene 1 simuliert; die Rechenzeit selbst ist ein Term des Budgets t_lat.</li>
+        <li>Die Architektur des Schemas (Software-Stack, Yocto, Sicherheits-Mikrocontroller) ist illustrativ: Sie beschreibt nicht das reale System eines Herstellers. Die genannten Normen (IEC 61508, ISO 13849, ISO 17757) sind Bezugsrahmen ohne Konformitätsanspruch.</li>
       </ul>
       <h3>Quellen</h3>
       <ul>

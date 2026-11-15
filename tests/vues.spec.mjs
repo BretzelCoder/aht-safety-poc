@@ -422,3 +422,38 @@ test.describe('T-18 deployment view (S16, S17, S18)', () => {
     expect(await page.locator('[data-gpane="archi"] a').count()).toBe(0);
   });
 });
+
+// T-20 : le guide, dans les trois langues, parle des niveaux 1 et 2 (S19, AC-19) et énonce les limites ajoutées (plan, section 10).
+test.describe('T-20 guide text (S19, AC-19)', () => {
+  const GUIDE = {
+    fr: {
+      prise: ['Autonomie · niveau 1', 'F et G partent aussitôt', 'Niveaux 1 ↔ 2', 'ⓘ'],
+      visite: ['Scénario F', 'Scénario G', 'noyau généraliste'],
+      modele: ['Le niveau 1 propose, le niveau 2 autorise ou bloque', 'pas verrouillé alors que l\'urgence l\'est', 'pire cas, pas une mesure'],
+      limites: ['copies exactes de l\'état simulé', 'ne tombe jamais en panne', 'calcul maison', 'sans passer par le niveau 1', 'bornes illustratives', 'Seul l\'écart avec PREEMPT_RT', 'sans prétention de conformité'],
+    },
+    en: {
+      prise: ['Autonomy · level 1', 'F and G start at once', 'Levels 1 ↔ 2', 'ⓘ'],
+      visite: ['Scenario F', 'Scenario G', 'general-purpose kernel'],
+      modele: ['Level 1 proposes, level 2 allows or blocks', 'not latched while the emergency is', 'worst case, not a measurement'],
+      limites: ['exact copies of the simulated state', 'never fails', 'home-made calculation', 'without going through level 1', 'illustrative bounds', 'Only the difference from PREEMPT_RT', 'no claim of conformity'],
+    },
+    de: {
+      prise: ['Autonomie · Ebene 1', 'F und G starten sofort', 'Ebenen 1 ↔ 2', 'ⓘ'],
+      visite: ['Szenario F', 'Szenario G', 'Allzweck-Kernels'],
+      modele: ['Ebene 1 schlägt vor, Ebene 2 erlaubt oder blockiert', 'nicht verriegelt ist, der Notfall aber schon', 'ungünstigster Fall, keine Messung'],
+      limites: ['exakte Kopien des simulierten Zustands', 'fällt nie aus', 'eigene Rechnung', 'ohne über Ebene 1 zu laufen', 'illustrative Grenzen', 'Nur die Differenz zu PREEMPT_RT', 'ohne Konformitätsanspruch'],
+    },
+  };
+  for (const lang of ['fr', 'en', 'de']) {
+    test(`${lang}: the four existing guide tabs cover the two levels, scenarios F and G, the kernel profile and the six added limitations`, async ({ page }) => {
+      await openPage(page, lang);
+      await page.click('#bGuide');
+      for (const [onglet, phrases] of Object.entries(GUIDE[lang])) {
+        await page.click(`[data-gtab="${onglet}"]`);
+        const texte = await page.locator(`[data-gpane="${onglet}"]`).innerText();
+        for (const phrase of phrases) expect(texte, `${lang}, tab ${onglet}: "${phrase}"`).toContain(phrase);
+      }
+    });
+  }
+});
