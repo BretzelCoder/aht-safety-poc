@@ -50,6 +50,51 @@ for (const lang of LANGUES) {
   });
 }
 
+// Spec 002 (T-19) : les niveaux 1 et 2, les scénarios F et G, les deux profils de noyau, avec la vue « Niveaux 1 ↔ 2 » ouverte
+// pour que ses textes soient produits (les messages et les raisons ne sont traduits qu'à l'affichage).
+const DEFAUTS = ['OVERSPEED', 'BEYOND_MA', 'STALE', 'REPLAY', 'INTEGRITY'];
+const PARCOURS_NIVEAUX = [
+  ['scenario F, level 1 frozen', { duree: 20, evenements: [{ t: 5, js: "S.scenario('F');" }] }],
+  ['scenario F then restart, recovery countdown', { duree: 26, evenements: [{ t: 5, js: "S.scenario('F');" }, { t: 12, js: 'S.l1Restart(S.sim.trucks.findIndex(T => T.l1.frozen));' }] }],
+  ...DEFAUTS.map(d => [`scenario G, ${d}`, { duree: 12, evenements: [{ t: 5, js: `S.ENV.l1Defect = '${d}'; S.scenario('G');` }] }]),
+  ['scenario G, continuous overspeed', { duree: 16, evenements: [{ t: 5, js: "S.ENV.l1Defect = 'OVERSPEED'; S.ENV.l1Repeat = true; S.scenario('G');" }, { t: 11, js: 'S.ENV.l1Repeat = false; for (const T of S.sim.trucks) { T.l1.repeat = false; T.l1.defect = null; }' }] }],
+  ['scenario G, continuous integrity defect', { duree: 16, evenements: [{ t: 5, js: "S.ENV.l1Defect = 'INTEGRITY'; S.ENV.l1Repeat = true; S.scenario('G');" }] }],
+  ['kernel profile switched, then scenario F on the general-purpose kernel', { duree: 20, evenements: [{ t: 2, js: "S.ENV.kernel = 'GP';" }, { t: 6, js: "S.ENV.kernel = 'RT';" }, { t: 8, js: "S.ENV.kernel = 'GP'; S.scenario('F');" }] }],
+  ['scenario B launched with the general-purpose kernel selected', { scenario: 'B', apresLancement: 20, auLancement: "S.ENV.kernel = 'GP'; S.scenario('B');" }],
+];
+for (const lang of LANGUES) {
+  test.describe(`T-19 levels 1 and 2 runtime translations in ${lang}`, () => {
+    for (const [nom, options] of PARCOURS_NIVEAUX) {
+      test(`no key is missing during ${nom}`, async ({ page }) => {
+        await openPage(page, lang);
+        await pauseAndSeed(page, 1);
+        await page.click('#tabL12');
+        await executer(page, { ...options, rendre: 1 });
+        await rendre(page);
+        expect(await manquantes(page), `keys missing in ${lang} during ${nom}`).toEqual([]);
+        // La vue des échanges a bien été produite : un rejet ou un état du niveau 2 y est lisible.
+        const texte = await page.evaluate(() => document.getElementById('paneL12').textContent);
+        expect(texte.length, 'the levels pane was rendered').toBeGreaterThan(80);
+      });
+    }
+
+    test('no key is missing when the controls of the autonomy card are used by clicks', async ({ page }) => {
+      await openPage(page, lang);
+      await pauseAndSeed(page, 1);
+      await page.click('#tabL12');
+      await stepSeconds(page, 5);
+      await page.selectOption('#selKernel', 'GP'); await stepSeconds(page, 2); await rendre(page);
+      await page.click('#bFreeze'); await stepSeconds(page, 3); await rendre(page);
+      await page.click('#bFreeze'); await stepSeconds(page, 1); await rendre(page);
+      for (const d of DEFAUTS) { await page.selectOption('#selDefect', d); await page.click('#bSendDef'); await stepSeconds(page, 1); await rendre(page); }
+      await page.check('#cDefRepeat'); await page.click('#bSendDef'); await stepSeconds(page, 3); await rendre(page);
+      await page.uncheck('#cDefRepeat'); await stepSeconds(page, 3); await rendre(page);
+      await page.selectOption('#selKernel', 'RT'); await page.click('#bReset'); await stepSeconds(page, 1); await rendre(page);
+      expect(await manquantes(page), `keys missing in ${lang} while using the autonomy card`).toEqual([]);
+    });
+  });
+}
+
 // Preuve, à chaque exécution, que le relevé détecte bien un texte absent dans la langue courante.
 for (const [lang, indice] of [['en', 1], ['de', 2]]) {
   test(`the runtime record detects a dynamic message missing in ${lang}`, async ({ page }) => {
