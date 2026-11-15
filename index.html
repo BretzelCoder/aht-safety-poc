@@ -178,16 +178,15 @@ canvas#map{display:block;border-radius:6px;outline:none;cursor:crosshair}
 .tabs2 button:hover{border-bottom-color:var(--line)}
 .tabs2 button.on{color:var(--accent);border-bottom-color:var(--accent)}
 .l12blocks{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;align-items:stretch}
-.blk{position:relative;border:1px solid var(--line);border-radius:8px;padding:2px 6px;font-size:11px;line-height:1.22;min-width:0}
+.blk{border:1px solid var(--line);border-radius:8px;padding:2px 6px;font-size:11px;line-height:1.22;min-width:0}
 .blk.l1{border-style:dashed;border-color:var(--cyan)}
 .blk.l2{border-color:var(--accent)}
-/* Titre sur deux lignes dans la partie gauche ; la partie droite est réservée à la configuration du niveau 1 (le noyau). */
-.blk h4{margin:0;max-width:calc(100% - 64px);min-height:2.2em;font:600 10.5px/1.1 var(--display);letter-spacing:.02em;text-transform:uppercase}
-.blk .kern{position:absolute;top:3px;right:5px;display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
-.blk .kern i{font-style:normal;color:var(--muted);font-size:9.5px}
-.blk .kern b{font:600 9.5px var(--mono);color:var(--cyan);border:1px solid var(--cyan);border-radius:4px;padding:0 3px;white-space:nowrap}
+.blk h4{margin:0;font:600 10.5px/1.2 var(--display);letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
 .blk.l1 h4{color:var(--cyan)}.blk.l2 h4{color:var(--accent)}
-.blk small{display:block;color:var(--muted);font-size:10px;line-height:1.2;margin-bottom:1px}
+.blk small{display:block;color:var(--muted);font-size:10px;height:12px;line-height:12px;margin-bottom:1px}
+/* Seconde ligne du niveau 1 : le noyau choisi, en ligne avec son intitulé */
+.blk small.kl{display:flex;gap:5px;align-items:center;white-space:nowrap}
+.blk small.kl b{font:600 10px var(--mono);color:var(--cyan)}
 .blk .chip{display:inline-block;font:500 10.5px var(--body);padding:0 5px;margin-bottom:2px;white-space:nowrap}
 .blk>div{display:flex;justify-content:space-between;gap:4px;border-bottom:1px dotted #2a2d32;padding:0}
 .blk>div:last-child{border-bottom:none}
@@ -983,9 +982,9 @@ const MSG = {
   'l12.l1': ['Niveau 1 · autonomie', 'Level 1 · autonomy', 'Ebene 1 · Autonomie'],
   'l12.l2': ['Niveau 2 · sûreté', 'Level 2 · safety', 'Ebene 2 · Sicherheit'],
   'l12.running': ['en marche', 'running', 'läuft'], 'l12.silent': ['silencieux', 'silent', 'stumm'], 'l12.faulty': ['en défaut', 'in fault', 'fehlerhaft'],
-  'l12.kernel': ['Noyau', 'Kernel', 'Kernel'], 'l12.kRT': ['PREEMPT_RT', 'PREEMPT_RT', 'PREEMPT_RT'], 'l12.kGP': ['généraliste', 'standard', 'Allzweck'],
+  'l12.kernel': ['Noyau', 'Kernel', 'Kernel'], 'l12.kRT': ['PREEMPT_RT', 'PREEMPT_RT', 'PREEMPT_RT'], 'l12.kGP': ['généraliste', 'general-purpose', 'Allzweck'],
   'l12.session': ['Session', 'Session', 'Sitzung'],
-  'l12.cl1': ["ce qu'il annonce", 'what it claims', 'was er angibt'], 'l12.cl2': ["ce qu'il mesure", 'what it measures', 'was er misst'],
+  'l12.cl2': ["ce qu'il mesure", 'what it measures', 'was er misst'],
   'l12.hb': ['Battement', 'Heartbeat', 'Herzschlag'],
   'l12.pos': ['Position', 'Position', 'Position'], 'l12.spd': ['Vitesse', 'Speed', 'Tempo'],
   'l12.brake': ['Freins', 'Brakes', 'Bremsen'],
@@ -1962,7 +1961,7 @@ function renderL12(T) {
   const row = (k, v) => `<div><span>${k}</span><span class="num">${v}</span></div>`;
   const b1 = $('blkL1'), b2 = $('blkL2');
   b1.dataset.status = st; b2.dataset.brake = BRAKE_ETAT[br];
-  b1.innerHTML = `<h4>${t('l12.l1')}</h4><span class="kern"><i>${t('l12.kernel')}</i><b>${t(ENV.kernel === 'GP' ? 'l12.kGP' : 'l12.kRT')}</b></span><small>${t('l12.cl1')}</small>` +
+  b1.innerHTML = `<h4>${t('l12.l1')}</h4><small class="kl"><span>${t('l12.kernel')}</span><b>${t(ENV.kernel === 'GP' ? 'l12.kGP' : 'l12.kRT')}</b></small>` +
     `<span class="chip"><i class="${{ running: 'g', silent: 'r', faulty: 'a' }[st]}"></i>${t('l12.' + st)}</span>` +
     row(t('l12.session'), `${A.session} · #${A.seq}`) +
     row(t('l12.pos'), ex ? `${fmt(ex.sClaim, 0)} m` : '—') + row(t('l12.spd'), ex ? `${fmt(ex.vClaim * 3.6, 1)} km/h` : '—');
