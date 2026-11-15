@@ -2,11 +2,12 @@
 // Contrôles statiques : ils lisent des fichiers sans ouvrir de page.
 import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fichiersDeLaBase, extraireBase } from '../scripts/lire-base.mjs';
+import { empreinteDe, ecrireEmpreinte, lireEmpreinte, lireManifeste, ecrireManifeste, verifierEmpreintes } from '../scripts/empreintes.mjs';
 import { readPage, reconstituerPage, lireTexte } from '../scripts/read-page.mjs';
 
 const racine = fileURLToPath(new URL('..', import.meta.url));
@@ -101,5 +102,105 @@ test.describe('T-10 reference page of a git revision (spec 003, AC-6)', () => {
   test('a revision without index.html is refused', () => {
     const depot = nouveauDepot({ 'README.md': 'x' });
     expect(() => extraireBase('HEAD', depot, mkdtempSync(join(tmpdir(), 'aht-sortie-')))).toThrow('no index.html');
+  });
+});
+
+// T-13 : empreintes de version des fichiers (spec 003, S13 et AC-15, moitié statique).
+test.describe('T-13 release stamps (spec 003, S13, AC-15)', () => {
+  const js = "'use strict';\nconst a = 1;\n";
+  const css = 'body { margin: 0 }\n';
+
+  test('the stamp is the same with CRLF or LF, and does not depend on its own line', () => {
+    const e = empreinteDe(js, 'js/a.js');
+    expect(e).toMatch(/^[0-9a-f]{8}$/);
+    expect(empreinteDe(js.replace(/\n/g, '\r\n'), 'js/a.js')).toBe(e);
+    const avec = ecrireEmpreinte(js, 'js/a.js', e);
+    expect(avec).toContain("AHT.inscrire('js/a.js', '" + e + "');");
+    expect(empreinteDe(avec, 'js/a.js')).toBe(e);
+    expect(lireEmpreinte(avec, 'js/a.js')).toBe(e);
+    expect(empreinteDe(js + 'const b = 2;\n', 'js/a.js'), 'any other change moves the stamp').not.toBe(e);
+  });
+
+  test('writing a stamp is idempotent, replaces the old one and keeps the line endings of the file', () => {
+    const e = empreinteDe(js, 'js/a.js');
+    const une = ecrireEmpreinte(js, 'js/a.js', e);
+    expect(ecrireEmpreinte(une, 'js/a.js', e)).toBe(une);
+    expect(ecrireEmpreinte(une, 'js/a.js', '00000000').match(/AHT\.inscrire/g)).toHaveLength(1);
+    const crlf = ecrireEmpreinte(js.replace(/\n/g, '\r\n'), 'js/a.js', e);
+    expect(crlf).toContain('\r\n');
+    expect(crlf.replace(/\r\n/g, '')).not.toContain('\n');
+    expect(empreinteDe(crlf, 'js/a.js')).toBe(e);
+  });
+
+  test('a style sheet carries its stamp as a custom property of :root', () => {
+    const e = empreinteDe(css, 'css/s.css');
+    const avec = ecrireEmpreinte(css, 'css/s.css', e);
+    expect(avec).toContain(`:root { --aht-stamp: '${e}'; }`);
+    expect(lireEmpreinte(avec, 'css/s.css')).toBe(e);
+    expect(empreinteDe(avec, 'css/s.css')).toBe(e);
+  });
+
+  const html = ["<script>", "window.AHT = {", "  attendu: {", "    'css/s.css': '11111111',", "    'js/a.js': '22222222',", "  },", "  vu: {},", "};", "</script>"].join('\n');
+
+  test('the manifest of index.html is read and rewritten', () => {
+    expect([...lireManifeste(html)]).toEqual([['css/s.css', '11111111'], ['js/a.js', '22222222']]);
+    const neuf = ecrireManifeste(html, new Map([['js/a.js', 'aaaaaaaa'], ['js/b.js', 'bbbbbbbb']]));
+    expect([...lireManifeste(neuf)]).toEqual([['js/a.js', 'aaaaaaaa'], ['js/b.js', 'bbbbbbbb']]);
+    expect(neuf).toContain('  vu: {},');
+    expect(lireManifeste('<html></html>')).toBeNull();
+  });
+
+  const sain = () => {
+    const fichiers = [
+      { chemin: 'js/a.js', texte: ecrireEmpreinte(js, 'js/a.js', empreinteDe(js, 'js/a.js')) },
+      { chemin: 'css/s.css', texte: ecrireEmpreinte(css, 'css/s.css', empreinteDe(css, 'css/s.css')) },
+    ];
+    return { fichiers, manifeste: new Map(fichiers.map(f => [f.chemin, lireEmpreinte(f.texte, f.chemin)])) };
+  };
+
+  test('files and manifest that agree give no error', () => {
+    const { fichiers, manifeste } = sain();
+    expect(verifierEmpreintes(fichiers, manifeste)).toEqual([]);
+  });
+
+  test('a file edited without rewriting its stamp is reported by name', () => {
+    const { fichiers, manifeste } = sain();
+    fichiers[0].texte = fichiers[0].texte.replace('const a = 1;', 'const a = 2;');
+    const erreurs = verifierEmpreintes(fichiers, manifeste);
+    expect(erreurs.map(e => e.fichier)).toEqual(['js/a.js']);
+    expect(erreurs[0].message).toContain('stale');
+  });
+
+  test('a manifest line that differs, a missing entry, an unknown entry and a file with no stamp are reported', () => {
+    const { fichiers, manifeste } = sain();
+    manifeste.set('js/a.js', 'ffffffff');
+    expect(verifierEmpreintes(fichiers, manifeste).map(e => e.message).join('|')).toContain('the manifest says ffffffff for js/a.js');
+    const sansEntree = new Map(manifeste); sansEntree.delete('css/s.css');
+    expect(verifierEmpreintes(fichiers, sansEntree).map(e => e.message).join('|')).toContain('does not list css/s.css');
+    const inconnue = new Map(manifeste); inconnue.set('js/zzz.js', '12345678');
+    expect(verifierEmpreintes(fichiers, inconnue).map(e => e.message).join('|')).toContain('js/zzz.js, which no tag');
+    const nu = [{ chemin: 'js/a.js', texte: js }];
+    expect(verifierEmpreintes(nu, new Map([['js/a.js', '22222222']])).map(e => e.message).join('|')).toContain('no stamp line');
+    expect(verifierEmpreintes(fichiers, null)[0].message).toContain('no manifest');
+  });
+
+  test('the command line rewrites the stamps of a folder, then --check passes; --check fails on a stale stamp', () => {
+    const dossier = mkdtempSync(join(tmpdir(), 'aht-stamps-'));
+    mkdirSync(join(dossier, 'js')); mkdirSync(join(dossier, 'css'));
+    writeFileSync(join(dossier, 'js/a.js'), js);
+    writeFileSync(join(dossier, 'css/s.css'), css);
+    writeFileSync(join(dossier, 'index.html'), ['<html><head><link rel="stylesheet" href="css/s.css"></head><body>', '<script>', 'window.AHT = {', '  attendu: {', '  },', '};', '</script>', '<script src="js/a.js"></script>', '</body></html>'].join('\n'));
+    const cli = fileURLToPath(new URL('../scripts/stamps.mjs', import.meta.url));
+    const lancer = (...args) => spawnSync(process.execPath, [cli, '--racine', dossier, ...args], { encoding: 'utf8' });
+    expect(lancer('--check').status, 'nothing stamped yet').toBe(1);
+    expect(lancer().status).toBe(0);
+    const apres = lancer('--check');
+    expect(apres.status, apres.stdout).toBe(0);
+    writeFileSync(join(dossier, 'js/a.js'), readFileSync(join(dossier, 'js/a.js'), 'utf8').replace('const a = 1;', 'const a = 3;'));
+    const perime = lancer('--check');
+    expect(perime.status).toBe(1);
+    expect(perime.stdout).toContain('js/a.js');
+    expect(lancer().status).toBe(0);
+    expect(lancer('--check').status).toBe(0);
   });
 });
