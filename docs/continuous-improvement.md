@@ -29,7 +29,7 @@ Statuses: `OPEN`, `IN PROGRESS`, `CLOSED` (effect observed), `ABANDONED` (reason
 |---|---|---|---|---|---|
 | A-1 | RE-1, spec 001 | Decide whether the hosts that answer 403 to automated requests (`iso.org` always, `image-ppubs.uspto.gov` from GitHub's servers only, 200 from the owner's machine) stay as permanent warnings or go into a commented allow-list in `scripts/check-links.mjs`, so that a real dead link stands out among them. | Owner | At the next spec that touches the link check, or the first time a real dead link is missed among the standing warnings (2 locally, 4 on GitHub). | OPEN |
 | A-2 | T-20, spec 001 | See the `Checks` result appear on the first pull request of spec 001: the `pull_request` trigger is declared but has never been exercised (no pull request exists yet). | Owner | When the owner asks for the pull request of spec 001. | OPEN |
-| A-3 | T-17, spec 001 | Repeat `npm test` with the network really off: the offline run was emulated with a dead proxy, not a physical cut. | Owner | Before the pull request of spec 001 is merged. | OPEN |
+| A-3 | T-17, spec 001 | Repeat `npm test` with the network really off: the offline run was emulated with a dead proxy, not a physical cut. | Owner | Before the pull request of spec 001 is merged. Effect observed: the owner ran `npm test` with the network really off, 130 passed, 10 link warnings `ENOTFOUND`, exit code 0 (evidence in tasks.md, AC-14 row). | CLOSED 2026-11-15 |
 | A-4 | SC-2, spec 001 | Proposal to add to the Conventions of CLAUDE.md: before stopping on a suspected gap between a scenario and its spec, re-measure at the model's own step (0.02 s), with its own thresholds (stopped = under 0.3 m/s), and over enough seeds and time (scenario D: 40 seeds, 60 s). | Owner decides, Claude drafts the wording | Before the next `/implement`. | OPEN |
 | A-5 | RE-2, spec 001 | Decide whether the guide and the README should state the measured odds of scenario D (stop order lost in 88 % of 40 seeds, collision in 42 %) instead of "a collision can occur". | Owner | At the next spec that touches scenario D or the guide wording. | OPEN |
 | A-6 | RE-3, spec 001 | Decide whether the supervisor should keep logging the missed brake deadline once the brake watchdog has tripped (today the deadline branch is an `else if` of the watchdog branch, so only `DM1_BRAKE_CMD_TIMEOUT` shows from 84 % CAN load). Changing it moves the pinned boundaries of scenario E, so it needs its own spec. | Owner | At the next spec that touches the supervisor or the CAN model. | OPEN |
@@ -65,7 +65,7 @@ Most recent first. Template:
 - The two Conventions added to CLAUDE.md at T-19 ("The test is the judge", "Every new check proves it can fail") are confirmed.
 - Gaps 6, 7 and 10 amended (plan, retrospective actions A-5 and A-6, wording of A-1).
 
-**Follow-up of previous actions**: A-1 to A-4 still OPEN, none of their triggers has been reached.
+**Follow-up of previous actions**: A-3 CLOSED the same day (physical offline run by the owner, see the register). A-1, A-2 and A-4 still OPEN, none of their triggers has been reached.
 
 ### 2026-11-15 — Spec 001 (specify, plan, tasks, implement T-00 to T-21)
 
