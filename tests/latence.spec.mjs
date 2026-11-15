@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { openPage, pauseAndSeed } from './helpers/page.mjs';
 import { verifierRelationsProfil } from './helpers/latence.mjs';
+import { conduiteNominale, paquets } from './helpers/niveaux.mjs';
 import { mesurerProfil, ATTENDU, ATTENDU_GP } from './helpers/physique.mjs';
 
 test.describe('T-01 kernel profile parameters (S15)', () => {
@@ -83,4 +84,17 @@ test.describe('T-05 kernel profile in the model (S12, S13)', () => {
     expect(r.desordre, 'setpoints are judged in the order they were sent (step of the first disorder, or -1)').toBe(-1);
     expect(r.derniers[2], 'setpoints keep arriving').toBeGreaterThan(400);
   });
+});
+
+// T-08 : conduite nominale dans les deux profils, et avec des bascules en cours de route (AC-14), autorisation de mouvement tenue.
+test.describe('T-08 nominal operation in both profiles (AC-14)', () => {
+  for (const profil of ['GP', 'bascule']) {
+    for (const graines of paquets(40, 4)) {
+      test(`${profil === 'GP' ? 'general-purpose kernel' : 'profile switched at 20 s and 40 s'}, seeds ${graines[0]} to ${graines[graines.length - 1]}: no rejection, no heartbeat loss, no truck beyond its authority`, async ({ page }) => {
+        await openPage(page);
+        const anomalies = await conduiteNominale(page, { graines, secondes: 60, profil });
+        expect(anomalies, anomalies.join('\n')).toEqual([]);
+      });
+    }
+  }
 });

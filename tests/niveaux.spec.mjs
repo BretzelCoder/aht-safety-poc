@@ -1,6 +1,7 @@
 // Spec 002, volet 1 : niveau 1 (autonomie) et niveau 2 (sûreté). T-04 : le flux de consignes.
 import { test, expect } from '@playwright/test';
 import { openPage, pauseAndSeed } from './helpers/page.mjs';
+import { conduiteNominale, paquets } from './helpers/niveaux.mjs';
 
 test.describe('T-04 level 1 → level 2 setpoint stream (S1, S2)', () => {
   test('each truck sends one complete setpoint per step, the sequence rises by one, the controller follows the accepted setpoint', async ({ page }) => {
@@ -181,4 +182,15 @@ test.describe('T-07 level 2 content checks and own measurements (S5, S6)', () =>
     });
     expect(r.rejets, r.premier ?? '').toBe(0);
   });
+});
+
+// T-08 : conduite nominale, PREEMPT_RT (AC-2). 40 graines de 60 s, trois tombereaux, découpées en quatre paquets.
+test.describe('T-08 nominal operation, PREEMPT_RT (AC-2)', () => {
+  for (const graines of paquets(40, 4)) {
+    test(`seeds ${graines[0]} to ${graines[graines.length - 1]}: no rejection, no heartbeat loss, sequence +1 per setpoint, no truck beyond its authority`, async ({ page }) => {
+      await openPage(page);
+      const anomalies = await conduiteNominale(page, { graines, secondes: 60, profil: 'RT' });
+      expect(anomalies, anomalies.join('\n')).toEqual([]);
+    });
+  }
 });
