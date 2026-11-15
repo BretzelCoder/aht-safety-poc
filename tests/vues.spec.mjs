@@ -487,3 +487,38 @@ test.describe('T-20 guide text (S19, AC-19)', () => {
     });
   }
 });
+
+// Retouche du propriétaire (2026-11-15) : le noyau passe en haut à droite du bloc du niveau 1, sur la hauteur des deux premières
+// lignes, et « Position » et « Vitesse » sont alignées d'un bloc à l'autre pour une lecture naturelle.
+test.describe('Levels 1 ↔ 2 pane: kernel in the top right corner, position and speed aligned', () => {
+  for (const lang of ['fr', 'en', 'de']) {
+    test(`${lang}: the kernel sits in the top right corner of level 1 and the two blocks line up row by row`, async ({ page }) => {
+      await openPage(page, lang);
+      await pauseAndSeed(page, 1);
+      await page.evaluate(() => { for (let i = 0; i < 250; i++) window.__sim.step(); });
+      await page.click('#tabL12');
+      for (const [kernel, attendu] of [['RT', 'PREEMPT_RT'], ['GP', null]]) {
+        await page.evaluate(k => { window.__sim.ENV.kernel = k; window.__sim.step(); }, kernel);
+        await page.waitForTimeout(350);
+        const m = await page.evaluate(() => {
+          const b1 = document.getElementById('blkL1').getBoundingClientRect(), b2 = document.getElementById('blkL2');
+          const tag = document.querySelector('#blkL1 .kern'), t = tag.getBoundingClientRect(), titre = document.querySelector('#blkL1 h4').getBoundingClientRect();
+          const rows = id => Object.fromEntries([...document.querySelectorAll('#' + id + ' > div')].map(d => [d.children[0].textContent, Math.round(d.getBoundingClientRect().top)]));
+          return { tagRight: Math.round(b1.right - t.right), tagTop: Math.round(t.top - b1.top), tagBottom: Math.round(t.bottom - b1.top), titreRight: Math.round(titre.right), tagLeft: Math.round(t.left),
+                   texte: tag.innerText.replace(/\s+/g, ' '), ligneNoyau: [...document.querySelectorAll('#blkL1 > div')].some(d => /Noyau|Kernel/.test(d.children[0].textContent)),
+                   l1: rows('blkL1'), l2: rows('blkL2'), chipTop: [Math.round(document.querySelector('#blkL1 .chip').getBoundingClientRect().top), Math.round(document.querySelector('#blkL2 .chip').getBoundingClientRect().top)] };
+        });
+        expect(m.tagRight, `${kernel}: the tag touches the right edge of the block (px)`).toBeLessThanOrEqual(10);
+        expect(m.tagTop, `${kernel}: the tag starts in the first line (px)`).toBeLessThanOrEqual(6);
+        expect(m.tagBottom, `${kernel}: the tag covers about the first two lines (px)`).toBeGreaterThan(18);
+        expect(m.titreRight, `${kernel}: the title does not run under the tag`).toBeLessThanOrEqual(m.tagLeft);
+        expect(m.ligneNoyau, `${kernel}: the kernel is no longer a row of the block`).toBe(false);
+        if (attendu) expect(m.texte).toContain(attendu);
+        expect(m.chipTop[0], 'the status chips are on the same line').toBe(m.chipTop[1]);
+        const [position, vitesse] = Object.keys(m.l1).filter(k => k !== undefined).slice(-2);
+        expect(m.l1[position], `${kernel}: position row aligned between level 1 and level 2`).toBe(m.l2[position]);
+        expect(m.l1[vitesse], `${kernel}: speed row aligned between level 1 and level 2`).toBe(m.l2[vitesse]);
+      }
+    });
+  }
+});
