@@ -11,6 +11,7 @@
 //         --blocking-hosts H1,H2                    remplace la liste des hôtes qui refusent les robots (tests)
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { readPage } from './read-page.mjs';
 
 const racine = fileURLToPath(new URL('..', import.meta.url));
 
@@ -90,7 +91,7 @@ async function principal(argv) {
   const hotesBloqueurs = h >= 0 ? argv[h + 1].split(',') : HOTES_BLOQUEURS;
   const urls = seul >= 0
     ? argv.slice(seul + 1).filter(a => /^https?:\/\//.test(a))
-    : extraireLiens(readFileSync(`${racine}README.md`, 'utf8'), readFileSync(`${racine}index.html`, 'utf8'));
+    : extraireLiens(readFileSync(`${racine}README.md`, 'utf8'), readPage(racine).html);
 
   console.log(`Checking ${urls.length} external links (warnings only, they never fail the run)…`);
   const resultats = await verifierLiens(urls, { delai, hotesBloqueurs });

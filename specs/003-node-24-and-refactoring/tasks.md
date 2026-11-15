@@ -95,4 +95,4 @@ Filled in during `/implement`. Every check delivered by this spec has a row; a c
 | Module 3 (AC-13; T-33) | 0.1 tolerance or `P.l1Stale` comparison changed | |
 | Module 4 (AC-13; T-34) | slowest truck chosen instead of fastest | |
 | Trace comparison, 28 cases (AC-6; T-09, T-10, T-25, T-36) | `P.latCpuGP` + 0.01 s; one model constant altered | |
-| Equivalence, names, sizes, load time, links (T-08, T-25) | not a permanent check: one-time evidence | |
+| Equivalence, names, sizes, load time, links (T-08, T-25) | not a permanent check: one-time evidence | BASELINE before the split (T-07, T-08), 2026-11-15, on main 081c656: index.html 2,181 lines (script 1,654); 10 external links checked (list kept in the scratchpad: 3 live-demo URLs, goatcounter.com, sdd-kit, 2 USPTO, WA worksafe, 2 ISO); 142 top-level names, none collides with a property of a blank window (own or inherited); load to window.__sim.sim from disk, median of 20: 116 to 120 ms (min 108, max 181); 340 tests, npx playwright test 1 min 18 s. |

@@ -4,6 +4,7 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { readPage } from '../scripts/read-page.mjs';
 import { extraireLiens, verifierLiens, formaterAvertissement, HOTES_BLOQUEURS } from '../scripts/check-links.mjs';
 
 const script = fileURLToPath(new URL('../scripts/check-links.mjs', import.meta.url));
@@ -41,7 +42,7 @@ test.describe('T-16 link extraction', () => {
 
   test('the real README and index.html contain external links', () => {
     const racine = fileURLToPath(new URL('..', import.meta.url));
-    const liens = extraireLiens(readFileSync(`${racine}README.md`, 'utf8'), readFileSync(`${racine}index.html`, 'utf8'));
+    const liens = extraireLiens(readFileSync(`${racine}README.md`, 'utf8'), readPage(racine).html);
     expect(liens.length, 'the README and the guide cite sources').toBeGreaterThan(5);
     expect(liens.some(u => u.includes('iso.org')), 'the ISO sources are checked').toBe(true);
   });
@@ -118,7 +119,7 @@ test.describe('T-24 hosts that refuse robots (S11 amendment)', () => {
 
   test('the real list covers the ISO and USPTO links of the README, and only hosts the README cites', () => {
     const racine = fileURLToPath(new URL('..', import.meta.url));
-    const hotes = new Set(extraireLiens(readFileSync(`${racine}README.md`, 'utf8'), readFileSync(`${racine}index.html`, 'utf8')).map(u => new URL(u).hostname));
+    const hotes = new Set(extraireLiens(readFileSync(`${racine}README.md`, 'utf8'), readPage(racine).html).map(u => new URL(u).hostname));
     for (const h of ['www.iso.org', 'image-ppubs.uspto.gov']) expect(HOTES_BLOQUEURS, `${h} is listed`).toContain(h);
     for (const h of HOTES_BLOQUEURS) expect([...hotes], `${h} is still cited, otherwise remove it from the list`).toContain(h);
   });
