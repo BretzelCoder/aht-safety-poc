@@ -190,10 +190,10 @@ test.describe('T-15 levels 1 ↔ 2 pane, blocks (S8, S9, S10)', () => {
     await page.click('#tabScope');
     await expect(page.locator('#scope')).toBeVisible();
     await expect(page.locator('#paneL12')).toBeHidden();
-    await expect.poll(() => page.evaluate(() => { const c = document.getElementById('scope'); return [c.clientWidth, c.width, c.height]; })).toEqual(expect.arrayContaining([expect.any(Number)]));
-    const [cw, w, h] = await page.evaluate(() => { const c = document.getElementById('scope'); return [c.clientWidth, c.width, c.height]; });
+    // Le tampon du canvas est redimensionné à l'image suivante : on attend ce moment au lieu de le supposer (échec observé sur GitHub, Node 24).
+    await expect.poll(() => page.evaluate(() => document.getElementById('scope').width), { message: 'the canvas buffer is resized on the next animation frame' }).toBeGreaterThan(100);
+    const [cw, h] = await page.evaluate(() => { const c = document.getElementById('scope'); return [c.clientWidth, c.height]; });
     expect(cw).toBeGreaterThan(100);
-    expect(w).toBeGreaterThan(100);
     expect(h).toBeGreaterThan(50);
   });
 
