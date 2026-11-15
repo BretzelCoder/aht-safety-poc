@@ -1,0 +1,4 @@
+# Outillage de vérification (développement uniquement)
+node_modules/
+test-results/
+playwright-report/

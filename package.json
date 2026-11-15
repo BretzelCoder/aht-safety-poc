@@ -1,0 +1,16 @@
+{
+  "name": "aht-safety-poc",
+  "private": true,
+  "description": "Vérifications automatiques du simulateur (développement uniquement : le site ne charge aucun paquet, voir ADR-1).",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:browser": "playwright test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}
