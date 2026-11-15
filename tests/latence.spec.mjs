@@ -160,3 +160,42 @@ test.describe('T-11 kernel profile at scenario launch (S12b, AC-22)', () => {
     });
   }
 });
+
+// T-13 : obstacle soudain devant un tombereau à 40 km/h : distance réellement parcourue, selon le profil (S14, AC-13).
+test.describe('T-13 sudden obstacle, distance travelled by profile (S14, AC-13)', () => {
+  // Rend la distance parcourue entre l'apparition du véhicule et l'arrêt (< 0,3 m/s).
+  async function freiner(page, profil, masse) {
+    await openPage(page);
+    await pauseAndSeed(page, 1);
+    return page.evaluate(({ profil, masse }) => {
+      const S = window.__sim, P = S.P, T = S.sim.trucks[0];
+      P.vNom = 40 / 3.6;                                   // ligne droite plane parcourue à exactement 40 km/h
+      S.ENV.kernel = profil;
+      T.massMode = masse; T.s = 60; T.v = 40 / 3.6;
+      for (let i = 0; i < 250; i++) S.step();               // 5 s de croisière à vitesse stabilisée
+      const v0 = T.v, x0 = T.s, p = S.PATH.at(T.s + 22);
+      // Un véhicule immobile apparaît dans le couloir, 22 m devant le centre du tombereau : bien dans sa zone d'arrêt.
+      S.sim.lvs.push({ id: 'VL-77', kind: 'LV', x: p.x, y: p.y, h: p.h, v: 0, steer: 0, v2x: false, ai: false, user: false, alive: true, color: '#f08a3c' });
+      let n = 0, tIntrusion = null;
+      while (T.v > 0.3 && n++ < 1000) {
+        S.step();
+        if (tIntrusion === null && T.reasons.some(r => r.code === 'SIL_BUBBLE_INTRUSION')) tIntrusion = n * 0.02;
+      }
+      return { v0, distance: T.s - x0, tLat: T.m.tLat, tIntrusion, delta: P.latCpuGP - P.latCpuRT, arret: T.v < 0.3 };
+    }, { profil, masse });
+  }
+
+  for (const masse of ['EMPTY', 'LOADED']) {
+    test(`${masse === 'EMPTY' ? 'empty' : 'loaded'}: the general-purpose kernel adds speed × latency difference to the distance travelled`, async ({ page }) => {
+      const rt = await freiner(page, 'RT', masse);
+      const gp = await freiner(await page.context().newPage(), 'GP', masse);
+      expect(rt.arret && gp.arret, 'both trucks stop').toBe(true);
+      expect(rt.v0, 'speed at appearance, PREEMPT_RT (m/s)').toBeCloseTo(40 / 3.6, 1);
+      expect(gp.v0, 'same speed at appearance in both profiles (m/s)').toBeCloseTo(rt.v0, 3);
+      const attendu = rt.v0 * rt.delta;
+      console.log(`${masse}: PREEMPT_RT ${rt.distance.toFixed(2)} m, general-purpose ${gp.distance.toFixed(2)} m, difference ${(gp.distance - rt.distance).toFixed(2)} m, expected ${attendu.toFixed(2)} m (intrusion seen after ${rt.tIntrusion} s and ${gp.tIntrusion} s)`);
+      expect(gp.distance - rt.distance, 'extra distance travelled (m)').toBeGreaterThan(attendu - 0.3);
+      expect(gp.distance - rt.distance).toBeLessThan(attendu + 0.3);
+    });
+  }
+});

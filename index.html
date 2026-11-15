@@ -1195,7 +1195,7 @@ function l2At(L, ts) {
 /* Niveau 2 : livre ce qui est arrivé, juge chaque consigne et tient son état (consigne acceptée, battement, échanges). */
 function l2Receive(T) {
   const L = T.l2;
-  while (L.link.length && L.link[0].at <= sim.t) {
+  while (L.link.length && L.link[0].at <= sim.t + 1e-9) {   // 1e-9 : l'horloge s'accumule par pas de 0,02 s, sans cela un retard de 0,2 s arriverait un pas trop tard
     const it = L.link.shift();
     if (it.kind === 'obs') L.obs = it.p; else l2Judge(T, it.p);
   }
