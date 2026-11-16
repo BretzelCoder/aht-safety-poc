@@ -1,7 +1,7 @@
 # Spec 003 — Node 24 and a page that is no longer one huge file (technical debt)
 
-> Status: APPROVED
-> Created: 2026-11-15 · Approved: 2026-11-15 (spec and ADR-1 amendment of section 9, validated by the owner)
+> Status: DELIVERED
+> Created: 2026-11-15 · Approved: 2026-11-15 (spec and ADR-1 amendment of section 9, validated by the owner) · Delivered: 2026-11-15 (pull request #6, merge commit `8236176`). Not yet CLOSED: the owner's acceptance of section 10 (zipped copy, network off, three languages) is postponed by the owner, 2026-11-16.
 > Amended 2026-11-15 at plan approval, validated by the owner: S11 and AC-13 say what "alone" means (the module's own files, the lower modules it calls, test doubles for upward calls, never the drawing files); AC-9 says that a development helper which only rewrites release stamps is not a build script; AC-6 adds scenarios F and G under both kernel profiles to the replayed cases; S3 and AC-3 also cover the root entry of `package-lock.json`, which repeats `engines`.
 > Amended 2026-11-15 after `/review`, on the owner's decisions: S3 and AC-3 name the lock file as S1 does (five places, not four); S11 lists the doubles actually used, among them the interface refresh functions, the analytics counter and the one checkbox that `resetSim` reads; S12 says the reasons given next to each file stay English technical tokens; section 8 allows the total size to grow by up to 10 % (measured +6.5 % in bytes).
 > Open questions answered by the owner on 2026-11-15: no maximum file size (logical split that tends to reduce sizes), mixed-release guard kept, warning only for Node 22, guide text and ADR-2 decided at `/plan`, modules testable alone (section 7).
@@ -88,7 +88,7 @@ Lot 2
 - [x] AC-16 — The rendering test "only the entry file and the page's own files are requested" passes on the split page and fails on a copy that requests an unlisted file. *(section 4)* *(evidence: T-15, T-28)*
 - [x] AC-17 — A double load of one file (copy) does not duplicate the simulation or its listeners: measured on the running page (for a file that declares `const`, the browser itself rejects the second run; the guard's "loaded twice" covers a file that registers twice). *(section 4)* *(evidence: T-16 (the tag listed twice and the file that registers twice))*
 - [x] AC-18 — The disclaimer (educational model, not a safety tool, not affiliated with any manufacturer) is still in the README and in the header comment of `index.html`; the analytics guard check still reads the code wherever it lives and keeps its negative test; the translation tables check still sees every `MSG` triplet and `STATIC` entry. *(CLAUDE.md Guardrails)* *(evidence: T-06, T-16, T-17, T-18)*
-- [ ] AC-19 — After merge, on the live page, every one of the page's own files is served (no 404), the page looks and plays as before, and the analytics snippet is still there. *(S5, S13)*
+- [x] AC-19 — After merge, on the live page, every one of the page's own files is served (no 404), the page looks and plays as before, and the analytics snippet is still there. *(S5, S13)* *(evidence: tasks.md, "Live site (AC-19)": 24 of 24 files answer 200, the page starts and plays scenario A in French, English and German, the analytics object is present; checked 2026-11-15 after the merge)*
 
 ## 7. Open questions
 All five questions were answered by the owner on 2026-11-15; no `[TO CLARIFY]` remains.
