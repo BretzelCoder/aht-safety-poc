@@ -94,7 +94,11 @@ export function verifierAnalytics(html, fichier = 'index.html') {
   } else {
     const debut = garde.index + garde[0].length - 1;
     const fin = accoladeFermante(html, debut);
+    // La CSP (spec 004) allowliste gc.zgo.at dans la méta Content-Security-Policy : ce n'est pas du code
+    // d'analyse, c'est la politique elle-même (contrôlée par verifierCsp). Son domaine est exclu du scan.
+    const metaCsp = /<meta[^>]*Content-Security-Policy[^>]*>/i.exec(html);
     for (const m of html.matchAll(/gc\.zgo\.at/g)) {
+      if (metaCsp && m.index >= metaCsp.index && m.index < metaCsp.index + metaCsp[0].length) continue;
       if (m.index < debut || m.index > fin) signaler(m.index, 'gc.zgo.at referenced outside the host guard');
     }
   }
@@ -370,12 +374,14 @@ export function verifierCsp(htmlBrut, fichier = 'index.html') {
     }
   }
   // Empreintes : chaque script en ligne de la page doit être allowlisté par la sienne, exacte, et réciproquement.
-  // Le hachage se fait sur les octets exacts du contenu du script (fins de ligne comprises), comme le navigateur.
+  // Le hachage se fait comme le navigateur le calcule : le prétraitement HTML normalise CRLF → LF dans le contenu
+  // du script avant que l'empreinte portée dans la politique ne soit comparée ; un hachage sur les octets bruts
+  // (CRLF conservés) ne correspond donc jamais sur une copie Windows.
   const scriptSrc = directives.get('script-src') || [];
   const empreintes = new Set(scriptSrc.filter(s => /^'sha256-/.test(s)));
   const presentes = new Set();
   for (const m of htmlBrut.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
-    const empreinte = `'sha256-${createHash('sha256').update(m[1], 'utf8').digest('base64')}'`;
+    const empreinte = `'sha256-${createHash('sha256').update(m[1].replace(/\r\n/g, '\n'), 'utf8').digest('base64')}'`;
     presentes.add(empreinte);
     if (!empreintes.has(empreinte)) {
       signaler(`an inline script is not allowed by its own hash (${empreinte}): update the policy or recompute the hashes after node scripts/stamps.mjs (spec 004, S2)`, m.index);
