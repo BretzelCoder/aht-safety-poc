@@ -7,6 +7,7 @@ import { readPage } from '../scripts/read-page.mjs';
 import {
   verifierSyntaxe, verifierAvertissement, verifierAnalytics,
   verifierStatuts, estContexteMain, lireSpecs, brancheCourante, verifierSansConstructeur, verifierLatenceSansChiffre,
+  verifierCrochet, verifierEpinglage, verifierCsp,
 } from './helpers/controles-statiques.mjs';
 
 const lire = chemin => readFileSync(fileURLToPath(new URL(chemin, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
@@ -243,5 +244,87 @@ test.describe('T-17 no latency written in the new HTML (spec 002, AC-15)', () =>
   test('a missing block is reported, not silently accepted', () => {
     const erreurs = verifierLatenceSansChiffre(html.replace('id="cardL1"', 'id="carte"'));
     expect(erreurs.map(e => e.message).join('|')).toContain('was not found');
+  });
+});
+
+test.describe('spec 004 S1/S2 - Content Security Policy of the page', () => {
+  // Lecture BRUTE de index.html : l'empreinte d'un script en ligne se calcule sur ses octets exacts
+  // (fins de ligne comprises), comme le navigateur. readPage normalise à LF et ne convient pas ici.
+  const brut = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
+
+  test('the policy exists, allows only the known origins and the exact hash of every inline script', () => {
+    const erreurs = verifierCsp(brut);
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('a policy missing the hash of one inline script is reported', () => {
+    const casse = brut.replace(/'sha256-[A-Za-z0-9+/=]+' 'sha256-[A-Za-z0-9+/=]+'/, "'");
+    const erreur = verifierCsp(casse);
+    expect(erreur.map(e => e.message).join(' ')).toContain('not allowed by its own hash');
+  });
+
+  test('a stale hash pin is reported', () => {
+    const casse = brut.replace('https://gc.zgo.at', "'sha256-ZmF1c3NlIGVtcHJlaW50ZT0' https://gc.zgo.at");
+    const erreur = verifierCsp(casse).filter(e => e.message.includes('stale pin'));
+    expect(erreur).toHaveLength(1);
+  });
+
+  test('an origin outside the allowlist is reported', () => {
+    const casse = brut.replace('https://gc.zgo.at', 'https://example.org/lib.js');
+    const erreur = verifierCsp(casse);
+    expect(erreur.map(e => e.message).join(' ')).toContain('https://example.org/lib.js');
+  });
+
+  test('a missing directive is reported', () => {
+    const casse = brut.replace(/base-uri 'none';\s*/, '');
+    expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('base-uri');
+  });
+
+  test('a page without the meta tag is reported', () => {
+    const casse = brut.replace(/<meta\s+http-equiv="Content-Security-Policy"[^>]*>/, '');
+    expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('no Content-Security-Policy');
+  });
+});
+
+test.describe('spec 004 S4-S6 - the test-only hook never exists on the published site', () => {
+  const hook = lire('../js/test-hook.js');
+
+  test('the hook is created behind the published-site guard', () => {
+    const erreurs = verifierCrochet(hook);
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('creating the hook without the guard is reported', () => {
+    const casse = hook.replace('if (location.hostname !== GC_HOST) {', '');
+    const erreurs = verifierCrochet(casse);
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('published-site guard');
+    expect(erreurs[0].fichier).toBe('js/test-hook.js');
+  });
+
+  test('a guard that lets the published site through is reported', () => {
+    const casse = hook.replace('location.hostname !== GC_HOST', 'true');
+    expect(verifierCrochet(casse)).toHaveLength(1);
+  });
+});
+
+test.describe('spec 004 S7 - workflow actions pinned by commit SHA', () => {
+  const workflow = lire('../.github/workflows/checks.yml');
+
+  test('every uses: in the workflow is pinned to a full commit SHA', () => {
+    const erreurs = verifierEpinglage(workflow);
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('a movable tag in uses: is reported with the pin', () => {
+    const casse = workflow.replace(/actions\/checkout@[0-9a-f]{40}/, 'actions/checkout@v7');
+    const erreurs = verifierEpinglage(casse);
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('actions/checkout@v7');
+  });
+
+  test('a SHA that is too short is still reported', () => {
+    const casse = workflow.replace(/(actions\/cache@)[0-9a-f]{40}/, '$1deadbeef');
+    expect(verifierEpinglage(casse)).toHaveLength(1);
   });
 });

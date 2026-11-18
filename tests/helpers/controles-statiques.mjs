@@ -1,6 +1,7 @@
 // Contrôles statiques : fonctions pures sur du texte, sans navigateur (spec 001, plan section 3).
 // Chaque fonction rend la liste des erreurs trouvées ; une liste vide veut dire « conforme ».
 import vm from 'node:vm';
+import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
@@ -294,3 +295,96 @@ export function verifierLatenceSansChiffre(html) {
   }
   return erreurs;
 }
+
+/* ---------------------------------------------------------------- spec 004 */
+
+/**
+ * Spec 004, S6 : le crochet de test `window.__sim` ne doit être créé qu'en dehors du site publié.
+ * Le fichier doit montrer une garde sur GC_HOST (défini dans js/analytics.js) avant l'affectation.
+ */
+export function verifierCrochet(texte, fichier = 'js/test-hook.js') {
+  const erreurs = [];
+  const position = /window\.__sim\s*=/.exec(texte)?.index ?? -1;
+  if (position < 0) erreurs.push({ fichier, ligne: null, message: 'the test hook window.__sim is missing: the checks need it' });
+  else {
+    const avant = texte.slice(0, position);
+    if (!/location\.hostname\s*!==\s*GC_HOST/.test(avant)) {
+      erreurs.push({ fichier, ligne: lignesAvant(texte, position) + 1, message: 'window.__sim is created without the published-site guard (location.hostname !== GC_HOST): the test hook must never exist on the live site (spec 004, S4)' });
+    }
+  }
+  return erreurs;
+}
+
+/**
+ * Spec 004, S7 : chaque action appelée par le workflow doit être épinglée à un SHA de commit complet
+ * (40 caractères hexadécimaux) : un tag ou une branche est déplaçable. La version lisible peut rester en commentaire.
+ */
+export function verifierEpinglage(texte, fichier = '.github/workflows/checks.yml') {
+  const erreurs = [];
+  for (const m of texte.matchAll(/\buses:\s*['"]?([^'"\s#]+)/gi)) {
+    const [, action] = m;
+    if (!/^[\w.-]+\/[\w.-]+@[0-9a-f]{40}$/.test(action)) {
+      erreurs.push({ fichier, ligne: lignesAvant(texte, m.index) + 1, message: `"${action}" is pinned by a movable ref (tag or branch): pin it to the full 40-hex commit SHA, with the version as a comment (spec 004, S7)` });
+    }
+  }
+  return erreurs;
+}
+
+/**
+ * Spec 004, S1/S2 : la politique de sécurité du contenu (Content-Security-Policy) de la page.
+ * L'empreinte de chaque script en ligne est recalculée ici comme le navigateur la calcule :
+ * base64 du SHA-256 des octets exacts du contenu du script (retours chariot compris : ne pas
+ * normaliser les fins de ligne avant de hacher, un SHA en hexadécimal n'est pas valide).
+ */
+const CSP_ORIGINES_AUTORISEES = [
+  "'self'", 'file:', 'data:', "'none'", "'unsafe-inline'",
+  'https://fonts.googleapis.com',   // feuilles de style des polices (CSS externe)
+  'https://fonts.gstatic.com',      // fichiers de polices
+  'https://gc.zgo.at',              // script de mesure GoatCounter (site publié seulement)
+  'https://*.goatcounter.com',      // repli image des mesures GoatCounter
+  'https://bretzelgoatcounter.goatcounter.com', // point de collecte (GC_ENDPOINT)
+];
+const CSP_DIRECTIVES_ATTENDUES = ['default-src', 'script-src', 'style-src', 'font-src', 'connect-src', 'img-src', 'base-uri', 'form-action'];
+
+export function verifierCsp(htmlBrut, fichier = 'index.html') {
+  const erreurs = [];
+  const signaler = (message, position) => erreurs.push({ fichier, ligne: lignesAvant(htmlBrut, position) + 1, message });
+  const meta = /<meta\s+http-equiv\s*=\s*["']?Content-Security-Policy["']?\s+content\s*=\s*"([^"]*)"/i.exec(htmlBrut);
+  if (!meta) { signaler('no Content-Security-Policy meta tag: third-party scripts would run with full privileges (spec 004, S1)', 0); return erreurs; }
+  const directives = new Map();
+  for (const partie of meta[1].split(';').map(p => p.trim()).filter(Boolean)) {
+    const [nom, ...sources] = partie.split(/\s+/);
+    if (directives.has(nom)) signaler(`the directive ${nom} is written more than once in the policy`, meta.index);
+    directives.set(nom, sources);
+  }
+  for (const nom of CSP_DIRECTIVES_ATTENDUES) {
+    if (!directives.has(nom)) signaler(`the directive ${nom} is missing from the policy (spec 004, S1)`, meta.index);
+  }
+  // Origines : toute source qui n'est ni une empreinte ni une clef connue doit figurer dans la liste autorisée.
+  for (const [nom, sources] of directives) {
+    for (const source of sources) {
+      if (/^'sha256-[A-Za-z0-9+/=]+'$/.test(source)) continue;
+      if (!CSP_ORIGINES_AUTORISEES.includes(source)) {
+        signaler(`the directive ${nom} allows "${source}": an origin outside the allowlist must be deliberate (add it only after checking it, spec 004, S2)`, meta.index);
+      }
+    }
+  }
+  // Empreintes : chaque script en ligne de la page doit être allowlisté par la sienne, exacte, et réciproquement.
+  // Le hachage se fait sur les octets exacts du contenu du script (fins de ligne comprises), comme le navigateur.
+  const scriptSrc = directives.get('script-src') || [];
+  const empreintes = new Set(scriptSrc.filter(s => /^'sha256-/.test(s)));
+  const presentes = new Set();
+  for (const m of htmlBrut.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
+    const empreinte = `'sha256-${createHash('sha256').update(m[1], 'utf8').digest('base64')}'`;
+    presentes.add(empreinte);
+    if (!empreintes.has(empreinte)) {
+      signaler(`an inline script is not allowed by its own hash (${empreinte}): update the policy or recompute the hashes after node scripts/stamps.mjs (spec 004, S2)`, m.index);
+    }
+  }
+  for (const empreinte of empreintes) {
+    if (!presentes.has(empreinte)) signaler(`the policy allows ${empreinte} but no inline script has this hash: a stale pin (spec 004, S2)`, meta.index);
+  }
+  if (scriptSrc.length && !scriptSrc.includes("'self'")) signaler("script-src must keep 'self' (the page loads its own files)", meta.index);
+  return erreurs;
+}
+
