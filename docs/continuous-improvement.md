@@ -60,6 +60,17 @@ Most recent first. Template:
 **Follow-up of previous actions**: A-x: status and evidence.
 ```
 
+### 2026-11-19 — Spec 004 (implement T-02 to T-05, review, T-06, delivery)
+
+**Self-critique**
+- **SC-20 — The spec said the opposite of the plan, and only the plan was amended.** At T-04 the measured fact 4 showed that the browser hashes inline scripts after CRLF → LF, and the plan was amended (rule 5); spec S2 ("raw bytes, CRLF must be kept"), the comment in `index.html` and two docblocks kept the old claim until the review of the branch found them. Impact: a contributor following the comment would have computed a hash the browser rejects on a Windows checkout. Root cause: I amended the document that recorded the measurement, not every place that stated the old rule. → fixed in session (T-06).
+- **SC-21 — Two checks were weaker than their spec, and their negative tests did not show it.** `verifierCsp` allowed `'unsafe-inline'` and `data:` in any directive (one global list), so `script-src 'unsafe-inline'` would have passed; `verifierCrochet` looked for the guard text anywhere before the assignment, so a comment satisfied it. The negative tests covered the cases I had imagined, not "the allowance in the wrong place". Root cause: I wrote the breakages from the check's code rather than from what the spec forbids. → fixed in session (T-06, per-directive allowlist, guard block, comments ignored, five more negative tests).
+
+**Rapport d'étonnement**
+- **RE-16 — One link-check test crashes the Node process on the owner's Windows machine, and on `main` too.** Exit code `0xC0000409` (3221226505) on Node v24.14.0, reproduced four times, not on the GitHub runner. The cause was not looked for (no other Node 24.x to compare). → A-17.
+
+**Follow-up of previous actions**: A-17 opened. A-8, A-9, A-10, A-11, A-13, A-14, A-15, A-16 re-read, none of their triggers reached by this spec (it adds no panel, no setting, no kernel change, no link-check change).
+
 ### 2026-11-15 — Spec 003 (specify, plan, tasks, implement T-00 to T-36)
 
 **Self-critique**
