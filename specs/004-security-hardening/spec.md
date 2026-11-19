@@ -1,6 +1,7 @@
 # Spec 004 — Security hardening (CSP, test-only hook, pinned CI actions)
 
-> Status: APPROVED
+> Status: DELIVERED
+> Delivered: 2026-11-19 (pull request #9, merge commit `3ff4b9c`; `Checks` green on GitHub; the live page checked by the owner: it starts, fonts load, `window.__sim` absent; CSP meta and hook guard seen in the published files).
 > Created: 2026-11-18 · Approved: 2026-11-18 (the owner validated the fixes M1, M2 and F1 of the security audit done in session on 2026-11-18; M3 is explicitly postponed, see section 5)
 > Input: full security audit of the repository (static review of all 38 files plus the live GitHub Pages headers). Findings: M1 no CSP with full-privilege third-party scripts, M2 `window.__sim` exposed on the published site, F1 workflow actions pinned by mutable major tags, M3 unescaped HTML interpolation in the HUD (latent only), F2 no framing protection (not actionable behind GitHub Pages).
 
