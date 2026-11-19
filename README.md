@@ -85,7 +85,7 @@ The page is `index.html` plus its own plain files, loaded by ordinary `<script s
 |---|---|---|
 | `index.html` | entry | Entry file: markup, French static text and French guide (ADR-2), the load registry, the script tags in load order, the load guard and its failure message in French, English and German. |
 | `css/style.css` | style | The style sheet. |
-| `js/base.js` | base | Two helpers used everywhere (`$`, `clamp`). |
+| `js/base.js` | base | The helpers used everywhere: `$`, `clamp`, and the tagged template `html` (with `SafeHtml`, `esc`, `raw`) that makes every dynamic value inert when it is pasted into markup. |
 | `js/analytics.js` | analytics | GoatCounter, on the published site only (ADR-3). |
 | `js/i18n-engine.js` | i18n | Current language, `fmt`, `M`, `N`, `RAW`, `t`, and the empty `STATIC` tables. |
 | `js/i18n-en-ui.js` | i18n | English interface strings (`STATIC.en`). |
