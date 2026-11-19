@@ -8,7 +8,9 @@ Rule for every task that touches a file of `js/`: at the end, `node scripts/stam
 - [x] **T-04** The setter `hostile(texte)` in `js/test-hook.js` (inside the guard of spec 004) and `tests/echappement.spec.mjs` in French, English and German. **Its first run on the unfixed HUD must fail; the output is recorded before the fix** (S4, AC-3).
 - [x] **T-05** Rewrite of the sinks of `js/m4-hud.js` (plan 5.3) so the check and the browser test go green, with `compare-traces` unchanged (S1, S2, AC-1, AC-3, AC-4).
 - [x] **T-06** `scripts/compare-hud.mjs` (development only) and its recorded breakage; run on scenarios A to G in the three languages against `main` (S2, AC-4).
-- [ ] **T-07** Full `npm test` green on Node 24 locally (the known failure of `tests/liens.spec.mjs:127`, action A-17, is reported as such) and the `Checks` run green on GitHub; evidence table complete; self-critique and "rapport d'étonnement" in `docs/continuous-improvement.md`; proposal of the new Convention for CLAUDE.md written for the owner. The pull request only on the owner's explicit request (AC-5).
+- [x] **T-07** Full `npm test` green on Node 24 locally (the known failure of `tests/liens.spec.mjs:127`, action A-17, is reported as such) and the `Checks` run green on GitHub; evidence table complete; self-critique and "rapport d'étonnement" in `docs/continuous-improvement.md`; proposal of the new Convention for CLAUDE.md written for the owner. The pull request only on the owner's explicit request (AC-5).
+
+> T-07 evidence (2026-11-19): `npm test` locally 460 passed and 1 failed (A-17, same on `main`); `Checks (Node 24)` green on GitHub for the push and for the pull request #11 (2 min 42 s and 1 min 45 s).
 
 ## Evidence table (per convention "every new check proves it can fail")
 
