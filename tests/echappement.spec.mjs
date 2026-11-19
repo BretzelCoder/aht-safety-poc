@@ -83,9 +83,6 @@ async function mesurerPanneaux(page, lang, chemin = null) {
 test.describe('spec 005 T-04 - a hostile string shown by the HUD is text, in three languages', () => {
   for (const lang of ['fr', 'en', 'de']) {
     test(`${lang}: log, reasons, tabs and rejection line show it verbatim and create no element`, async ({ page }) => {
-      // T-05 retire cette ligne : jusqu'à la réécriture du HUD le test DOIT échouer (il voit le défaut, 17 éléments créés) ;
-      // Playwright le tient pour réussi tant qu'il échoue, et le signale dès qu'il passe sans que la ligne soit retirée.
-      test.fail(true, 'the HUD is rewritten at T-05 (spec 005)');
       expect(await mesurerPanneaux(page, lang)).toEqual([]);
     });
   }

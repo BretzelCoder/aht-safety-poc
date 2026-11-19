@@ -378,8 +378,6 @@ test.describe('spec 004 S7 - workflow actions pinned by commit SHA', () => {
 test.describe('spec 005 S3 - dynamic text enters the markup through html`…` only', () => {
   const racine = '../';
   const fichiersJs = readdirSync(fileURLToPath(new URL('../js', import.meta.url))).filter(f => f.endsWith('.js')).map(f => `js/${f}`);
-  // T-05 retire cette exception : le HUD est réécrit à cette tâche (la fixture ci-dessous prouve que le contrôle le voit d'ici là).
-  const EN_ATTENTE_T05 = ['js/m4-hud.js'];
 
   // Les scripts en ligne de index.html, lus à leur place (le reste de la page est blanchi, les lignes restent justes).
   const scriptsEnLigne = () => {
@@ -389,7 +387,7 @@ test.describe('spec 005 S3 - dynamic text enters the markup through html`…` on
 
   test('every file of js/ and every inline script of index.html follows the rule', () => {
     const erreurs = [
-      ...fichiersJs.filter(f => !EN_ATTENTE_T05.includes(f)).flatMap(f => verifierEchappement(lire(racine + f), f)),
+      ...fichiersJs.flatMap(f => verifierEchappement(lire(racine + f), f)),
       ...verifierEchappement(scriptsEnLigne(), 'index.html'),
     ];
     expect(erreurs, decrire(erreurs)).toEqual([]);
