@@ -248,8 +248,8 @@ test.describe('T-17 no latency written in the new HTML (spec 002, AC-15)', () =>
 });
 
 test.describe('spec 004 S1/S2 - Content Security Policy of the page', () => {
-  // Lecture BRUTE de index.html : l'empreinte d'un script en ligne se calcule sur ses octets exacts
-  // (fins de ligne comprises), comme le navigateur. readPage normalise à LF et ne convient pas ici.
+  // Lecture BRUTE de index.html : verifierCsp ramène lui-même CRLF à LF dans chaque script avant de hacher,
+  // comme le navigateur ; on lui passe donc le fichier tel qu'il est sur le disque (CRLF d'une copie Windows compris).
   const brut = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
 
   test('the policy exists, allows only the known origins and the exact hash of every inline script', () => {
@@ -280,6 +280,37 @@ test.describe('spec 004 S1/S2 - Content Security Policy of the page', () => {
     expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('base-uri');
   });
 
+  test("'unsafe-inline' in script-src is reported, although style-src may carry it", () => {
+    const casse = brut.replace("script-src 'self'", "script-src 'unsafe-inline' 'self'");
+    const messages = verifierCsp(casse).map(e => e.message);
+    expect(messages.join(' ')).toContain('script-src allows "\'unsafe-inline\'"');
+    expect(messages.filter(m => m.includes('style-src'))).toEqual([]);
+  });
+
+  test('data: outside img-src and a hash outside script-src are reported', () => {
+    const casse = brut.replace("font-src https://fonts.gstatic.com", "font-src data: 'sha256-AAAA' https://fonts.gstatic.com");
+    const messages = verifierCsp(casse).map(e => e.message).join(' ');
+    expect(messages).toContain('font-src allows "data:"');
+    expect(messages).toContain('font-src allows "\'sha256-AAAA\'"');
+  });
+
+  test('a directive the policy is not expected to carry is reported', () => {
+    const casse = brut.replace("form-action 'none'", "form-action 'none'; object-src *");
+    expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('object-src is not one the policy is expected to carry');
+  });
+
+  test('an inline script with attributes, which the hash check would miss, is reported', () => {
+    const casse = brut.replace('</head>', '<script type="module">alert(1)</script>\n</head>');
+    expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('carries attributes');
+  });
+
+  test('the hash holds on a CRLF checkout and on an LF one (the browser normalises before comparing)', () => {
+    const lf = brut.replace(/\r\n/g, '\n');
+    const crlf = lf.replace(/\n/g, '\r\n');
+    expect(verifierCsp(lf)).toEqual([]);
+    expect(verifierCsp(crlf)).toEqual([]);
+  });
+
   test('a page without the meta tag is reported', () => {
     const casse = brut.replace(/<meta\s+http-equiv="Content-Security-Policy"[^>]*>/, '');
     expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('no Content-Security-Policy');
@@ -305,6 +336,21 @@ test.describe('spec 004 S4-S6 - the test-only hook never exists on the published
   test('a guard that lets the published site through is reported', () => {
     const casse = hook.replace('location.hostname !== GC_HOST', 'true');
     expect(verifierCrochet(casse)).toHaveLength(1);
+  });
+
+  test('a guard that only survives in a comment is reported', () => {
+    const casse = hook.replace('if (location.hostname !== GC_HOST) {', '// if (location.hostname !== GC_HOST) {');
+    expect(verifierCrochet(casse)).toHaveLength(1);
+  });
+
+  test('a guard whose block does not contain the assignment is reported', () => {
+    const casse = hook.replace('if (location.hostname !== GC_HOST) {', 'if (location.hostname !== GC_HOST) {}\n');
+    expect(verifierCrochet(casse)).toHaveLength(1);
+  });
+
+  test('an assignment that exists only in a comment counts as a missing hook', () => {
+    const casse = hook.replace('window.__sim =', '// window.__sim =');
+    expect(verifierCrochet(casse).map(e => e.message).join(' ')).toContain('is missing');
   });
 });
 

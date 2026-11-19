@@ -304,17 +304,21 @@ export function verifierLatenceSansChiffre(html) {
 
 /**
  * Spec 004, S6 : le crochet de test `window.__sim` ne doit être créé qu'en dehors du site publié.
- * Le fichier doit montrer une garde sur GC_HOST (défini dans js/analytics.js) avant l'affectation.
+ * L'affectation doit se trouver DANS le bloc d'un `if (location.hostname !== GC_HOST) { … }` (GC_HOST est défini
+ * dans js/analytics.js). Les commentaires sont blanchis avant l'analyse (positions conservées) : une garde ou une
+ * affectation écrite en commentaire ne compte pas. Limite connue : les accolades dans des chaînes ne sont pas gérées.
  */
 export function verifierCrochet(texte, fichier = 'js/test-hook.js') {
   const erreurs = [];
-  const position = /window\.__sim\s*=/.exec(texte)?.index ?? -1;
-  if (position < 0) erreurs.push({ fichier, ligne: null, message: 'the test hook window.__sim is missing: the checks need it' });
-  else {
-    const avant = texte.slice(0, position);
-    if (!/location\.hostname\s*!==\s*GC_HOST/.test(avant)) {
-      erreurs.push({ fichier, ligne: lignesAvant(texte, position) + 1, message: 'window.__sim is created without the published-site guard (location.hostname !== GC_HOST): the test hook must never exist on the live site (spec 004, S4)' });
-    }
+  const blanchir = m => m.replace(/[^\n]/g, ' ');
+  const code = texte.replace(/\/\*[\s\S]*?\*\//g, blanchir).replace(/\/\/[^\n]*/g, blanchir);
+  const position = /window\.__sim\s*=/.exec(code)?.index ?? -1;
+  if (position < 0) { erreurs.push({ fichier, ligne: null, message: 'the test hook window.__sim is missing: the checks need it' }); return erreurs; }
+  const garde = /if\s*\(\s*location\.hostname\s*!==\s*GC_HOST\s*\)\s*\{/.exec(code);
+  const debut = garde ? garde.index + garde[0].length - 1 : -1;
+  const fin = garde ? accoladeFermante(code, debut) : -1;
+  if (!garde || fin < 0 || position < debut || position > fin) {
+    erreurs.push({ fichier, ligne: lignesAvant(texte, position) + 1, message: 'window.__sim is created outside the published-site guard (if (location.hostname !== GC_HOST) { … }): the test hook must never exist on the live site (spec 004, S4)' });
   }
   return erreurs;
 }
@@ -337,18 +341,22 @@ export function verifierEpinglage(texte, fichier = '.github/workflows/checks.yml
 /**
  * Spec 004, S1/S2 : la politique de sécurité du contenu (Content-Security-Policy) de la page.
  * L'empreinte de chaque script en ligne est recalculée ici comme le navigateur la calcule :
- * base64 du SHA-256 des octets exacts du contenu du script (retours chariot compris : ne pas
- * normaliser les fins de ligne avant de hacher, un SHA en hexadécimal n'est pas valide).
+ * base64 du SHA-256 du contenu du script, fins de ligne CRLF ramenées à LF (le navigateur normalise avant de
+ * comparer, mesure n° 4 du plan) ; un SHA en hexadécimal n'est pas valide.
+ * Les sources sont allowlistées DIRECTIVE PAR DIRECTIVE : `'unsafe-inline'` n'est toléré que dans style-src,
+ * `data:` que dans img-src, une empreinte que dans script-src.
  */
-const CSP_ORIGINES_AUTORISEES = [
-  "'self'", 'file:', 'data:', "'none'", "'unsafe-inline'",
-  'https://fonts.googleapis.com',   // feuilles de style des polices (CSS externe)
-  'https://fonts.gstatic.com',      // fichiers de polices
-  'https://gc.zgo.at',              // script de mesure GoatCounter (site publié seulement)
-  'https://*.goatcounter.com',      // repli image des mesures GoatCounter
-  'https://bretzelgoatcounter.goatcounter.com', // point de collecte (GC_ENDPOINT)
-];
-const CSP_DIRECTIVES_ATTENDUES = ['default-src', 'script-src', 'style-src', 'font-src', 'connect-src', 'img-src', 'base-uri', 'form-action'];
+const CSP_SOURCES_PAR_DIRECTIVE = {
+  'default-src': ["'self'", 'file:'],
+  'script-src': ["'self'", 'file:', 'https://gc.zgo.at'],      // + les empreintes des scripts en ligne ; gc.zgo.at : mesure GoatCounter (site publié seulement)
+  'style-src': ["'self'", 'file:', "'unsafe-inline'", 'https://fonts.googleapis.com'], // style= partout dans la page ; CSS des polices
+  'font-src': ['https://fonts.gstatic.com'],                    // fichiers de polices
+  'connect-src': ['https://bretzelgoatcounter.goatcounter.com'], // point de collecte (GC_ENDPOINT)
+  'img-src': ["'self'", 'file:', 'data:', 'https://*.goatcounter.com'], // repli image des mesures GoatCounter
+  'base-uri': ["'none'"],
+  'form-action': ["'none'"],
+};
+const CSP_DIRECTIVES_ATTENDUES = Object.keys(CSP_SOURCES_PAR_DIRECTIVE);
 
 export function verifierCsp(htmlBrut, fichier = 'index.html') {
   const erreurs = [];
@@ -364,12 +372,15 @@ export function verifierCsp(htmlBrut, fichier = 'index.html') {
   for (const nom of CSP_DIRECTIVES_ATTENDUES) {
     if (!directives.has(nom)) signaler(`the directive ${nom} is missing from the policy (spec 004, S1)`, meta.index);
   }
-  // Origines : toute source qui n'est ni une empreinte ni une clef connue doit figurer dans la liste autorisée.
+  // Sources : chaque source doit figurer dans la liste de SA directive (les empreintes : script-src seulement),
+  // et toute directive inconnue est signalée (l'ajouter est un choix délibéré, à inscrire dans CSP_SOURCES_PAR_DIRECTIVE).
   for (const [nom, sources] of directives) {
+    const permises = CSP_SOURCES_PAR_DIRECTIVE[nom];
+    if (!permises) { signaler(`the directive ${nom} is not one the policy is expected to carry: add it to the check deliberately (spec 004, S2)`, meta.index); continue; }
     for (const source of sources) {
-      if (/^'sha256-[A-Za-z0-9+/=]+'$/.test(source)) continue;
-      if (!CSP_ORIGINES_AUTORISEES.includes(source)) {
-        signaler(`the directive ${nom} allows "${source}": an origin outside the allowlist must be deliberate (add it only after checking it, spec 004, S2)`, meta.index);
+      if (nom === 'script-src' && /^'sha256-[A-Za-z0-9+/=]+'$/.test(source)) continue;
+      if (!permises.includes(source)) {
+        signaler(`the directive ${nom} allows "${source}": a source outside the allowlist of this directive must be deliberate (add it only after checking it, spec 004, S2)`, meta.index);
       }
     }
   }
@@ -386,6 +397,10 @@ export function verifierCsp(htmlBrut, fichier = 'index.html') {
     if (!empreintes.has(empreinte)) {
       signaler(`an inline script is not allowed by its own hash (${empreinte}): update the policy or recompute the hashes after node scripts/stamps.mjs (spec 004, S2)`, m.index);
     }
+  }
+  // Un script en ligne portant des attributs (type=…) échappe au calcul ci-dessus : on le signale plutôt que de le laisser passer.
+  for (const m of htmlBrut.matchAll(/<script\b([^>]*)>/g)) {
+    if (m[1].trim() && !/\bsrc\s*=/.test(m[1]) && !/\/\s*$/.test(m[1])) signaler(`an inline <script${m[1]}> carries attributes: the check only hashes bare <script> elements (spec 004, S2)`, m.index);
   }
   for (const empreinte of empreintes) {
     if (!presentes.has(empreinte)) signaler(`the policy allows ${empreinte} but no inline script has this hash: a stale pin (spec 004, S2)`, meta.index);
