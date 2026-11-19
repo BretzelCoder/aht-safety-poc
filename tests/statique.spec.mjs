@@ -1,13 +1,13 @@
 // Contrôles statiques (spec 001) : lecture de index.html, du README et des specs comme du texte.
 // Chaque contrôle est une fonction pure, testée sur le vrai fichier et sur une copie volontairement cassée.
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { readPage } from '../scripts/read-page.mjs';
 import {
   verifierSyntaxe, verifierAvertissement, verifierAnalytics,
   verifierStatuts, estContexteMain, lireSpecs, brancheCourante, verifierSansConstructeur, verifierLatenceSansChiffre,
-  verifierCrochet, verifierEpinglage, verifierCsp,
+  verifierCrochet, verifierEpinglage, verifierCsp, verifierEchappement,
 } from './helpers/controles-statiques.mjs';
 
 const lire = chemin => readFileSync(fileURLToPath(new URL(chemin, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
@@ -372,5 +372,101 @@ test.describe('spec 004 S7 - workflow actions pinned by commit SHA', () => {
   test('a SHA that is too short is still reported', () => {
     const casse = workflow.replace(/(actions\/cache@)[0-9a-f]{40}/, '$1deadbeef');
     expect(verifierEpinglage(casse)).toHaveLength(1);
+  });
+});
+
+test.describe('spec 005 S3 - dynamic text enters the markup through html`…` only', () => {
+  const racine = '../';
+  const fichiersJs = readdirSync(fileURLToPath(new URL('../js', import.meta.url))).filter(f => f.endsWith('.js')).map(f => `js/${f}`);
+  // T-05 retire cette exception : le HUD est réécrit à cette tâche (la fixture ci-dessous prouve que le contrôle le voit d'ici là).
+  const EN_ATTENTE_T05 = ['js/m4-hud.js'];
+
+  // Les scripts en ligne de index.html, lus à leur place (le reste de la page est blanchi, les lignes restent justes).
+  const scriptsEnLigne = () => {
+    const brut = lire('../index.html');
+    return brut.replace(/<script>([\s\S]*?)<\/script>|[\s\S]/g, (m, contenu) => contenu !== undefined ? `${' '.repeat(8)}${contenu}${' '.repeat(9)}` : (m === '\n' ? '\n' : ' '));
+  };
+
+  test('every file of js/ and every inline script of index.html follows the rule', () => {
+    const erreurs = [
+      ...fichiersJs.filter(f => !EN_ATTENTE_T05.includes(f)).flatMap(f => verifierEchappement(lire(racine + f), f)),
+      ...verifierEchappement(scriptsEnLigne(), 'index.html'),
+    ];
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('the HUD as it was before spec 005 (fixture) is reported on its 12 innerHTML lines and its untagged fragments', () => {
+    const erreurs = verifierEchappement(lire('./fixtures/m4-hud-avant-spec-005.txt'), 'js/m4-hud.js');
+    const puits = erreurs.filter(e => e.message.startsWith('.innerHTML ='));
+    expect(puits.map(e => e.ligne)).toEqual([41, 45, 57, 67, 71, 72, 74, 81, 82, 89, 91, 102]);
+    expect(erreurs.filter(e => e.message.includes('is not tagged html')).length, 'row(), chip() and the other fragments').toBeGreaterThanOrEqual(5);
+  });
+
+  const un = (texte, permis = []) => verifierEchappement(texte, 'js/essai.js', permis);
+
+  test('a clean file passes: tagged template, nested tagged fragment, textContent', () => {
+    const propre = "const a = html`<b>${x}</b>`;\nel.innerHTML = html`<ul>${l.map(i => html`<li>${i}</li>`)}</ul>`;\nel.textContent = `${a} < ${b}`;\nel.insertAdjacentHTML('beforeend', html`<i>${x}</i>`);\n";
+    expect(un(propre)).toEqual([]);
+  });
+
+  test('an untagged template pasted into innerHTML is reported', () => {
+    const erreurs = un('el.innerHTML = `<b>${msg}</b>`;\n');
+    expect(erreurs.map(e => e.message).join(' ')).toContain('.innerHTML = receives something other than');
+    expect(erreurs.map(e => e.message).join(' ')).toContain('is not tagged html');
+  });
+
+  test('a raw value in an attribute of an untagged template is reported', () => {
+    const erreurs = un('function f(m) { return `<div title="${m}">x</div>`; }\n');
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('is not tagged html');
+    expect(erreurs[0].ligne).toBe(1);
+  });
+
+  test('a new innerHTML = variable is reported', () => {
+    expect(un('const h = calc();\nel.innerHTML = h;\n').map(e => e.ligne)).toEqual([2]);
+    expect(un('el.innerHTML += texte;\n')).toHaveLength(1);
+  });
+
+  test('insertAdjacentHTML, outerHTML, document.write and DOMParser with something other than html`…` are reported', () => {
+    expect(un("el.insertAdjacentHTML('beforeend', texte);\n")).toHaveLength(1);
+    expect(un('el.outerHTML = texte;\n')).toHaveLength(1);
+    expect(un('document.write(texte);\n')).toHaveLength(1);
+    expect(un('document.writeln(a, b);\n')).toHaveLength(1);
+    expect(un('const f = r.createContextualFragment(texte);\n')).toHaveLength(1);
+    expect(un("new DOMParser().parseFromString(texte, 'text/html');\n").length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('a read of innerHTML and a comparison are not sinks', () => {
+    expect(un('const s = el.innerHTML;\nif (el.innerHTML === "") x();\n')).toEqual([]);
+  });
+
+  test('raw() outside the allow-list is reported, and accepted with an entry', () => {
+    expect(un("el.innerHTML = html`<p>${raw('<br>')}</p>`;\n").map(e => e.message).join(' ')).toContain('not on the allow-list');
+    const entree = [{ fichier: 'js/essai.js', expression: "raw('<br>')", raison: 'test' }];
+    expect(un("el.innerHTML = html`<p>${raw('<br>')}</p>`;\n", entree)).toEqual([]);
+  });
+
+  test('an allow-list entry accepts exactly its expression, and a stale entry is reported', () => {
+    const entree = [{ fichier: 'js/essai.js', expression: 'pick(a, b)', raison: 'test' }];
+    expect(un('n.innerHTML = pick(a, b);\n', entree)).toEqual([]);
+    expect(un('n.innerHTML = pick(a, c);\n', entree).length, 'another expression is not covered, and the entry is stale').toBe(2);
+    expect(un('const rien = 1;\n', entree).map(e => e.message).join(' ')).toContain('stale entry');
+  });
+
+  test('comments, strings and regular expressions that look like code do not fool the reader', () => {
+    const piege = [
+      "// el.innerHTML = '<b>' + x;  (un commentaire avec l'apostrophe)",
+      "/* el.innerHTML = `<i>${y}</i>` */",
+      "const s = \"el.innerHTML = 'a'\", r = /[&<>\"']/g, d = a / b / c;",
+      "const t = `texte < 5 et ${n}`, u = html`<p>${s.replace(/`/g, '')}</p>`;",
+      'el.textContent = r.test(s) ? d : t;',
+    ].join('\n');
+    expect(un(piege)).toEqual([]);
+  });
+
+  test('a file the reader cannot follow is reported, never silently accepted', () => {
+    const erreurs = un('const s = "pas fermée;\nel.innerHTML = x;\n');
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('could not read');
   });
 });
