@@ -49,3 +49,58 @@ test.describe('spec 005 T-02 - the html`…` template of js/base.js', () => {
     rmSync(dossier, { recursive: true, force: true });
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// T-04 (S4, AC-3) : une chaîne piégée, mise par le crochet de test dans tout ce que le HUD affiche, s'affiche comme du texte.
+const PIEGE = `<img src=x onerror="window.__pwn=1"><b id="pwn">gras</b> &amp; "q" 'a'`;
+
+/** Ouvre la page, met la simulation en pause, montre la vue des échanges, injecte la chaîne ; rend ce qui ne tient pas. */
+async function mesurerPanneaux(page, lang, chemin = null) {
+  await openPage(page, lang, chemin ? { chemin } : {});
+  await page.evaluate(() => { window.__sim.ENV.paused = true; });
+  await page.click('#tabL12');
+  await page.evaluate(texte => window.__sim.hostile(texte), PIEGE);
+  return page.evaluate(piege => {
+    const ecarts = [], $$ = s => document.querySelector(s);
+    const verifier = (nom, ok, detail = '') => { if (!ok) ecarts.push(`${nom}${detail ? ': ' + detail : ''}`); };
+    const nbTrucks = window.__sim.sim.trucks.length;
+    const log = $$('#log'), raisons = $$('#reasons'), onglets = $$('#tabs'), echanges = $$('#exL12');
+    verifier('#log shows the string verbatim', log.textContent.includes(piege));
+    verifier('#log holds only plain lines with a class attribute', [...log.children].every(c => c.tagName === 'DIV' && c.getAttributeNames().join() === 'class'), `children: ${[...log.children].map(c => c.tagName + '[' + c.getAttributeNames() + ']').slice(-3).join(' ')}`);
+    verifier('#reasons shows the string verbatim', raisons.textContent.includes(piege));
+    verifier('#reasons holds one line', raisons.children.length === 1 && raisons.firstElementChild.tagName === 'LI', `children: ${raisons.children.length}`);
+    verifier('#tabs shows the string verbatim', onglets.textContent.includes(piege));
+    verifier('#tabs holds one button per truck', onglets.children.length === nbTrucks && [...onglets.children].every(c => c.tagName === 'BUTTON'), `children: ${onglets.children.length} of ${nbTrucks}`);
+    verifier('#exL12 shows the string verbatim', echanges.textContent.includes(piege));
+    verifier('#exL12 holds only plain rows', [...echanges.children].every(c => c.tagName === 'DIV'), `children: ${[...echanges.children].map(c => c.tagName).join()}`);
+    verifier('the rejection line is there', !!$$('#exL12 .why') && $$('#exL12 .why').textContent === piege);
+    verifier('no element was created from the string', document.querySelectorAll('img[src="x"], #pwn').length === 0, `${document.querySelectorAll('img[src="x"], #pwn').length} found`);
+    verifier('the injected handler did not run', window.__pwn === undefined);
+    return ecarts;
+  }, PIEGE);
+}
+
+test.describe('spec 005 T-04 - a hostile string shown by the HUD is text, in three languages', () => {
+  for (const lang of ['fr', 'en', 'de']) {
+    test(`${lang}: log, reasons, tabs and rejection line show it verbatim and create no element`, async ({ page }) => {
+      // T-05 retire cette ligne : jusqu'à la réécriture du HUD le test DOIT échouer (il voit le défaut, 17 éléments créés) ;
+      // Playwright le tient pour réussi tant qu'il échoue, et le signale dès qu'il passe sans que la ligne soit retirée.
+      test.fail(true, 'the HUD is rewritten at T-05 (spec 005)');
+      expect(await mesurerPanneaux(page, lang)).toEqual([]);
+    });
+  }
+
+  test('a copy whose escaping does nothing is reported by the panel that shows it', async ({ page }) => {
+    const { dossier } = copier();
+    const base = join(dossier, 'js/base.js');
+    const texte = readFileSync(base, 'utf8');
+    const casse = texte.replace(/const esc = v => String\(v\)\.replace\([^;]+;/, 'const esc = v => String(v);');
+    expect(casse, 'the breakage was applied').not.toBe(texte);
+    writeFileSync(base, casse);
+    const ecarts = (await mesurerPanneaux(page, 'fr', join(dossier, 'index.html'))).join(' | ');
+    rmSync(dossier, { recursive: true, force: true });
+    expect(ecarts).toContain('#log');
+    expect(ecarts).toContain('#reasons');
+    expect(ecarts).toContain('no element was created from the string');
+  });
+});
