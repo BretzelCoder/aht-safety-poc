@@ -1,7 +1,7 @@
 # Spec 005 — Escaped dynamic text in the HUD (finding M3 of the security audit)
 
-> Status: DRAFT
-> Created: 2026-11-19 · Approved: —
+> Status: APPROVED
+> Created: 2026-11-19 · Approved: 2026-11-19 (the owner validated the spec after answering its three open questions, section 9)
 > Input: finding **M3** of the security audit of 2026-11-18, explicitly postponed to its own spec by the owner when spec 004 was approved (see spec 004, section 5). Survey done on `main` at `d8ea72f` (static read of `js/`, 2026-11-19).
 
 ## 1. Problem / Why
