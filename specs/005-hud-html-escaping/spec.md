@@ -1,6 +1,7 @@
 # Spec 005 — Escaped dynamic text in the HUD (finding M3 of the security audit)
 
-> Status: APPROVED
+> Status: DELIVERED
+> Delivered: 2026-11-19 (pull request #11, merge commit `aeb7136`; `Checks` green on the branch, on the pull request and on `main`; the live page played by the owner in French, English and German: all fine).
 > Created: 2026-11-19 · Approved: 2026-11-19 (the owner validated the spec after answering its three open questions, section 9)
 > Input: finding **M3** of the security audit of 2026-11-18, explicitly postponed to its own spec by the owner when spec 004 was approved (see spec 004, section 5). Survey done on `main` at `d8ea72f` (static read of `js/`, 2026-11-19).
 
