@@ -36,7 +36,7 @@ Why do it anyway: the page teaches safety engineering and is published under the
 - The authored static text of the page and the guide (`data-i18n-html`, `STATIC`): written by the owner in the repository, not dynamic; they stay HTML.
 - Any change visible to a visitor: no UI, no model, no wording, no new string (so no translation to add).
 - A sanitiser library or any new dependency (ADR-1: no package loaded by the page).
-- Content Security Policy changes (spec 004 is delivered; this spec does not touch the policy). Its inline script hashes are unaffected as long as no inline script of `index.html` changes.
+- Content Security Policy changes (spec 004 is delivered; this spec does not touch the policy). Its pinned hash of the first inline script of `index.html` does move each time a release stamp moves (the manifest lives in that script), so it is re-pinned by the same commit that updates the stamps (amended 2026-11-19 at `/plan`; the draft said the hashes were unaffected).
 - F2 (framing) and the rest of the audit: nothing else is open.
 
 ## 6. Acceptance criteria (testable)
