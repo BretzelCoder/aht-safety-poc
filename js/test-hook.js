@@ -16,6 +16,18 @@ window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelop
     l1Send(T, 'sp', sp);
   },
   // Réservé aux vérifications automatiques (spec 001) : tables de traduction et clés introuvables.
-  i18n: { MSG, STATIC, LANGS, t }, i18nMissing };
+  i18n: { MSG, STATIC, LANGS, t }, i18nMissing,
+  // Réservé aux vérifications automatiques (spec 005, S4) : met une chaîne piégée dans tout ce que le HUD affiche du modèle (identifiant
+  // du tombereau sélectionné, journal avec sa classe, raisons du superviseur, dernier rejet du niveau 2, ligne d'échanges) puis redessine.
+  // À appeler simulation en pause ; l'état n'est pas fait pour continuer à tourner après.
+  hostile: texte => {
+    const T = sim.trucks[selected], msg = RAW(texte);
+    T.id = texte;
+    logEv(texte, 1, texte, msg, texte);
+    T.reasons = [{ lvl: 1, code: texte, msg }];
+    const e = { seq: 0, ts: sim.t, v: 0, d: 0, sumOk: true, ok: false, code: texte, msg, t: sim.t };
+    T.l2.rej.push(e); T.l2.ex.push(e);
+    hud();
+  } };
 }
-AHT.inscrire('js/test-hook.js', 'baeb8360');
+AHT.inscrire('js/test-hook.js', 'd563e378');

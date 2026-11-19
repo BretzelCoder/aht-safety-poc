@@ -409,3 +409,149 @@ export function verifierCsp(htmlBrut, fichier = 'index.html') {
   return erreurs;
 }
 
+
+/* ---------------------------------------------------------------- spec 005 */
+
+/**
+ * Spec 005, S3 : tout texte dynamique entre dans le balisage par le gabarit étiqueté html`…` (js/base.js).
+ * Le contrôle lit un fichier JavaScript en une passe (commentaires, chaînes, expressions régulières et gabarits à
+ * ${…} imbriqués) et vérifie trois règles :
+ *  1. un puits HTML (.innerHTML =, .outerHTML =, .srcdoc =, .insertAdjacentHTML(, document.write(, createContextualFragment(,
+ *     parseFromString(, new DOMParser) reçoit html`…` ou raw(…), ou une expression de la liste ECHAPPEMENT_PERMIS ;
+ *  2. un gabarit qui porte à la fois une balise et un ${…} est étiqueté html (sinon une fonction qui fabrique un fragment,
+ *     comme row() ou chip(), échapperait au contrôle de la règle 1) ;
+ *  3. raw(…) n'apparaît que sur la liste (vide à la livraison : le balisage écrit par le dépôt se loge dans le gabarit).
+ * Une entrée de la liste qui ne correspond à rien est signalée (entrée périmée). Limites connues : le contrôle raisonne sur la
+ * syntaxe, non sur le flux des données (il ne sait pas qu'un argument de raw() est bien écrit par le dépôt) ; une expression
+ * régulière ou une chaîne que le lecteur ne comprend pas fait échouer le contrôle (« could not read »), jamais passer.
+ */
+export const ECHAPPEMENT_PERMIS = [
+  { fichier: 'js/i18n-apply.js', expression: 'pick(d.i18nHtml, o.html)',
+    raison: 'authored static text of the page and of the guide (data-i18n-html, STATIC), written in the repository, never a dynamic value (spec 005, section 5)' },
+];
+
+const MOTS_AVANT_REGEX = /(?:^|[^\w$.])(?:return|typeof|case|in|of|void|delete|else|do)\s*$/;
+
+function lireJs(texte) {
+  const n = texte.length, code = texte.replace(/[^\n]/g, ' ').split(''), gabarits = [];
+  const pile = [{ t: 'code', acc: 0 }];
+  let dernier = '', i = 0;
+  const avant = k => code.slice(Math.max(0, k - 12), k).join('');
+  while (i < n) {
+    const ctx = pile[pile.length - 1], c = texte[i], d = texte[i + 1] || '';
+    if (ctx.t === 'tpl') {
+      if (c === '\\') { i += 2; continue; }
+      if (c === '`') {
+        code[i] = '`'; gabarits.push({ debut: ctx.debut, fin: i, etiquette: ctx.etiquette, aInterp: ctx.aInterp, aBalise: ctx.aBalise });
+        pile.pop(); dernier = '`'; i++; continue;
+      }
+      if (c === '$' && d === '{') { ctx.aInterp = true; code[i] = '$'; code[i + 1] = '{'; pile.push({ t: 'interp', acc: 0 }); dernier = '{'; i += 2; continue; }
+      if (c === '<' && /[a-zA-Z/]/.test(d)) ctx.aBalise = true;
+      i++; continue;
+    }
+    if (c === '/' && d === '/') { while (i < n && texte[i] !== '\n') i++; continue; }
+    if (c === '/' && d === '*') { const f = texte.indexOf('*/', i + 2); if (f < 0) return { incomplet: true }; i = f + 2; continue; }
+    if (c === "'" || c === '"') {
+      i++;
+      while (i < n && texte[i] !== c && texte[i] !== '\n') i += texte[i] === '\\' ? 2 : 1;
+      if (texte[i] !== c) return { incomplet: true };
+      i++; dernier = c; continue;
+    }
+    if (c === '`') {
+      const etiquette = /(?:^|[^\w$.])html$/.test(avant(i));
+      code[i] = '`'; pile.push({ t: 'tpl', debut: i, etiquette, aInterp: false, aBalise: false }); i++; continue;
+    }
+    if (c === '/') {
+      const regexPossible = dernier === '' || '(,=:[!&|?{};+-*%<>~^'.includes(dernier) || MOTS_AVANT_REGEX.test(avant(i));
+      if (regexPossible) {
+        let k = i + 1, classe = false;
+        while (k < n && texte[k] !== '\n') {
+          if (texte[k] === '\\') { k += 2; continue; }
+          if (texte[k] === '[') classe = true; else if (texte[k] === ']') classe = false;
+          else if (texte[k] === '/' && !classe) break;
+          k++;
+        }
+        if (texte[k] !== '/') return { incomplet: true };
+        k++; while (/[a-z]/.test(texte[k] || '')) k++;
+        i = k; dernier = '/'; continue;
+      }
+    }
+    if (ctx.t === 'interp') {
+      if (c === '{') ctx.acc++;
+      else if (c === '}') {
+        if (ctx.acc === 0) { code[i] = '}'; pile.pop(); dernier = '}'; i++; continue; }
+        ctx.acc--;
+      }
+    }
+    code[i] = c; if (!/\s/.test(c)) dernier = c; i++;
+  }
+  return pile.length === 1 ? { code: code.join(''), gabarits } : { incomplet: true };
+}
+
+/** Position du début de l'argument numéro `rang` d'un appel dont la parenthèse ouvrante est en `ouvrante` ; -1 s'il n'existe pas. */
+function debutArgument(code, ouvrante, rang) {
+  let profondeur = 0, courant = 0, debut = ouvrante + 1;
+  for (let i = ouvrante; i < code.length; i++) {
+    const c = code[i];
+    if ('([{'.includes(c)) profondeur++;
+    else if (')]}'.includes(c)) { if (--profondeur === 0) return courant === rang ? debut : -1; }
+    else if (c === ',' && profondeur === 1) { courant++; if (courant === rang) debut = i + 1; }
+  }
+  return -1;
+}
+
+/** Fin de l'expression qui commence en `debut` : le « ; » ou la parenthèse fermante de niveau zéro. */
+function finExpression(code, debut) {
+  let profondeur = 0;
+  for (let i = debut; i < code.length; i++) {
+    const c = code[i];
+    if ('([{'.includes(c)) profondeur++;
+    else if (')]}'.includes(c)) { if (--profondeur < 0) return i; }
+    else if ((c === ';' || c === ',') && profondeur === 0) return i;
+  }
+  return code.length;
+}
+
+export function verifierEchappement(texte, fichier, permis = ECHAPPEMENT_PERMIS) {
+  const erreurs = [];
+  const signaler = (position, message) => erreurs.push({ fichier, ligne: lignesAvant(texte, position) + 1, message });
+  const lu = lireJs(texte);
+  if (lu.incomplet) { erreurs.push({ fichier, ligne: null, message: 'could not read this file to the end (a string, a regular expression or a template the check does not understand): it cannot vouch for it (spec 005, S3)' }); return erreurs; }
+  const { code, gabarits } = lu;
+  const siens = permis.filter(p => p.fichier === fichier), utilises = new Set();
+  // html`…` doit être TOUT le côté droit : un « + texte » ou un « .concat(…) » derrière le gabarit remettrait une chaîne brute dans le balisage.
+  const inerte = debut => {
+    if (/^raw\(/.test(code.slice(debut))) return true;
+    if (!code.startsWith('html`', debut)) return false;
+    const g = gabarits.find(x => x.debut === debut + 4);
+    return !!g && /^\s*(?:[;),}\]]|$)/.test(code.slice(g.fin + 1));
+  };
+  const admis = (debut, fin) => {
+    const expression = texte.slice(debut, fin).replace(/\s+/g, ' ').trim();
+    const entree = siens.find(p => p.expression === expression);
+    if (entree) utilises.add(entree);
+    return !!entree;
+  };
+  const puits = (position, nom, debut) => {
+    if (debut < 0) { signaler(position, `${nom}: the argument that carries the markup was not found`); return; }
+    const d = debut + code.slice(debut).match(/^\s*/)[0].length;
+    if (inerte(d) || admis(d, finExpression(code, d))) return;
+    signaler(position, `${nom} receives something other than html\`…\` or raw(…): a dynamic value would be read as markup (spec 005, S1). Write html\`…\`, or add an allow-list entry with its reason`);
+  };
+  for (const m of code.matchAll(/\.(innerHTML|outerHTML|srcdoc)\s*\+?=(?!=)/g)) puits(m.index, `.${m[1]} =`, m.index + m[0].length);
+  for (const m of code.matchAll(/\.insertAdjacentHTML\s*\(/g)) puits(m.index, '.insertAdjacentHTML(…)', debutArgument(code, m.index + m[0].length - 1, 1));
+  for (const m of code.matchAll(/\bdocument\s*\.\s*(write|writeln)\s*\(/g)) puits(m.index, `document.${m[1]}(…)`, debutArgument(code, m.index + m[0].length - 1, 0));
+  for (const m of code.matchAll(/\.(createContextualFragment|parseFromString)\s*\(/g)) puits(m.index, `.${m[1]}(…)`, debutArgument(code, m.index + m[0].length - 1, 0));
+  for (const m of code.matchAll(/\bnew\s+DOMParser\b/g)) signaler(m.index, 'new DOMParser parses markup: it is not allowed (spec 005, S3)');
+  for (const g of gabarits) {
+    if (g.aBalise && g.aInterp && !g.etiquette) signaler(g.debut, 'a template that holds markup and a ${…} is not tagged html: a dynamic value pasted in it would be read as markup (spec 005, S1)');
+  }
+  for (const m of code.matchAll(/(?<![\w$.])raw\s*\(/g)) {
+    const f = finExpression(code, m.index + m[0].length);
+    const expression = texte.slice(m.index, f + 1).replace(/\s+/g, ' ').trim();
+    const entree = siens.find(p => p.expression === expression);
+    if (entree) utilises.add(entree); else signaler(m.index, 'raw(…) marks text as authored markup and is not on the allow-list: give a reason or use html`…` (spec 005, S3)');
+  }
+  for (const p of siens) if (!utilises.has(p)) erreurs.push({ fichier, ligne: null, message: `the allow-list entry "${p.expression}" matches nothing in this file: a stale entry, remove it (spec 005, S3)` });
+  return erreurs;
+}

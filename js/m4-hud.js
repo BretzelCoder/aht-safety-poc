@@ -30,65 +30,55 @@ function renderL12(T) {
   // Le décompte va jusqu'au relâchement réel : fin de la stabilité, puis maintien d'état ; une fois la cause disparue, il ne reste que le maintien.
   const reste = recup !== null ? recup + P.stateHold
     : (!L.hbLost && !L.rejLost && !T.latched && !T.reasons.some(r => r.lvl > 0) && LEVEL[T.state] > 0 && T.lowerAt > sim.t) ? T.lowerAt - sim.t : null;
-  const row = (k, v) => `<div><span>${k}</span><span class="num">${v}</span></div>`;
+  const row = (k, v) => html`<div><span>${k}</span><span class="num">${v}</span></div>`;
   // Gel du niveau 1 (scénario F) : délai de détection puis distance parcourue depuis le gel (jusqu'ici tant que le camion freine,
   // « … » à la fin), mesurés par le modèle. Quatrième rangée du bloc, libre, en face de « Freins » ; l'infobulle donne la phrase complète.
   const ev = A.ev, fini = ev.sStill !== null;
   const frzP = { s: N(ev.tDetect - ev.tFreeze, 2), m: N((fini ? ev.sStill : T.s) - ev.sFreeze, 1) };
-  const frz = ev.tDetect === null ? '' : `<div title="${t(fini ? 'l12.frzDone' : 'l12.frz', frzP)}"><span>${t('l12.frzLbl')}</span><span class="num">${rp(frzP.s)} s · ${rp(frzP.m)} m${fini ? '' : ' …'}</span></div>`;
+  const frz = ev.tDetect === null ? '' : html`<div title="${t(fini ? 'l12.frzDone' : 'l12.frz', frzP)}"><span>${t('l12.frzLbl')}</span><span class="num">${rp(frzP.s)} s · ${rp(frzP.m)} m${fini ? '' : ' …'}</span></div>`;
   const b1 = $('blkL1'), b2 = $('blkL2');
   b1.dataset.status = st; b2.dataset.brake = BRAKE_ETAT[br];
-  b1.innerHTML = `<h4>${t('l12.l1')}</h4><small class="kl"><span>${t('l12.kernel')}</span><b>${t(ENV.kernel === 'GP' ? 'l12.kGP' : 'l12.kRT')}</b></small><small>${t('l12.cl1')}</small>` +
-    `<span class="chip"><i class="${{ running: 'g', silent: 'r', faulty: 'a' }[st]}"></i>${t('l12.' + st)}</span>` +
-    row(t('l12.session'), `${A.session} · #${A.seq}`) +
-    row(t('l12.pos'), ex ? `${fmt(ex.sClaim, 0)} m` : '—') + row(t('l12.spd'), ex ? `${fmt(ex.vClaim * 3.6, 1)} km/h` : '—') + frz;
-  b2.innerHTML = `<h4>${t('l12.l2')}</h4><small class="kl"><span>${t('l12.timeout')}</span><b>${fmt(P.l1Deadline * 1000, 0)} ms</b></small><small>${t('l12.cl2')}</small>` +
-    `<span class="chip"><i style="background:${STATE_COL[LEVEL[T.state]]}"></i>${T.state}</span>` +
-    (reste !== null ? row(t('l12.release'), `${fmt(Math.max(0, reste), 1)} s`) : row(t('l12.hb'), `${fmt(hb * 1000, 0)} ms`)) +
-    row(t('l12.pos'), `${fmt(T.s, 0)} m`) + row(t('l12.spd'), `${fmt(T.v * 3.6, 1)} km/h`) +
-    row(t('l12.brake'), t(BRAKE_MSG[br]));
+  // Spec 005 : un seul gabarit html`…` par bloc ; les rangées sont des fragments html (row), insérés tels quels, et chaque valeur
+  // dynamique est rendue inerte par le gabarit lui-même.
+  b1.innerHTML = html`<h4>${t('l12.l1')}</h4><small class="kl"><span>${t('l12.kernel')}</span><b>${t(ENV.kernel === 'GP' ? 'l12.kGP' : 'l12.kRT')}</b></small><small>${t('l12.cl1')}</small><span class="chip"><i class="${{ running: 'g', silent: 'r', faulty: 'a' }[st]}"></i>${t('l12.' + st)}</span>${row(t('l12.session'), `${A.session} · #${A.seq}`)}${row(t('l12.pos'), ex ? `${fmt(ex.sClaim, 0)} m` : '—')}${row(t('l12.spd'), ex ? `${fmt(ex.vClaim * 3.6, 1)} km/h` : '—')}${frz}`;
+  b2.innerHTML = html`<h4>${t('l12.l2')}</h4><small class="kl"><span>${t('l12.timeout')}</span><b>${fmt(P.l1Deadline * 1000, 0)} ms</b></small><small>${t('l12.cl2')}</small><span class="chip"><i style="background:${STATE_COL[LEVEL[T.state]]}"></i>${T.state}</span>${reste !== null ? row(t('l12.release'), `${fmt(Math.max(0, reste), 1)} s`) : row(t('l12.hb'), `${fmt(hb * 1000, 0)} ms`)}${row(t('l12.pos'), `${fmt(T.s, 0)} m`)}${row(t('l12.spd'), `${fmt(T.v * 3.6, 1)} km/h`)}${row(t('l12.brake'), t(BRAKE_MSG[br]))}`;
   // Échanges : les 5 derniers jugements, plus les rejets plus anciens qui en sont sortis (3 au plus), lus dans les données
   // stockées et rédigés à l'affichage : un changement de langue retraduit aussi l'historique.
   const exs = [...L.rej.filter(e => !L.ex.includes(e)), ...L.ex];
-  let h = `<div class="xr hd"><span>#</span><span>s</span><span>km/h</span><span>m</span><span>Σ</span><span>${t('l12.hVerdict')}</span></div>`;
-  h += exs.length ? exs.map(e => `<div class="xr${e.ok ? '' : ' bad'}"><span>#${e.seq}</span><span>${fmt(e.ts, 2)}</span><span>${fmt(e.v * 3.6, 1)}</span><span>${fmt(e.d, 0)}</span><span>${e.sumOk ? '✓' : '✗'}</span><span>${e.ok ? t('l12.ok') : e.code}</span></div>`).join('') : `<div class="none">${t('l12.noEx')}</div>`;
+  const entete = html`<div class="xr hd"><span>#</span><span>s</span><span>km/h</span><span>m</span><span>Σ</span><span>${t('l12.hVerdict')}</span></div>`;
+  const corps = exs.length ? exs.map(e => html`<div class="xr${e.ok ? '' : ' bad'}"><span>#${e.seq}</span><span>${fmt(e.ts, 2)}</span><span>${fmt(e.v * 3.6, 1)}</span><span>${fmt(e.d, 0)}</span><span>${e.sumOk ? '✓' : '✗'}</span><span>${e.ok ? t('l12.ok') : e.code}</span></div>`) : html`<div class="none">${t('l12.noEx')}</div>`;
   const rj = L.rej[L.rej.length - 1];
-  if (rj) h += `<div class="why">${rp(rj.msg)}</div>`;
-  $('exL12').innerHTML = h;
+  $('exL12').innerHTML = html`${entete}${corps}${rj ? html`<div class="why">${rp(rj.msg)}</div>` : ''}`;
 }
 let logDirty = true, lastTabs = '';
-function chip(ok, label, tri) { return `<span class="chip"><i class="${tri || (ok ? 'g' : 'r')}"></i>${label}</span>`; }
+function chip(ok, label, tri) { return html`<span class="chip"><i class="${tri || (ok ? 'g' : 'r')}"></i>${label}</span>`; }
 function hud() {
   const T = sim.trucks[selected], m = T.m, lv = LEVEL[T.state];
   $('kTime').textContent = `${Math.floor(sim.t / 60)}:${String(Math.floor(sim.t % 60)).padStart(2, '0')}`;
   $('kCol').textContent = sim.collisions; $('kCol').style.color = sim.collisions ? 'var(--emer)' : '';
   $('kCycles').textContent = sim.cycles; $('kTons').textContent = sim.tons.toLocaleString(LOCALE[LANG]);
-  const tabsHtml = sim.trucks.map((t, i) => `<button data-sel="${i}" class="${i === selected ? 'on' : ''}" style="border-left:4px solid ${t.color}">${t.id} <span style="color:${STATE_COL[LEVEL[t.state]]}">●</span></button>`).join('');
-  if (tabsHtml !== lastTabs) { $('tabs').innerHTML = tabsHtml; lastTabs = tabsHtml; }
+  const tabsHtml = html`${sim.trucks.map((t, i) => html`<button data-sel="${i}" class="${i === selected ? 'on' : ''}" style="border-left:4px solid ${t.color}">${t.id} <span style="color:${STATE_COL[LEVEL[t.state]]}">●</span></button>`)}`;
+  if (String(tabsHtml) !== lastTabs) { $('tabs').innerHTML = html`${tabsHtml}`; lastTabs = String(tabsHtml); }
   const pill = $('statePill'); pill.textContent = T.state; pill.className = 'pill s' + lv;
   $('stateSub').textContent = `${rp(T.planTag)}${T.latched ? t('hud.latched') : ''}`;
   const al = LEVEL[T.mc.applied];
-  $('appliedLine').innerHTML = `${t('hud.applied')} <b style="color:${STATE_COL[al]}">${T.mc.applied}</b>${T.mc.appliedKind && al === 2 ? ` (${t('hud.k' + T.mc.appliedKind)})` : ''}${al < lv ? ` <span class="mismatch">${t('hud.notReceived')}</span>` : ''}`;
-  $('reasons').innerHTML = T.reasons.length ? T.reasons.map(r => `<li class="l${r.lvl}"><span class="num">${codeName(r.code)}</span> · ${rp(r.msg)}</li>`).join('') : `<li class="l0">${t('hud.noAlert')}</li>`;
+  $('appliedLine').innerHTML = html`${t('hud.applied')} <b style="color:${STATE_COL[al]}">${T.mc.applied}</b>${T.mc.appliedKind && al === 2 ? ` (${t('hud.k' + T.mc.appliedKind)})` : ''}${al < lv ? html` <span class="mismatch">${t('hud.notReceived')}</span>` : ''}`;
+  $('reasons').innerHTML = html`${T.reasons.length ? T.reasons.map(r => html`<li class="l${r.lvl}"><span class="num">${codeName(r.code)}</span> · ${rp(r.msg)}</li>`) : html`<li class="l0">${t('hud.noAlert')}</li>`}`;
   const v = T.v, env = m.env || brakeEnvelope(T.mass, 0, ENV.mu);
-  $('formula').innerHTML =
-    `a_eff = min(F/m, μ·g·cosθ) − g·|sinθ|<sub>desc</sub><br>` +
-    `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = min(<span class="hl">${fmt(env.aCap, 2)}</span>, <span class="hl">${fmt(env.aAdh, 2)}</span>) ${env.gsin < 0 ? '− ' + fmt(-env.gsin, 2) : '+ ' + fmt(env.gsin, 2)} = <span class="hl">${fmt(m.aEff, 2)} m/s²</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#9a9ea6">${t('hud.limit', { l: M(env.limit) })}</span><br>` +
-    `d_stop = v·t_lat + v²/(2·a_eff) + ${t('hud.margin')}<br>` +
-    `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = ${fmt(v * m.tLat, 1)} + ${fmt(v * v / (2 * m.aEff), 1)} + 5 = <span class="hl">${fmt(m.dStop, 1)} m</span>`;
+  $('formula').innerHTML = html`a_eff = min(F/m, μ·g·cosθ) − g·|sinθ|<sub>desc</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = min(<span class="hl">${fmt(env.aCap, 2)}</span>, <span class="hl">${fmt(env.aAdh, 2)}</span>) ${env.gsin < 0 ? '− ' + fmt(-env.gsin, 2) : '+ ' + fmt(env.gsin, 2)} = <span class="hl">${fmt(m.aEff, 2)} m/s²</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#9a9ea6">${t('hud.limit', { l: M(env.limit) })}</span><br>d_stop = v·t_lat + v²/(2·a_eff) + ${t('hud.margin')}<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = ${fmt(v * m.tLat, 1)} + ${fmt(v * v / (2 * m.aEff), 1)} + 5 = <span class="hl">${fmt(m.dStop, 1)} m</span>`;
   // Décomposition de t_lat : le terme de calcul du niveau 1 change avec le profil de noyau (spec 002, S13).
   const ms = (x, d = 0) => fmt(x * 1000, d);
-  $('tlat').innerHTML = `<span>${t('hud.tPer')} ${ms(P.latPer)}</span><span class="${ENV.kernel === 'GP' ? 'hl' : ''}">${t('hud.tCpu')} ${ms(latCpu())}</span><span>DDS ${ms(m.ddsLat)}</span><span>CAN ${ms(isFinite(m.brakeLat) ? m.brakeLat : 0.1, 1)}</span><span>${t('hud.tAct')} ${ms(P.latAct)}</span>`;
-  $('metrics').innerHTML = [
+  $('tlat').innerHTML = html`<span>${t('hud.tPer')} ${ms(P.latPer)}</span><span class="${ENV.kernel === 'GP' ? 'hl' : ''}">${t('hud.tCpu')} ${ms(latCpu())}</span><span>DDS ${ms(m.ddsLat)}</span><span>CAN ${ms(isFinite(m.brakeLat) ? m.brakeLat : 0.1, 1)}</span><span>${t('hud.tAct')} ${ms(P.latAct)}</span>`;
+  $('metrics').innerHTML = html`${[
     [t('met.speed'), `${fmt(v * 3.6, 1)} km/h`], [t('met.mass'), `${fmt(T.mass, 0)} t`],
     ['t_lat', `${fmt(m.tLat * 1000, 0)} ms`], [t('met.caution'), `${fmt(m.dCaution, 1)} m`],
     [t('met.obstacle'), isFinite(m.dObs) ? t('met.obsAt', { id: m.obsId, d: N(m.dObs) }) + (m.obsPred ? t('met.pred') : '') : t('met.none')], [t('met.auth'), `${fmt(Math.max(0, T.auth.sEnd - T.s), 0)} m`]
-  ].map(([k, val]) => `<div><span>${k}</span><span class="num">${val}</span></div>`).join('');
+  ].map(([k, val]) => html`<div><span>${k}</span><span class="num">${val}</span></div>`)}`;
   const vr = 40 / 3.6, tl = m.tLat, row = mass => [0, -ENV.ramp].map(gr => fmt(stopDistance(vr, tl, Math.max(0.15, brakeEnvelope(mass, gr, ENV.mu).aEff), P.marginSIL), 0) + ' m');
   const e0 = row(P.mEmpty), e1 = row(P.mLoaded);
-  $('cmp').innerHTML = `<tr><th>${t('cmp.head')}</th><th>${t('cmp.flat')}</th><th>${t('cmp.down', { p: Math.round(ENV.ramp * 100) })}</th></tr><tr><td>${t('cmp.empty')}</td><td class="num">${e0[0]}</td><td class="num">${e0[1]}</td></tr><tr><td>${t('cmp.loaded')}</td><td class="num">${e1[0]}</td><td class="num">${e1[1]}</td></tr>`;
+  $('cmp').innerHTML = html`<tr><th>${t('cmp.head')}</th><th>${t('cmp.flat')}</th><th>${t('cmp.down', { p: Math.round(ENV.ramp * 100) })}</th></tr><tr><td>${t('cmp.empty')}</td><td class="num">${e0[0]}</td><td class="num">${e0[1]}</td></tr><tr><td>${t('cmp.loaded')}</td><td class="num">${e1[0]}</td><td class="num">${e1[1]}</td></tr>`;
   const ddsAge = (sim.t - T.mc.rxTime) * 1000;
-  $('chips').innerHTML = [
+  $('chips').innerHTML = html`${[
     chip(m.lidarOk, 'LiDAR'), chip(m.radarOk, 'Radar'),
     chip(!T.faults.gnss, T.faults.gnss ? t('chip.gnssDr', { s: N(sim.t - T.gnssLostAt) }) : 'GNSS RTK', T.faults.gnss ? 'a' : null),
     chip(true, t('chip.v2x', { n: T.perceived.filter(p => p.by.includes('V')).length })),
@@ -96,10 +86,10 @@ function hud() {
     chip(true, `CAN ${fmt(m.busLoad, 0)} %`, m.busLoad > 85 ? 'r' : m.busLoad > 40 ? 'a' : 'g'),
     chip(true, t('chip.brake', { ms: N(m.brakeLat * 1000, 1) }), m.brakeLat > P.canDeadline ? 'r' : 'g'),
     chip(true, T.dds.mode === 'PERIODIC' ? t('chip.ddsAge', { ms: N(ddsAge) }) : t('chip.ddsNoMon', { m: T.dds.mode === 'EVENT_BE' ? 'BEST_EFFORT' : 'RELIABLE' }), T.dds.mode === 'PERIODIC' ? (ddsAge > 40 ? 'a' : 'g') : 'a')
-  ].join('');
+  ]}`;
   if (logDirty) {
     const el = $('log');
-    el.innerHTML = sim.log.slice(-120).map(e => `<div class="${e.cls}">${fmt(e.t, 1).padStart(6, ' ')}s ${vid(e.id).padEnd(7, ' ')} ${codeName(e.code)} · ${rp(e.msg)}</div>`).join('');
+    el.innerHTML = html`${sim.log.slice(-120).map(e => html`<div class="${e.cls}">${fmt(e.t, 1).padStart(6, ' ')}s ${vid(e.id).padEnd(7, ' ')} ${codeName(e.code)} · ${rp(e.msg)}</div>`)}`;
     el.scrollTop = el.scrollHeight; logDirty = false;
   }
   if (sideTab === 'scope') drawScope(); else renderL12(T);
@@ -129,4 +119,4 @@ function syncControls(light) {
 }
 let toastT = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 4500); }
-AHT.inscrire('js/m4-hud.js', '4e0b5328');
+AHT.inscrire('js/m4-hud.js', '91385631');
