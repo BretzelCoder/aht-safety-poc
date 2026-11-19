@@ -2,6 +2,9 @@
    @concern test-hook
    Code repris tel quel de index.html (spec 003). La dernière ligne porte l'empreinte de version (node scripts/stamps.mjs). */
 'use strict';
+/* Jamais sur le site publié (spec 004, S4) : le crochet n'existe que pour les vérifications automatiques
+   (disque, serveur local). GC_HOST, défini dans js/analytics.js (chargé avant), est la seule autorité. */
+if (location.hostname !== GC_HOST) {
 window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelope, stopDistance, resetSim, setSel: i => { selected = i; }, setLang,
   // Réservé aux vérifications automatiques (spec 002) : envoie une consigne du niveau 1 du tombereau i, les champs de `patch`
   // remplaçant ceux d'une consigne normale ; la somme de contrôle est recalculée sauf si `patch.sum` est fourni.
@@ -14,4 +17,5 @@ window.__sim = { get sim() { return sim; }, step, scenario, ENV, P, brakeEnvelop
   },
   // Réservé aux vérifications automatiques (spec 001) : tables de traduction et clés introuvables.
   i18n: { MSG, STATIC, LANGS, t }, i18nMissing };
-AHT.inscrire('js/test-hook.js', '66c72140');
+}
+AHT.inscrire('js/test-hook.js', 'baeb8360');

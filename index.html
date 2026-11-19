@@ -8,6 +8,13 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<!-- Politique de sécurité du contenu (spec 004) : seuls les fichiers propres de la page, les polices Google
+     et la mesure GoatCounter sont allowlistés ; tout le reste est bloqué. Les deux empreintes sha256 épinglent
+     les deux scripts en ligne de ce fichier : SI l'un d'eux change, calculer la nouvelle empreinte (base64 du
+     SHA-256 du contenu du script, fins de ligne CRLF ramenées à LF comme le fait le navigateur) et la remplacer
+     ici ; le contrôle verifierCsp du npm test échoue avec l'empreinte attendue sur tout écart. Ordre : node scripts/stamps.mjs D'ABORD (le manifeste vit
+     dans le premier script épinglé), puis les empreintes. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'sha256-mBG4S/oXk+lFKq8NAXkMERLikSJjFYzVh8n+yw9Y4zs=' 'sha256-i4ocNlkRidzKrgT/0zTAaYdLTJFFBodgLVemJzHPm5Q=' https://gc.zgo.at; style-src 'self' file: 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://bretzelgoatcounter.goatcounter.com; img-src 'self' file: data: https://*.goatcounter.com; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Simulateur tombereau autonome</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,7 +48,7 @@ window.AHT = {
     'js/m4-hud.js': '4e0b5328',
     'js/m4-controls.js': '95a13dd2',
     'js/m4-start.js': 'bb173a1b',
-    'js/test-hook.js': '66c72140',
+    'js/test-hook.js': 'baeb8360',
   },
   vu: {}, n: {}, erreur: null,
   inscrire(chemin, empreinte) { this.vu[chemin] = empreinte; this.n[chemin] = (this.n[chemin] || 0) + 1; }

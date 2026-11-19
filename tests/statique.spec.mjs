@@ -7,6 +7,7 @@ import { readPage } from '../scripts/read-page.mjs';
 import {
   verifierSyntaxe, verifierAvertissement, verifierAnalytics,
   verifierStatuts, estContexteMain, lireSpecs, brancheCourante, verifierSansConstructeur, verifierLatenceSansChiffre,
+  verifierCrochet, verifierEpinglage, verifierCsp,
 } from './helpers/controles-statiques.mjs';
 
 const lire = chemin => readFileSync(fileURLToPath(new URL(chemin, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
@@ -243,5 +244,133 @@ test.describe('T-17 no latency written in the new HTML (spec 002, AC-15)', () =>
   test('a missing block is reported, not silently accepted', () => {
     const erreurs = verifierLatenceSansChiffre(html.replace('id="cardL1"', 'id="carte"'));
     expect(erreurs.map(e => e.message).join('|')).toContain('was not found');
+  });
+});
+
+test.describe('spec 004 S1/S2 - Content Security Policy of the page', () => {
+  // Lecture BRUTE de index.html : verifierCsp ramène lui-même CRLF à LF dans chaque script avant de hacher,
+  // comme le navigateur ; on lui passe donc le fichier tel qu'il est sur le disque (CRLF d'une copie Windows compris).
+  const brut = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
+
+  test('the policy exists, allows only the known origins and the exact hash of every inline script', () => {
+    const erreurs = verifierCsp(brut);
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('a policy missing the hash of one inline script is reported', () => {
+    const casse = brut.replace(/'sha256-[A-Za-z0-9+/=]+' 'sha256-[A-Za-z0-9+/=]+'/, "'");
+    const erreur = verifierCsp(casse);
+    expect(erreur.map(e => e.message).join(' ')).toContain('not allowed by its own hash');
+  });
+
+  test('a stale hash pin is reported', () => {
+    const casse = brut.replace('https://gc.zgo.at', "'sha256-ZmF1c3NlIGVtcHJlaW50ZT0' https://gc.zgo.at");
+    const erreur = verifierCsp(casse).filter(e => e.message.includes('stale pin'));
+    expect(erreur).toHaveLength(1);
+  });
+
+  test('an origin outside the allowlist is reported', () => {
+    const casse = brut.replace('https://gc.zgo.at', 'https://example.org/lib.js');
+    const erreur = verifierCsp(casse);
+    expect(erreur.map(e => e.message).join(' ')).toContain('https://example.org/lib.js');
+  });
+
+  test('a missing directive is reported', () => {
+    const casse = brut.replace(/base-uri 'none';\s*/, '');
+    expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('base-uri');
+  });
+
+  test("'unsafe-inline' in script-src is reported, although style-src may carry it", () => {
+    const casse = brut.replace("script-src 'self'", "script-src 'unsafe-inline' 'self'");
+    const messages = verifierCsp(casse).map(e => e.message);
+    expect(messages.join(' ')).toContain('script-src allows "\'unsafe-inline\'"');
+    expect(messages.filter(m => m.includes('style-src'))).toEqual([]);
+  });
+
+  test('data: outside img-src and a hash outside script-src are reported', () => {
+    const casse = brut.replace("font-src https://fonts.gstatic.com", "font-src data: 'sha256-AAAA' https://fonts.gstatic.com");
+    const messages = verifierCsp(casse).map(e => e.message).join(' ');
+    expect(messages).toContain('font-src allows "data:"');
+    expect(messages).toContain('font-src allows "\'sha256-AAAA\'"');
+  });
+
+  test('a directive the policy is not expected to carry is reported', () => {
+    const casse = brut.replace("form-action 'none'", "form-action 'none'; object-src *");
+    expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('object-src is not one the policy is expected to carry');
+  });
+
+  test('an inline script with attributes, which the hash check would miss, is reported', () => {
+    const casse = brut.replace('</head>', '<script type="module">alert(1)</script>\n</head>');
+    expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('carries attributes');
+  });
+
+  test('the hash holds on a CRLF checkout and on an LF one (the browser normalises before comparing)', () => {
+    const lf = brut.replace(/\r\n/g, '\n');
+    const crlf = lf.replace(/\n/g, '\r\n');
+    expect(verifierCsp(lf)).toEqual([]);
+    expect(verifierCsp(crlf)).toEqual([]);
+  });
+
+  test('a page without the meta tag is reported', () => {
+    const casse = brut.replace(/<meta\s+http-equiv="Content-Security-Policy"[^>]*>/, '');
+    expect(verifierCsp(casse).map(e => e.message).join(' ')).toContain('no Content-Security-Policy');
+  });
+});
+
+test.describe('spec 004 S4-S6 - the test-only hook never exists on the published site', () => {
+  const hook = lire('../js/test-hook.js');
+
+  test('the hook is created behind the published-site guard', () => {
+    const erreurs = verifierCrochet(hook);
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('creating the hook without the guard is reported', () => {
+    const casse = hook.replace('if (location.hostname !== GC_HOST) {', '');
+    const erreurs = verifierCrochet(casse);
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('published-site guard');
+    expect(erreurs[0].fichier).toBe('js/test-hook.js');
+  });
+
+  test('a guard that lets the published site through is reported', () => {
+    const casse = hook.replace('location.hostname !== GC_HOST', 'true');
+    expect(verifierCrochet(casse)).toHaveLength(1);
+  });
+
+  test('a guard that only survives in a comment is reported', () => {
+    const casse = hook.replace('if (location.hostname !== GC_HOST) {', '// if (location.hostname !== GC_HOST) {');
+    expect(verifierCrochet(casse)).toHaveLength(1);
+  });
+
+  test('a guard whose block does not contain the assignment is reported', () => {
+    const casse = hook.replace('if (location.hostname !== GC_HOST) {', 'if (location.hostname !== GC_HOST) {}\n');
+    expect(verifierCrochet(casse)).toHaveLength(1);
+  });
+
+  test('an assignment that exists only in a comment counts as a missing hook', () => {
+    const casse = hook.replace('window.__sim =', '// window.__sim =');
+    expect(verifierCrochet(casse).map(e => e.message).join(' ')).toContain('is missing');
+  });
+});
+
+test.describe('spec 004 S7 - workflow actions pinned by commit SHA', () => {
+  const workflow = lire('../.github/workflows/checks.yml');
+
+  test('every uses: in the workflow is pinned to a full commit SHA', () => {
+    const erreurs = verifierEpinglage(workflow);
+    expect(erreurs, decrire(erreurs)).toEqual([]);
+  });
+
+  test('a movable tag in uses: is reported with the pin', () => {
+    const casse = workflow.replace(/actions\/checkout@[0-9a-f]{40}/, 'actions/checkout@v7');
+    const erreurs = verifierEpinglage(casse);
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0].message).toContain('actions/checkout@v7');
+  });
+
+  test('a SHA that is too short is still reported', () => {
+    const casse = workflow.replace(/(actions\/cache@)[0-9a-f]{40}/, '$1deadbeef');
+    expect(verifierEpinglage(casse)).toHaveLength(1);
   });
 });

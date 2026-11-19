@@ -6,6 +6,7 @@ import { mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openPage } from './helpers/page.mjs';
+import { recalageCsp } from './helpers/copie-page.mjs';
 import { lireEmpreinte } from '../scripts/empreintes.mjs';
 
 const racine = fileURLToPath(new URL('..', import.meta.url));
@@ -13,16 +14,18 @@ const racine = fileURLToPath(new URL('..', import.meta.url));
 /**
  * Copie les fichiers de la page dans un dossier temporaire et rend `{ dossier, index, lire, ecrire }`.
  * `modifier(html)` change index.html de la copie ; les autres fichiers se changent avec `ecrire`.
+ * Spec 004 : quand `modifier` touche un script en ligne, la CSP de la copie est recalée sur ses
+ * propres scripts (recalageCsp) ; `ecrire('index.html', …)` fait de même, pour la même raison.
  */
 function copierPage(modifier = h => h) {
   const dossier = mkdtempSync(join(tmpdir(), 'aht-page-'));
   for (const f of ['index.html', 'css', 'js']) { try { cpSync(join(racine, f), join(dossier, f), { recursive: true }); } catch { /* dossier pas encore créé */ } }
   const index = join(dossier, 'index.html');
-  writeFileSync(index, modifier(readFileSync(index, 'utf8')));
+  writeFileSync(index, recalageCsp(modifier(readFileSync(index, 'utf8'))));
   return {
     dossier, index,
     lire: chemin => readFileSync(join(dossier, chemin), 'utf8'),
-    ecrire: (chemin, texte) => writeFileSync(join(dossier, chemin), texte),
+    ecrire: (chemin, texte) => writeFileSync(join(dossier, chemin), chemin === 'index.html' ? recalageCsp(texte) : texte),
     retirer: () => rmSync(dossier, { recursive: true, force: true }),
   };
 }
