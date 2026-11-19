@@ -1,7 +1,7 @@
 # Plan 005 — Escaped dynamic text in the HUD
 
 > Spec: `specs/005-hud-html-escaping/spec.md` (status APPROVED on 2026-11-19)
-> Plan status: DRAFT · Approved: —
+> Plan status: APPROVED · Approved: 2026-11-19 (the owner validated the plan and answered Q1 and Q2 as recommended, section 11)
 
 ## 1. Summary
 Add to `js/base.js` a tiny tagged template `html` that **escapes every interpolated value by default** and returns a marked object (`SafeHtml`); a value that is already `SafeHtml` is inserted as is, an array is inserted item by item, anything else (string, number, `{k,p}` already resolved by `t()`/`rp()`) is escaped. Every place of `js/m4-hud.js` that assigns markup to `innerHTML` is rewritten to `= html\`…\``, the helper functions that build fragments (`row`, `chip`) return `html\`…\``, and the `.map(...).join('')` calls inside them are replaced by plain arrays. A static check (`verifierEchappement`) then guarantees the rule cannot drift: every HTML sink of `js/` and of the inline scripts of `index.html` must take an `html` template, an explicit `raw()` on an allow-list, or an allow-listed authored expression; any untagged template literal that carries markup and a `${}` is reported. A small test-only setter of the hook feeds a hostile string to the log, the reasons, the rejection line and the tabs, and a browser test proves the page shows it as text in three languages. A development script compares the rendered panels with `main` to prove S2.
@@ -109,7 +109,7 @@ None. No sanitiser library (ADR-1, spec section 5).
 - **Release stamps / manifest**: applies, with the CSP re-pin (R3).
 - **A new Convention for CLAUDE.md** is proposed, not applied (rule of the improvement log: a rule change is the owner's decision): "Decided spec 005: dynamic text enters the page through the `html` tag; the check `verifierEchappement` fails otherwise".
 
-## 11. Questions for the owner
+## 11. Questions for the owner (answered 2026-11-19: Q1 manual re-pin kept, the improvement is action A-18; Q2 `compare-hud` stays a development script)
 - **Q1** — Because of R3, each task of this spec needs a manual re-pin of the CSP hash after `node scripts/stamps.mjs`. Do you want `scripts/stamps.mjs` to **also re-pin the hashes** of the policy (a small change of a development script, covered by its own test), or keep the manual step (the failing check prints the expected value, so it costs one edit per task)? Recommendation: keep the manual step in this spec and write the improvement as an action, to keep this spec to its subject.
 - **Q2** — `compare-hud` stays a development script (like `compare-traces`, not in `npm test`) because its reference is `main`. Do you agree, or do you want a frozen snapshot of the expected panels committed so that it runs in `npm test`? Recommendation: development only; the committed structure test of S4 already runs in `npm test`.
 
