@@ -519,7 +519,13 @@ export function verifierEchappement(texte, fichier, permis = ECHAPPEMENT_PERMIS)
   if (lu.incomplet) { erreurs.push({ fichier, ligne: null, message: 'could not read this file to the end (a string, a regular expression or a template the check does not understand): it cannot vouch for it (spec 005, S3)' }); return erreurs; }
   const { code, gabarits } = lu;
   const siens = permis.filter(p => p.fichier === fichier), utilises = new Set();
-  const inerte = debut => /^(html`|raw\()/.test(code.slice(debut).replace(/^\s+/, ''));
+  // html`…` doit être TOUT le côté droit : un « + texte » ou un « .concat(…) » derrière le gabarit remettrait une chaîne brute dans le balisage.
+  const inerte = debut => {
+    if (/^raw\(/.test(code.slice(debut))) return true;
+    if (!code.startsWith('html`', debut)) return false;
+    const g = gabarits.find(x => x.debut === debut + 4);
+    return !!g && /^\s*(?:[;),}\]]|$)/.test(code.slice(g.fin + 1));
+  };
   const admis = (debut, fin) => {
     const expression = texte.slice(debut, fin).replace(/\s+/g, ' ').trim();
     const entree = siens.find(p => p.expression === expression);

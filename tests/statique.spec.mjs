@@ -420,6 +420,13 @@ test.describe('spec 005 S3 - dynamic text enters the markup through html`…` on
     expect(erreurs[0].ligne).toBe(1);
   });
 
+  test('html`…` followed by a concatenation or a call is reported: it must be the whole right-hand side', () => {
+    expect(un('el.innerHTML = html`<b>${a}</b>` + texte;\n').map(e => e.message).join(' ')).toContain('receives something other than');
+    expect(un('el.innerHTML = html`<b>${a}</b>`.concat(texte);\n')).toHaveLength(1);
+    expect(un("el.insertAdjacentHTML('beforeend', html`<i>${a}</i>` + texte);\n")).toHaveLength(1);
+    expect(un('el.innerHTML = html`<b>${a}</b>`;\nf(html`<i>${b}</i>`);\n')).toEqual([]);
+  });
+
   test('a new innerHTML = variable is reported', () => {
     expect(un('const h = calc();\nel.innerHTML = h;\n').map(e => e.ligne)).toEqual([2]);
     expect(un('el.innerHTML += texte;\n')).toHaveLength(1);

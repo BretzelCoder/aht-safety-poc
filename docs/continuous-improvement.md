@@ -45,6 +45,7 @@ Statuses: `OPEN`, `IN PROGRESS`, `CLOSED` (effect observed), `ABANDONED` (reason
 | A-16 | SC-16, spec 003 | Proposal for the sdd-kit `/plan` template: a plan sentence that claims how a browser behaves ("a script listed twice runs twice", "a failed link has no `sheet`") is backed by a ten-line experiment, run before the plan is presented, and its result is written next to the claim. The plan of spec 003 said the guard would catch a script tag listed twice; the browser refuses the second run of a file that declares `const` before the guard sees it. | Owner decides (kit change), Claude drafts the wording | At the next `/plan`. | OPEN |
 | A-17 | Review of spec 004, 2026-11-19 | `tests/liens.spec.mjs:127` ("on the command line an unverifiable link is an information line…") fails on the owner's Windows machine, Node v24.14.0: the link-check process exits with `3221226505` (0xC0000409) instead of 0. Reproduced 4 times, identical on `main`, so not caused by spec 004 (no change to `scripts/` or to this test); the other 434 tests pass. The cause is not established (a Node/libuv crash on Windows is suspected; no other Node 24.x was available to compare, no version manager installed). The Linux CI is not known to be affected. Owner decided 2026-11-19 not to investigate now. | Owner | The next time a Node 24.x update is installed locally (re-run `npx playwright test tests/liens.spec.mjs -g "unverifiable link"`), or the first time the `Checks` run is red on this test. | OPEN |
 | A-18 | Plan of spec 005, R3 and Q1 | Make `scripts/stamps.mjs` re-pin the CSP hashes of `index.html` as well as the release stamps: the manifest of stamps lives inside the first pinned inline script, so every change of a `js/` file moves its hash and today the re-pin is a manual edit (the failing `verifierCsp` prints the expected value). A change of a development script, covered by its own test with a recorded breakage. | Owner decides, Claude drafts | After spec 005 (kept out of it to hold it to its subject), or the first time a missed re-pin turns a `Checks` run red. | OPEN |
+| A-19 | RE-17 and SC-22, spec 005 | Proposal to CLAUDE.md: (1) a Convention "Decided spec 005: dynamic text enters the page through the `html` tagged template of `js/base.js`; `verifierEchappement` fails on any HTML sink, untagged markup template or `raw()` outside its allow-list"; (2) `node scripts/compare-hud.mjs` listed in the Project commands next to `compare-traces`. | Owner decides, Claude drafts the wording | Before the pull request of spec 005 is merged. | OPEN |
 
 ## 5. Session journal
 Most recent first. Template:
@@ -60,6 +61,20 @@ Most recent first. Template:
 
 **Follow-up of previous actions**: A-x: status and evidence.
 ```
+
+### 2026-11-19 — Spec 005 (specify, plan, tasks, implement T-02 to T-06)
+
+**Self-critique**
+- **SC-22 — My first rewrite of the HUD blocks was wrong, and my own check would have let one form of it through.** In T-05 I replaced the two blocks `b1`/`b2` in one edit written from memory: it dropped `b2` and left plain templates joined by `+` to `html` ones. I saw it by reading the result before running anything. Worse, the check I had just written (T-03) accepted a right-hand side that merely *starts* with `html\`` , so `html\`…\` + texte` (a raw string glued after an inert one) passed rule 1. Impact: none shipped; found in the same task. Root cause: the check tested "starts with" where the rule is "is entirely"; my negative tests were written from the code I had written, not from what the spec forbids (the same root cause as SC-21). → fixed in session (the `html` template must be the whole right-hand side, with its own negative tests).
+- **SC-23 — The default step of `compare-hud` hid a transient state.** The first version sampled every 5 s: a deliberately changed tooltip of the freeze row (a state that lasts less than 5 s) was **not** reported, while a changed class was. Found only because the recorded breakage was a transient one. Root cause: I chose the sampling period from the cost of the run, not from the duration of the shortest state shown. → fixed in session (default 1 s, 5,760 captures; still identical).
+
+**Rapport d'étonnement**
+- **RE-17 — The log redraw costs 0.11 ms more once escaped, and the audit finding was 12 lines, not a rewrite.** The measured worst case (120 lines, 5 values each) goes from 44 µs to 155 µs; the HUD rewrite touched 12 `innerHTML` lines and two helpers, and `compare-traces` and `compare-hud` both came out identical on the first complete run. The "tagged template that escapes by default" shape was cheap because the repository already stored `{k, p}` messages and resolved them at display time. For information.
+- **RE-18 — The page's CSP hash moves with every stamp.** Five commits of this spec each needed the hash of the first inline script re-pinned by hand (a throwaway helper in the scratchpad did it); it is the cost the plan announced (R3). → A-18 (already open).
+
+**Proposal for CLAUDE.md** (owner decides, rule 6 of this file): add to the Conventions "Decided spec 005: dynamic text enters the page through the `html` tagged template of `js/base.js`; `verifierEchappement` fails on any HTML sink, untagged markup template or `raw()` outside its allow-list" and add `node scripts/compare-hud.mjs` to the Project commands. → A-19.
+
+**Follow-up of previous actions**: A-17 unchanged (the same test fails, 460 passed); A-18 confirmed by RE-18. A-8 to A-16 re-read at the start of the session: none of their triggers is reached by this spec (no panel added, no setting, no kernel change, no link-check change).
 
 ### 2026-11-19 — Spec 004 (implement T-02 to T-05, review, T-06, delivery)
 
