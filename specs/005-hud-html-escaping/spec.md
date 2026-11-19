@@ -21,8 +21,8 @@ Why do it anyway: the page teaches safety engineering and is published under the
 ## 3. Expected behaviour (WHAT, not HOW)
 - **S1 — Dynamic text is shown as text.** As a visitor, when any message, code, identifier or parameter shown in the HUD contains markup characters (`<`, `>`, `&`, `"`, `'`), then I see those characters as written, and no element, attribute or script is created from them. This holds for every place of `js/` that assigns a string built with a template to `innerHTML`, whatever the source of the text (message, supervisor reason, log entry, rejection reason, vehicle identifier, parameter).
 - **S2 — Nothing changes for what is shown today.** As a visitor, with the page as it is (no markup in any message), the rendered HUD is identical to the one of `main`: same text content, same numbers, same three languages, same titles and tooltips, same layout at 1600×900. The existing authored markup (`<b>`, `<span class="num">`, `<h4>`, `<small>`, table cells, `data-i18n-html` fragments of the guide) keeps working: only **dynamic values** are made inert, not the structure the code writes itself.
-- **S3 — The rule cannot drift.** As a contributor, when a template assigned to `innerHTML` (or a similar sink) pastes a dynamic value without making it inert, then an automated check fails and names the file, the line and the expression. A value that is safe by nature (a number from `fmt()`/`N()`, a class name taken from a fixed list, a colour from a table) is allowed by an explicit, commented, reviewed list, not by the check's silence.
-- **S4 — Proven on the page, not only on the source.** As a contributor, a browser test injects a hostile string through a path that already exists for the tests (a Level 1 rejection reason, a log message, a supervisor reason, a vehicle identifier) and shows that the HUD displays it as text and creates no element from it, in French, English and German.
+- **S3 — The rule cannot drift.** As a contributor, when a template assigned to `innerHTML`, `outerHTML`, `insertAdjacentHTML` or `document.write` pastes a dynamic value without making it inert, then an automated check fails and names the file, the line and the expression. A value that is safe by nature (a number from `fmt()`/`N()`, a class name taken from a fixed list, a colour from a table) is allowed by an explicit, commented, reviewed list, not by the check's silence.
+- **S4 — Proven on the page, not only on the source.** As a contributor, a browser test injects a hostile string through a small setter of the test hook, which exists only off the published site (into a log message, a supervisor reason, a Level 1 rejection reason, a vehicle identifier), and shows that the HUD displays it as text and creates no element from it, in French, English and German.
 
 ## 4. Edge cases and errors
 - **A message that legitimately needs markup**: none today (none of the 162 `MSG` entries counted on 2026-11-19 has any). If one is added, it is a deliberate exception to S1, written in the allow-list of S3 with its reason, never a silent bypass.
@@ -47,15 +47,16 @@ Why do it anyway: the page teaches safety engineering and is published under the
 - [ ] AC-5 — `npm test` green locally and on GitHub (Node 24); release stamps current (`node scripts/stamps.mjs`); README map unchanged unless a file is added; no translation added or required; `docs/capture.png` unchanged. *(Delivery checklist)*
 
 ## 7. Open questions
-- [TO CLARIFY] **Where the text becomes inert.** Three shapes, to decide at `/plan` with a measurement, not here: (a) one escaping helper applied at each interpolation; (b) a tagged template that escapes every `${}` by default and takes an explicit marker for authored markup (safe by default, the choice that best serves S3); (c) replacing `innerHTML` by DOM construction (`textContent`), which removes the class of problem but rewrites the HUD and risks S2. Recommendation to confirm: **(b)**.
-- [TO CLARIFY] **Which sinks the check covers**: `innerHTML` only, or also `outerHTML`, `insertAdjacentHTML`, `document.write` (none used today: the check would then protect against a future use).
-- [TO CLARIFY] **Hostile-string entry for S4**: reuse `l1Inject` of the test hook (rejection reason), or add a small test-only setter (the hook already is test-only and absent from the published site since spec 004).
+- No open question: the three questions of the draft were answered by the owner on 2026-11-19, see section 9.
 
 ## 8. Digital sobriety
 No network, no storage, no dependency. Compute: an escaping pass over the text of the HUD at each refresh; the log (120 lines) is the heaviest case. A lighter alternative (escaping only once, when an entry is stored in `sim.log`) is considered at the plan, because log entries are stored as `{k, p}` messages translated at display time (CLAUDE.md, Conventions): storing pre-escaped text is **rejected**, it would break the language switch.
 
 ## 9. Decisions
-- Owner decisions: none yet (spec DRAFT).
+- Owner decisions (2026-11-19, answers to the three questions of the draft):
+  1. **Where the text becomes inert: a tagged template** that escapes every `${}` by default and takes an explicit marker for authored markup (shape (b)). The measurement of the cost (section 4) is still taken at `/plan`.
+  2. **Sinks covered by the check: all of them**: `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write` (only `innerHTML` is used today, the others are covered against a future use).
+  3. **Hostile-string entry for S4: a small test-only setter** added to the test hook (`js/test-hook.js`, inside the published-site guard of spec 004, so it never exists on the live site), not a reuse of `l1Inject`.
 - Checks required by CLAUDE.md:
   - Three languages, every user-visible string: **not applicable** (no new visible text).
   - Every number on screen computed by the model: **not applicable** (nothing displayed changes).
